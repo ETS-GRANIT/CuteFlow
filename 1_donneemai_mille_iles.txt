@@ -1,4 +1,4 @@
 &DATAMESH  ALEAT=1 , MAIL=2 , MTRI=1 , NNX=153 , NNY=8 , meshfile='1_Mille_Iles_mesh_743968_elts.txt' , 
-           elt_bound=1, numerot=1 , zcolumn=1,
+           elt_bound=0, numerot=1 , zcolumn=1,
 	   ncel=0,
            elts=140,  911, /
