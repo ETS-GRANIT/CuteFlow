@@ -1,0 +1,4 @@
+*mesh*.txt filter=lfs diff=lfs merge=lfs -text
+meshes/*/*.txt filter=lfs diff=lfs merge=lfs -text
+meshes/*.txt filter=lfs diff=lfs merge=lfs -text
+mesh/*mesh*.txt filter=lfs diff=lfs merge=lfs -text

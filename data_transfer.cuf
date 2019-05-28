@@ -1,0 +1,186 @@
+subroutine global_data_transfer
+    use precision_m
+    use global
+    use global_device
+    use cudafor
+
+
+    integer :: tempinlet, ierr
+
+    pente_d             = pente
+    friction_d          = friction                                              !pente = slope
+    lcx_d               = lcx
+    lcy_d               = lcy
+    valxpente_d         = valxpente
+    bathyx0_d           = bathyx0
+    step_d              = step
+    xstep_d             = xstep
+    gp_d                = gp
+    manning_d           = manning
+    z_min_correction_d  = z_min_correction
+
+! ***************** variables donnees du maillage **************
+! ***************** mesh data variables ************************
+
+!
+    ! character(len=60)       :: meshfile
+    aleat_d     = aleat
+    mail_d      = mail_d
+    mtri_d      = mtri
+    nnx_d       = nnx
+    nny_d       = nny
+    numerot_d   = numerot
+    zcolumn_d   = zcolumn
+    ncel_d      = ncel
+    elt_bound_d = elt_bound
+    ! integer; dimension(20)  :: elts
+!
+
+! ***************** variables donnees initiales ****************
+! ***************** initial data variables *********************
+
+!
+    ! character(len=200)  :: fich_sol_init
+    solinit_d           = solinit
+    eqlin_barrage_d     = eqlin_barrage                                       !barrage = dam
+    h_amont_d           = h_amont
+    u_amont_d           = u_amont
+    v_amont_d           = v_amont
+    h_aval_d            = h_aval
+    u_aval_d            = u_aval
+    v_aval_d            = v_aval            !aval = downstream
+    xcenter_d           = xcenter
+    ycenter_d           = ycenter
+    xgate_d             = xgate
+    rayon_d             = rayon
+    x1eqbar_d           = x1eqbar
+    x2eqbar_d           = x2eqbar
+    y1eqbar_d           = y1eqbar
+    y2eqbar_d           = y2eqbar
+!
+!
+! ***************** variables donnees de simulation ************
+! ***************** simulation variables ***********************
+
+    ! timedisc_d      = timedisc
+    
+    if(inlet == 'transm') then
+        tempinlet = 1
+        inlet_d = tempinlet
+    else if(inlet == 'inflow') then
+        tempinlet = 2
+        inlet_d = tempinlet
+    endif
+    
+    ! loi_debitglob_d = loi_debitglob
+    test_d          = test
+    iflux_d         = iflux
+    limiteur_d      = limiteur
+    grd_d           = grd
+    visual_d        = visual
+    fricimplic_d    = fricimplic
+    debit_var_d     = debit_var 
+    freqvisual_d    = freqvisual
+    freqaffich_d    = freqaffich
+    freqjauges_d    = freqjauges
+    nbrjauges_d     = nbrjauges
+    nbrcoupes_d     = nbrcoupes
+    densite_coupe_d = densite_coupe
+    instjauges_d    = instjauges
+    soldomaine_d    = soldomaine
+    n_soldom_d      = n_soldom
+    comptvisu_d     = comptvisu
+    cptvis2d_d      = cptvis2d
+    cptvis3d_d      = cptvis3d
+    cptvideo_d      = cptvideo
+    cptvisjauge_d   = cptvisjauge
+    cptvisdom_d     = cptvisdom
+    cptdebit_d      = cptdebit 
+    long_d          = long
+    critere_arret_d = critere_arret
+    debitglob_d     = debitglob
+    h_sortie_d      = h_sortie
+    h_pod_d         = h_pod
+    alfa_d          = alfa
+    delta_Q_pod_d   = delta_Q_pod
+    tbase_d         = tbase
+    divbase_d       = divbase
+    ts_d            = ts
+    tsstab_d        = tsstab
+    dt_d            = dt
+    cfl_d           = cfl
+    tol_d           = tol
+    tolisec_d       = tolisec
+    tolratio_d      = tolratio
+    tolaffiche_d    = tolaffiche
+    tol_reg_perm_d  = tol_reg_perm
+    ! real(fp_kind); device; dimension(10) :: coupe_a; coupe_b; long_coupe
+    ! real(fp_kind); dimension(100000) :: tvis2d ; tvis3d 
+    ! real(fp_kind); dimension(100) :: xjauges ; yjauges
+    ! real(fp_kind) :: fact_lamda_pod; fact_h_pod; fact_lamda_pod_tild
+    ! integer :: pod; pid; shot; nsnap; n_video; base_unique; uselamdapodmoymax; nonlin; video; dim; k_base
+    multi_simul_d   = multi_simul
+    monte_carlo_d   = monte_carlo
+
+!
+! ******************* input pour l'analyse stochastique ***************************
+! ******************* input for stochastic analysis ***************************
+!   real(fp_kind)             ::debitglob; manning
+!   namelist/datainput/ debitglob; manning
+! **************************************************************
+!
+    ! character (2)  :: key; genrelt
+    ! character (30) :: aaa1; bbb1; ntrirec; genrtest; genrmeth
+    ! character (30) :: valtemps; D_ETA; D_DEBIT; AFF_DEBITS; debit_tot; coef_frot
+    ! character (2)  :: njaug
+    ! character (200):: SOLFILE2D; SOLFILE3D; SOLFILE2D_MC; SOLFILE3D_MC; TECPLOT; SOLFILEMC; fichsolfile3d_MC_FV; fichsolfile3d_MC_POD 
+    ! character (200):: SOLFILEJ_ETA; SOLFILEJ_H; SOLFILEJ_U; SOLFILEJ_V; sol_dom_ts; fich_debit_coupe; file_BC; file_Q_coupes 
+!
+    w_d                 =w
+    idim_d              =idim
+    ndim_d              =ndim 
+    ndln_d              =ndln     
+    departchrono_d      =departchrono
+    podftfull_d         =podftfull
+    convec_d            =convec
+    tolisec2_d          =tolisec2
+    tolhfriction_d      =tolhfriction
+    h0_d                =h0
+    coef_bol_d          =coef_bol
+!
+    ! character (20):: base_h_num; base_eta_num; base_eta_tild_num; base_hu_num; base_hv_num; base_u_num; base_v_num; lamda_moy_num; lamda_max_num; h_pod_num; fric_pod_num
+    ! character (1)::  num_seq_base1
+    ! character (2)::  num_seq_base2
+    ! character (3)::  num_seq_base3
+    ! real(fp_kind) :: t_seq_pod; dt_seq_pod
+    ! integer :: n_seq_base; i_seq_pod        
+! 
+    ! tc_d; flux_total_d; long_entree_d; debit_n_d; x0_d; vol_tot_entre_d; vol_tot_sorti_d; debit_sortie_d; debit_entree_d
+    ! real(fp_kind); device :: h0_d; coef_bol_d  ! Pour le problème du bol parabolique(For the problem of the parabolic bowl)
+!
+!
+    ! real(fp_kind); dimension(100000)             :: tvis3d2 ; tvis2d2; tvisjauge; tvisdom
+    ! real(fp_kind); dimension(:;:);   allocatable :: a; a0; a01; resred; Mpk1_hu; Mpk1_hv
+    ! real(fp_kind); dimension(:;:);   allocatable :: Mpk_deta; Mpk_dhu; Mpk_dhv; Mpk_u; Mpk_v; hgn1; hgn2; un1;un2; vn1; vn2; Sfxu; Sfxv; Sfyv; Sfyu 
+    ! real(fp_kind); dimension(:;:;:); allocatable :: Cg2; Cg3; Chuu2; Chuv2; Chvv3; Chuv3; MSfxu; MSfxv; MSfyv; MSfyu
+    ! real(fp_kind); dimension(:);     allocatable :: a_eta; a0_eta; a01_eta; resred_eta; MQk_eta; Mcl_out_eta
+    ! real(fp_kind); dimension(:);     allocatable :: a_hu;  a0_hu;  a01_hu;  resred_hu; MQk_hu; Mcl_out_hu
+    ! real(fp_kind); dimension(:);     allocatable :: a_hv;  a0_hv;  a01_hv;  resred_hv; MQk_hv; Mcl_out_hv
+    ! real(fp_kind); dimension(:);     allocatable :: a_h; a_u;  a_v; hun1; hvn2; deta; dhu; dhv; hgHn1; hgHn2; huun1; huun2; huvn1; hvvn2; Sfx1; Sfx2; Sfy1; Sfy2
+    ! real(fp_kind); dimension(:);     allocatable :: huun1full; huun2full; huvn1full; hvvn2full; BQi_eta; BQi_hu; BQi_hv 
+    ! real(fp_kind); dimension(:;:);   allocatable :: Bi_jp;Bijp;Bijpn1_eta;Bijpn2_eta;Bijpn3_hu;Bijpn3_hv;Bi_jp_hu;Bi_jp_hv
+    ! real(fp_kind); dimension(:;:;:); allocatable :: Bijpn_uhu; Bijpn_uhv; Bijpn_vhu; Bijpn_vhv
+    ! real(fp_kind); dimension(:);     allocatable :: Bzmij; vectpod1; vectpod2; vectpod3; phi_h_zi; podlamdamoy; podlamdamax; h_pod_elt; coef_fric_pod_elt
+    ! real(fp_kind); dimension(:;:);   allocatable :: lamda_stock; vectpod; podlamdainterf; donnees_entree; donnees_sortie
+    ! real(fp_kind)                                :: podlamda;podlamda_moy;podlamda_max; lamda; max_a_eta; coef_friction_pod
+    ! real(fp_kind); dimension(:)  ;   allocatable :: podlamdafull; zero_pod; sourcfric_hu; sourcfric_hv; pod_friction_hu; pod_friction_hv; elts_entree; elts_sortie
+    ! real(fp_kind); dimension(:;:);   allocatable :: Cg2_eta_tild; Cg3_eta_tild; debit_t
+!   
+    ! real(fp_kind); dimension(10)                 :: Q_coupe
+
+        !Device related Variables
+    ! real(fp_kind); device; dimension(:;:);   allocatable :: coordonnees_d;coo_table_elemwise_d; phi_d; phi_h_d; phi_eta_d; phi_eta_tild_d; phi_hu_d; phi_hv_d; phi_u_d; phi_v_d; phij_u_d; phij_v_d; phi_h_eta_d
+        
+    call cuda_glerror('ierr <- global_data_transfer <-- data_transfer.cuf',1)
+
+end subroutine global_data_transfer

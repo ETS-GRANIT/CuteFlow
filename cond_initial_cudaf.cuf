@@ -1,0 +1,281 @@
+attributes(global) subroutine cond_initial_cudaf(zm_d, ut_d, ut1_d, visio_d)
+!
+! ======================================================================
+!
+!     cd_limite = fixe les conditions initiales pour la variable d'etat ut
+!                 et pour le vecteur de visualisation active visio
+!                 ( maillage trianglaire ou quadrilateral )
+
+!     cd limit = sets the initial conditions for the state variable ut
+!                and for the active visualization visualization vector! 
+!                   (triangular or quadrilateral mesh)
+!
+!     auteur : Youssef Loukili  GRANIT ETSMTL
+!
+!     version : 1.0  ;  May 12 2003
+! ======================================================================
+!
+!     parametres =
+!       ns    :
+!       ut    :
+!       visio :
+!
+! ======================================================================
+!
+    use precision_m
+    use global_device
+    implicit none
+
+
+! ... debut de l interface .............................................
+!
+! ... fin de l interface ...............................................
+! 
+! ... variables passees en parametre ...................................
+!
+    real(fp_kind), dimension(:), intent(in)     :: zm_d
+    real(fp_kind), dimension(:,:), intent(inout):: ut_d, visio_d, ut1_d
+
+! ... variables locales ................................................
+!
+    real(fp_kind) :: x1, x2 ,x3, x4, y1, y2, y3, y4, rayvol, ut_dgi1, v1, v2, zmd
+    real(fp_kind) :: alpha, beta, X, Y, r_sup, omega, dist_min, x1coupe, x2coupe, y1coupe, y2coupe, dO_P1, dO_P2
+    integer :: ti,gi 
+!
+! ... debut du traitement
+    
+    ti = threadIdx%x
+    gi = (blockIdx%x - 1)*blockDim%x + ti
+    
+
+    if(gi <= nelt_d) then
+
+        zmd = zm_d(gi)
+!
+        if ( ns_d == 3 ) then
+!
+            x1 = coo_table_elemwise_d(gi,1)
+            y1 = coo_table_elemwise_d(gi,2)
+
+            x2 = coo_table_elemwise_d(gi,4)
+            y2 = coo_table_elemwise_d(gi,5)
+
+            x3 = coo_table_elemwise_d(gi,7)
+            y3 = coo_table_elemwise_d(gi,8)
+!
+
+            v1 = ( x1 + x2 + x3 ) / 3
+            v2 = ( y1 + y2 + y3 ) / 3
+            visio_d(gi,1) = v1
+            visio_d(gi,2) = v2
+!
+        else
+!
+            x1 = coo_table_elemwise_d(gi,1)
+            y1 = coo_table_elemwise_d(gi,2)
+
+            x2 = coo_table_elemwise_d(gi,4)
+            y2 = coo_table_elemwise_d(gi,5)
+
+            x3 = coo_table_elemwise_d(gi,7)
+            y3 = coo_table_elemwise_d(gi,8)
+
+            x4 = coo_table_elemwise_d(gi,10)
+            y4 = coo_table_elemwise_d(gi,11)
+
+!
+            v1 = ( x1 + x2 + x3 + x4 ) / 4
+            v2 = ( y1 + y2 + y3 + y4 ) / 4
+            visio_d(gi,1) = v1
+            visio_d(gi,2) = v2
+
+!
+        endif
+!
+        if ( test_d == 1 .or. test_d == 3 .or. test_d ==5 .or. test_d ==6) then
+!
+            if ( v1 <= xgate_d ) then
+!
+                ut_dgi1    =  h_amont_d - zmd
+                ut_d(gi,1) = ut_dgi1
+                if ( ut_dgi1 > tolisec_d ) then
+                    if(test_d ==6) then
+                        ut_d(gi,2) = u_amont_d
+                        ut_d(gi,3) = v_amont_d
+                    else
+                        ut_d(gi,2) = ut_dgi1 * u_amont_d
+                        ut_d(gi,3) = ut_dgi1 * v_amont_d
+                    endif
+!   
+                else
+                    ut_d(gi,1) = tolisec_d
+                    ut_d(gi,2) = 0.
+                    ut_d(gi,3) = 0.
+                endif
+            else
+                ut_dgi1 = h_aval_d - zmd
+                ut_d(gi,1) = ut_dgi1
+                if ( ut_dgi1 > tolisec_d ) then
+                    if(test_d ==6) then
+                        ut_d(gi,2) = u_aval_d
+                        ut_d(gi,3) = v_aval_d                                         
+                    else
+                        ut_d(gi,2) = ut_dgi1 * u_aval_d
+                        ut_d(gi,3) = ut_dgi1 * v_aval_d
+                    endif
+!
+                else
+                    ut_d(gi,1) = tolisec_d
+                    ut_d(gi,2) = 0.
+                    ut_d(gi,3) = 0.
+                endif
+            endif
+        endif
+!
+        if ( test_d == 2 ) then 
+            rayvol = sqrt( ( v1 - xcenter_d )**2 + ( v2 - ycenter_d )**2 )
+            if ( rayvol <= rayon_d ) then
+
+                ut_dgi1 = h_amont_d - zmd
+                ut_d(gi,1) = ut_dgi1
+
+                if ( ut_dgi1 > tolisec_d ) then
+                    ut_d(gi,2) = ut_dgi1 * u_amont_d
+                    ut_d(gi,3) = ut_dgi1 * v_amont_d
+                else
+                    ut_d(gi,1) = tolisec_d
+                    ut_d(gi,2) = 0.
+                    ut_d(gi,3) = 0.
+                endif
+            else
+                ut_dgi1 = h_aval_d - zmd
+                ut_d(gi,1) = ut_dgi1
+                if ( ut_dgi1 > tolisec_d ) then
+                    ut_d(gi,2) = ut_dgi1 * u_aval_d
+                    ut_d(gi,3) = ut_dgi1 * v_aval_d
+                else
+                    ut_d(gi,1) = tolisec_d
+                    ut_d(gi,2) = 0.
+                    ut_d(gi,3) = 0.
+                endif
+            endif
+        endif
+!
+        if(test_d == 8) then ! CAS DU BOL PARABOLIQUE. Ref: : An unstructure finite volume  model for dam-break floods with wet/dry interface
+!                                    fronts over complex topography. Lixiang Song (2010). Eq. (55)
+                alpha=(1 - 0.8**4)/(1 + 0.8**4)
+                omega=sqrt(8*gp_d*h0_d)
+                rayvol = sqrt( (v1*v1 + v2*v2 ))    
+                    ut_d(gi,1)= h0_d*( sqrt(1-alpha**2)/(1-alpha) - rayvol**2*( (1-alpha**2)/(1-alpha)**2 -1) -1 )
+                    ut_d(gi,2) = 0.
+                    ut_d(gi,3) = 0.
+!                    alpha=0.5
+!                   ut_d(gi,1)= 1 + alpha*h0_d*(2*visio_d(gi,1)-alpha)
+!                   ut_d(gi,2) = 0.
+!                    ut_d(gi,3) = 0.
+        endif
+
+!
+!       Inondation dans une riviere reelle (Flood in a real river)
+!
+        if (eqlin_barrage_d==1) then
+            
+            alpha = (y1eqbar_d - y2eqbar_d)/(x1eqbar_d - x2eqbar_d)
+            beta = y1eqbar_d - alpha*x1eqbar_d
+            
+
+            if ( alpha*v1 - v2 + beta >= 0.00) then        
+                
+                ut_dgi1    = h_amont_d - zmd
+                ut_d(gi,1) = ut_dgi1
+                
+                if ( ut_dgi1 > tolisec_d ) then
+                    ut_d(gi,2) = ut_dgi1 * u_amont_d
+                    ut_d(gi,3) = ut_dgi1 * v_amont_d   
+                else
+                    ut_d(gi,1) = tolisec_d
+                    ut_d(gi,2) = 0.00
+                    ut_d(gi,3) = 0.00
+                endif
+            else
+                
+                ut_dgi1 = h_aval_d - zmd
+                ut_d(gi,1) = ut_dgi1
+
+                if ( ut_dgi1 > tolisec_d ) then
+                    ut_d(gi,2) = u_aval_d
+                    ut_d(gi,3) = v_aval_d
+                else
+                    ut_d(gi,1) = tolisec_d
+                    ut_d(gi,2) = 0.00
+                    ut_d(gi,3) = 0.00
+                endif
+            endif
+        endif
+!
+
+        ut1_d(gi,1) = ut_d(gi,1) + zmd
+
+        if(test_d == 8) ut1_d(gi,1) = max(ut_d(gi,1),zmd)  ! CAS DU BOL PARABOLIQUE (CASE OF THE PARABOLIC BOWL)
+        
+        ut1_d(gi,2) = ut_d(gi,2)
+        ut1_d(gi,3) = ut_d(gi,3)
+  
+    endif
+!
+! ... fin du traitement ................................................
+!
+end subroutine cond_initial_cudaf
+
+subroutine cond_initial2(ut,ut1)
+!
+! ======================================================================
+!
+!     cd_limite2 = fixe les conditions initiales pour la variable d'etat ut
+!                 
+!                 ( maillage trianglaire ou quadrilateral )
+!
+!     auteur : Jean-Marie Zokagoa  GRANIT ETSMTL
+!
+!     version : 1.0  ;  sep 10 2007
+! ======================================================================
+!
+!     parametres =
+!
+! ======================================================================
+!
+    use precision_m
+    use global
+    use m_param
+!
+    implicit none
+
+! ... debut de l interface .............................................
+!
+! ... fin de l interface ...............................................
+! 
+! ... variables passees en parametre ...................................
+!
+!   integer , intent(in)                  :: ns
+!   real(fp_kind), intent(out)                  :: tc_init
+!   character (50), intent(in)            :: solinit
+    real(fp_kind), dimension(:,:), intent(inout):: ut1, ut
+!
+! ... variables locales ................................................!
+    integer :: kvol
+!
+! ... debut du traitement
+
+!   open(390,file=solinit,form='formatted',status='old')
+    open(390,file=fich_sol_init,status='old')
+        read (390,*) tc_init
+        do kvol=1,nelt
+            read (390,*) ut(kvol,1), ut1(kvol,1) , ut1(kvol,2) , ut1(kvol,3)
+            ut(kvol,2)=ut1(kvol,2)
+            ut(kvol,3)=ut1(kvol,3)
+        enddo
+    close (390) 
+
+end subroutine cond_initial2
+
+

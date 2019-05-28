@@ -1,0 +1,1179 @@
+!*****************************************************************************************************************
+!*****************************************************************************************************************
+!
+!*****************************************************************************************************************
+subroutine mise_a_jr_zone_seche(zm,vdlg, vdlg1)
+!
+! =================================================================================================================
+!
+!     mise_a_jr_zone_seche = met jour les zones seches
+!
+!     auteur : Zokagoa Jean-Marie  GRANIT ETSMTL
+!
+!     version : 2.0  ;  Oct 09 2007
+! ======================================================================
+!
+!
+    use precision_m
+    use global
+    use m_param
+!
+    implicit none
+!
+! *** bloc interface ***
+!   interface
+!   end interface
+! 
+! ... variables passees en parametre ...................................
+!
+    real(fp_kind), dimension(:), intent(in)         :: zm
+    real(fp_kind), dimension(:,:), intent(inout)    :: vdlg, vdlg1
+!
+! ... variables locales ................................................
+!
+    integer                 :: iel
+    real(fp_kind)                 :: zero, h
+!
+! ... debut du traitement
+!
+! *** mise a jour de la zone seche ***
+!
+            zero    = 0.d0
+            do iel=1,nelt
+                vdlg(iel,1) = vdlg1(iel,1) - zm(iel)                                
+                vdlg(iel,2) = vdlg1(iel,2)
+                vdlg(iel,3) = vdlg1(iel,3)                                          
+                if ( vdlg(iel,1) <= tolisec ) then      
+                    vdlg(iel,1)  = tolisec
+                    vdlg(iel,2)  = zero
+                    vdlg(iel,3)  = zero
+!                   vdlg1(iel,1) = tolisec + zm(iel)
+                    vdlg1(iel,1) = zm(iel)                  
+                    vdlg1(iel,2) = zero
+                    vdlg1(iel,3) = zero
+                endif
+!
+            enddo
+!
+end subroutine mise_a_jr_zone_seche
+
+attributes(global) subroutine mise_a_jr_zone_seche_cudaf(zm_d,vdlg_d, vdlg1_d)
+!
+! =================================================================================================================
+!
+!     mise_a_jr_zone_seche = met jour les zones seches (update the dry areas)
+!
+!     auteur : Zokagoa Jean-Marie  GRANIT ETSMTL
+!
+!     version : 2.0  ;  Oct 09 2007
+! ======================================================================
+!
+
+!
+    use global_device
+    implicit none
+!
+! *** bloc interface ***
+!   interface
+!   end interface
+! 
+! ... variables passees en parametre ...................................
+    real(fp_kind), dimension(:), intent(in)         :: zm_d
+    real(fp_kind), dimension(:,:), intent(inout)    :: vdlg_d, vdlg1_d
+
+! ... variables locales ................................................
+!
+    integer :: ti,gi
+    real(fp_kind) :: vdlg_dgi1
+!
+! ... debut du traitement
+!
+! *** mise a jour de la zone seche ***
+!
+
+    
+    ti = threadIdx%x
+    gi = (blockIdx%x - 1)*blockDim%x + ti
+
+    ! zero    = 0.d0
+    if(gi <= nelt_d) then
+
+        vdlg_dgi1 = vdlg1_d(gi,1) - zm_d(gi)
+        vdlg_d(gi,1) = vdlg_dgi1
+        vdlg_d(gi,2) = vdlg1_d(gi,2)
+        vdlg_d(gi,3) = vdlg1_d(gi,3)
+
+        if (vdlg_dgi1 <= tolisec_d ) then      
+            vdlg_d(gi,1)  = tolisec_d
+            vdlg_d(gi,2)  = 0.d0
+            vdlg_d(gi,3)  = 0.d0
+
+    !                   vdlg1(iel,1) = tolisec + zm(iel)
+            vdlg1_d(gi,1) = zm_d(gi)                  
+            vdlg1_d(gi,2) = 0.d0
+            vdlg1_d(gi,3) = 0.d0                
+        endif
+!
+    end if
+
+end subroutine mise_a_jr_zone_seche_cudaf
+!
+!*****************************************************************************************************************
+!*****************************************************************************************************************
+!
+!***************************************************************************************************************
+!
+subroutine sol_nodes(vdlg,surf,zm,soleta,solh,solhu,solhv,solu,solv)
+!
+! ======================================================================
+!
+!     sol_nodes = calcul de la solution aux noeuds du maillage par
+!                 moyennes ponderees sur les volumes entourants
+!
+!     auteur : Youssef Loukili  GRANIT ETSMTL
+!
+!     version : 1.0  ;  May 12 2003
+! ======================================================================
+!
+!     parametres =
+!       kvol   :
+!       aire   :
+!
+! ======================================================================
+!
+    use precision_m
+    use global
+    use m_param
+!
+    implicit none
+
+! ... debut de l interface .............................................
+!
+! ... fin de l interface ...............................................
+! 
+! ... variables passees en parametre ...................................
+!
+    real(fp_kind), dimension(:,:), intent(in)   :: vdlg
+    real(fp_kind), dimension(:), intent(in)     :: surf, zm
+    real(fp_kind), dimension(:), intent(inout)  :: soleta, solh, solhu, solhv, solu, solv
+!
+! ... variables locales ................................................
+!
+real(fp_kind), dimension(:), allocatable :: surfno, zzz
+!
+    integer :: kvol, i, no
+    allocate(  surfno(nnt), zzz(nnt) )
+!
+! ... debut du traitement
+!
+    surfno = 0.0d0
+    soleta  = 0.0d0
+    solh   = 0.0d0
+    solhu   = 0.0d0
+    solhv   = 0.0d0
+    solu   = 0.0d0
+    solv   = 0.0d0
+    zzz    = 0.0d0
+!
+    do kvol=1,nelt
+!
+        do i=1,ns
+            no = connectivite(kvol,i)
+            surfno(no) = surfno(no) + surf(kvol)
+            zzz(no) = zzz(no) + surf(kvol) * zm(kvol)
+            if ( vdlg(kvol,1) > tolisec ) then
+                solh(no)   = solh(no)  + surf(kvol) * vdlg(kvol,1)
+                soleta(no)    = soleta(no)   + surf(kvol) * ( vdlg(kvol,1) + zm(kvol) )
+                solhu(no)    = solhu(no)   + surf(kvol) * vdlg(kvol,2) 
+                solhv(no)    = solhv(no)   + surf(kvol) * vdlg(kvol,3)
+            else
+                soleta(no)    = soleta(no)   + surf(kvol) * ( tolisec + zm(kvol) )
+            endif
+        enddo
+!
+    enddo
+!
+    do no=1,nnt
+!
+        zzz(no) = zzz(no) / surfno(no)
+        solh(no) = solh(no) / surfno(no)
+!
+        if ( solh(no) <= tolisec ) then
+            solh(no) = tolisec
+            soleta(no)  = zzz(no)
+            solhu(no)  = 0.
+            solhv(no)  = 0.
+            solu(no)  = 0.
+            solv(no)  = 0.
+        else
+            soleta(no) = soleta(no) / surfno(no)
+            solhu(no)  = solhu(no)  / surfno(no)
+            solhv(no)  = solhv(no)  / surfno(no)
+            solu(no)   = solhu(no)  / (solh(no)*surfno(no))
+            solv(no)   = solhv(no)  / (solh(no)*surfno(no))
+        endif
+!
+    enddo
+!
+    deallocate(surfno , zzz)
+!
+! ... fin du traitement ................................................
+!
+end subroutine sol_nodes
+!
+!****************************************************************************************************************
+!****************************************************************************************************************
+!
+subroutine sol_nodes_MC(H_MC,surf,zm,solh,h_eff)
+!
+! ======================================================================
+!
+!     sol_nodes = calcul de la solution aux noeuds du maillage par
+!                 moyennes ponderees sur les volumes entourants
+!
+!     auteur : Youssef Loukili  GRANIT ETSMTL
+!
+!     version : 1.0  ;  May 12 2003
+! ======================================================================
+!
+!     parametres =
+!       kvol   :
+!       aire   :
+!
+! ======================================================================
+!
+    use precision_m
+    use global
+    use m_param
+!
+    implicit none
+
+! ... debut de l interface .............................................
+!
+! ... fin de l interface ...............................................
+! 
+! ... variables passees en parametre ...................................
+!
+    real(fp_kind), dimension(:), intent(in)     :: surf, zm, H_MC
+    real(fp_kind), dimension(:), intent(inout)  :: solh, h_eff
+!
+! ... variables locales ................................................
+!
+    integer :: kvol, i, no
+    real(fp_kind)  :: surfno(nnt), zzz(nnt)
+!
+! ... debut du traitement
+!
+    surfno = 0.0d0
+    h_eff  = 0.0d0
+    solh   = 0.0d0
+    zzz    = 0.0d0
+!
+    do kvol=1,nelt
+
+        do i=1,ns
+            no = connectivite(kvol,i)
+            surfno(no) = surfno(no) + surf(kvol)
+            zzz(no) = zzz(no) + surf(kvol) * zm(kvol)
+            if ( H_MC(kvol)-zm(kvol) > tolisec ) then
+                h_eff(no)   = h_eff(no)  + surf(kvol) * (H_MC(kvol)-zm(kvol))
+                solh(no)    = solh(no)   + surf(kvol) * H_MC(kvol)
+                
+            else
+                solh(no)    = solh(no)   + surf(kvol) * ( tolisec + zm(kvol) )
+
+            endif
+        enddo
+!
+    enddo
+!
+    do no=1,nnt
+!
+        zzz(no) = zzz(no) / surfno(no)
+!       zzz(no) = coordonnees(no,3)
+        h_eff(no) = h_eff(no) / surfno(no)
+!
+        if ( h_eff(no) <= tolisec ) then
+            h_eff(no) = tolisec
+            solh(no)  = zzz(no)
+        else
+            solh(no)  = solh(no)  / surfno(no)
+        endif
+!
+    enddo
+!
+! ... fin du traitement ................................................
+!
+end subroutine sol_nodes_MC
+!
+!****************************************************************************************************************
+!****************************************************************************************************************
+!
+subroutine stock_coupe2D(solh, soleta, solhu, solu)
+!
+    use precision_m
+    use global
+    use m_param
+!
+    implicit none
+
+! ... debut de l interface .............................................
+!
+! ... fin de l interface ...............................................
+! 
+! ... variables passees en parametre ...................................
+!
+    real(fp_kind), dimension(:), intent(inout)  :: solh, soleta, solhu, solu
+!
+! ... variables locales ................................................
+!
+    character (10) :: no_coupe
+    integer :: kvol, i, j, no
+    real(fp_kind) :: aux, coupe_x, coupe_y
+!
+!------------------------------------------------------------------------------------------------------------------------------
+! ... debut du traitement
+! *** stokage solution pour les coupes 2D *** ! *** storage solution for 2D slices ***
+!
+    if (start == 1) then
+        write(valtemps,'(f12.3)') 0.0
+    else
+        write(valtemps,'(f18.3)') tc
+    endif
+!
+    write(debit_tot,'(f8.3)') debitglob
+    write(coef_frot,'(f6.3)') manning
+!
+!------------------------------------------------------------------------------------------------------------------
+    if (start == 1) then                
+        do j=1,nbrcoupes
+            nbr_nds_coupes(j) = 0
+            write(no_coupe,'(i2)') j
+            if (pod==0) solfile2d = genrtest //'FV-'// '2D_' //  'coupe_' // no_coupe // valtemps // 's'// '.txt'
+            if (pod==1) solfile2d = genrtest //'POD-'// '2D_' // 'coupe_' // no_coupe // valtemps // 's'// '.txt'
+            open(unit=ec_sol2d,file=solfile2d,status="unknown")
+                do i=1,nnt
+                    coupe_y = coupe_a(j) * coordonnees(i,1) + coupe_b(j)
+                    if ( abs( coordonnees(i,2) - coupe_y ) <= distcote/densite_coupe ) then
+                        nbr_nds_coupes(j) = nbr_nds_coupes(j) + 1
+                        nds_coupes(j,nbr_nds_coupes(j)) = i                 
+                        write(ec_sol2d,'(5f16.6)')  coordonnees(i,1), soleta(i) - solh(i), solh(i), soleta(i), solu(i) 
+                    endif
+                enddo
+            close (ec_sol2d)
+        enddo
+    else
+!------------------------------------------------------------------------------------------------------------------
+            write(debit_tot,'(f12.3)') debitglob
+            write(coef_frot,'(f8.3)') manning
+             do j=1,nbrcoupes
+                write(no_coupe,'(i2)') j            !
+                solfile2d = genrtest //'FV-'// '2D_' // 'coupe_' // no_coupe // valtemps // 's'// '.txt'
+                open(unit=ec_sol2d,file=solfile2d,status="unknown")
+                    if(nbr_nds_coupes(j) > 0) then
+                        do i=1,nbr_nds_coupes(j)
+                            no = nds_coupes(j,i)
+                            write(ec_sol2d,'(5f16.6)') coordonnees(no,1), soleta(no) - solh(no), solh(no), soleta(no), solu(no)     
+                        enddo
+                    endif
+                close (ec_sol2d)
+                     
+            enddo       ! de do j=1,nbrcoupes
+!
+!*********  Exportation des solutions des éléments sélectionnés dans la prairie ***********
+!
+!           if (test ==7 .and. ncel > 0) then
+!               open(unit=ec_sol2d,file=solfile2d,status="unknown")
+!                   x0=-1       
+!                   do i=1,nelt
+!                       call res_elem_selct_ligne(i,zm,vdlg)                
+!                   enddo
+!           endif
+!
+            close (ec_sol2d)
+    endif
+!
+!**************************************************************************************************************************************
+!       Calcul du debit le long d'une coupe transversale
+!
+!       fich_debit_coupe = genrtest //'FV-'// 'debit_' // 'coupe_' // no_coupe // valtemps // 's'// '.txt'
+!       do ie=1,nelt
+!           coupe_y = coupe_a(j) * visio(ie,1) + coupe_b(j)
+!           if ( abs( visio(ie,2) - coupe_y ) <= distcote/densite_coupe ) then
+!               ie_coupe_transv = ie_coupe_trans + 1                            
+!           elts_coupes_transv(ie_coupe_transv,j) = ie
+!
+!           i_intersec = 0  ! Initialisation du compteur du nombre d'intersection avec la coupe par element
+!           do icote=1,ns               
+!               nc1 = connectivite(ie,icote)
+!               if ( i < ns ) then
+!                   nc2 = connectivite(ie,icote)
+!               else
+!                   nc2 = connectivite(ie,icote)    
+!               endif
+!               Calcul du vecteur normal à ce coté ***
+!               x1 = coordonnees(nc1,1)
+!               x2 = coordonnees(nc2,1)
+!               y1 = coordonnees(nc1,2)
+!               y2 = coordonnees(nc2,2)
+!               xmil_cote = ( x1 + x2 ) / 2.d0
+!               ymil_cote = ( y1 + y2 ) / 2.d0
+!               l_cote = sqrt( (x2 - x1)**2 + (y2 - y1)**2 )
+!               a_cote = (y2-y1)/(x2-x1)
+!               b_cote = y1-a_cote*x1
+!               if ( abs(coupe_a(j)-a_cote) > 1.0E-6 ) then
+!                   x_intersec = -(b_cote-coupe_b(j))/(a_cote-coupe_a(j))
+!                   y_intersec = a_cote * x_intersec + b_cote 
+!                   ! Si le point d'intersection se situe entre les deux noeuds delimitant l'interface
+!                   if ( sqrt( (x_intersec - xmil_cote)**2 + (y_intersec - ymil_cote)**2 ) < ln  ) then
+!                       i_intersec = i_intersec + 1                                 
+!                       Px(i_intersec) = x_intersec
+!                       Py(i_intersec) = y_intersec
+!                   endif
+!               endif
+!           enddo
+!           print*, 'coupe=',j , 'ie=', ie, 'i_intersec=', i_intersec
+!           if ( i_intersec == 2 ) then
+!               lg_intersec = (x_intersec - xmil_cote)**2 + (y_intersec - ymil_cote)**2 ) 
+!               lg_vectnorm_coupe(ie,j) =  
+!                                    
+!               norm(1) = ( y2 - y1 ) / ln
+!               norm(2) = ( x1 - x2 ) / ln
+!
+!           endif
+!                           
+!       enddo
+!
+!*********  Exportation des solutions des éléments sélectionnés dans la prairie ***********
+!
+!       if (elts > 0) then
+!           x0=-1       
+!           do i=1,nelt
+!                call res_elem_selct_ligne(i,zm,vdlg0)              
+!           enddo
+!       endif
+! *** stockage solution 3D pour tecplot *** 
+!                               
+!   enddo
+!
+end subroutine stock_coupe2D
+!
+!*****************************************************************************************************************
+!*****************************************************************************************************************
+!
+subroutine ouv_fichiers(vdlg, vdlg1, zm)
+!
+    use precision_m
+    use global_device
+    use global
+    use m_param
+!
+    implicit none
+!
+! *** bloc interface ***
+    interface
+        subroutine entree_sortie_domaine
+        use global
+        use m_param
+        end subroutine entree_sortie_domaine
+    end interface
+! 
+! ... variables passees en parametre ...................................
+!
+    real(fp_kind), dimension(:), intent(in)         :: zm
+    real(fp_kind), dimension(:,:), intent(inout)    :: vdlg, vdlg1
+!
+! ... variables locales ................................................
+!
+    integer                 :: i
+!
+! ... debut du traitement
+!
+!========================================================================================================
+    open(unit=ec_bilan_sim,file='RAPPORT SIMULATION.txt',status="unknown")       !SIMULATION REPORT
+!
+    sol_elt_ts = genrtest    // 'SOLUTION DERNIERE ENREGISTREE PAR ELEMENT.txt'  !LAST RECORDED SOLUTION BY ELEMENT.txt
+    sol_elt_final = genrtest // 'SOLUTION FINALE PAR ELEMENT.txt'                !FINAL SOLUTION BY ELEMENT.txt
+    sol_nd_ts = genrtest     // 'SOLUTION DERNIERE ENREGISTREE PAR NOEUD.txt'    !LAST SOLUTION RECORDED BY NODE.txt
+    sol_nd_final = genrtest  // 'SOLUTION FINALE PAR NOEUD.txt'                  !FINAL SOLUTION BY NODE.txt
+!
+    if(multi_simul==0) then
+        if(soldomaine==1) then
+            open(ec_sol_elt_t, file=sol_elt_ts, status="unknown")
+            open(ec_sol_nd_t,  file=sol_nd_ts,  status="unknown")
+        endif
+        open(ec_sol_elt_final,file=sol_elt_final,status="unknown")
+!       open(ec_sol_nd_final, file=sol_nd_final ,status="unknown")
+    endif
+!
+!=========================================================================================================
+    write(ntrirec,'(i6)') nelt ! ecriture de nombre total d elements en chaine de caracteres dans ntrirec
+                                ! writing of total number of elements in string of characters in ntrirec
+!=========================================================================================================
+!       ecriture du type de flux (iflux) en chaine de caracteres dans genrmeth(write stream type (iflux) to string in genrmeth)
+!=========================================================================================================
+    select case (iflux)
+        case (1)
+            genrmeth = 'LAX'
+        case (2)
+            genrmeth = 'HLL'
+        case (3)
+            genrmeth = 'HLLC'
+        case (4)
+            select case (limiteur)
+                case (0)
+                genrmeth = 'WAF'
+                case (-1)
+                genrmeth = 'WAF-'
+                case (1)
+                genrmeth = 'WAFa'
+                case (2)
+                genrmeth = 'WAFb'
+                case (3)
+                genrmeth = 'WAFc'
+                case (4)
+                genrmeth = 'WAFd'
+            case default
+                print *,'donnee limiteur non acceptable'
+            end select
+        case default
+            print *,'donnee iflux non acceptable' 
+    end select
+!
+!=========================================================================================================
+!                        Cas d'un test avec loi de debit (table) Case of a test with debit law (table)
+!=========================================================================================================   
+    if(debit_var==1) then
+        open(unit=11,file=loi_debitglob,form='formatted',status='old')
+            read(11,*) n_Q
+            allocate(debit_t(n_Q,2))
+            do i=1,n_Q
+                read(11,*) debit_t(i,1) , debit_t(i,2)
+            enddo
+        close(11)
+        cptdebit = 2
+        cptdebit_d = cptdebit
+        debitglob = debit_t(cptdebit-1,2)
+        debitglob_d = debitglob
+    endif
+! 
+!=========================================================================================================
+!       Lecture des parametres du test : Bol Parametrique
+!=========================================================================================================
+    if(genrtest=='bol') then
+!*** Pour le problem du BOL 
+        open(unit=620,file='bol_h0_coefbol.txt',status="unknown")
+            read(620,*) h0
+            read(620,*) coef_bol
+        close(620)
+        h0_d = h0
+        coef_bol_d = coef_bol
+!       ts=2*3.1416/sqrt(8*gp*h0)
+    endif
+!========================================================================================
+!                                 Fichiers POD/ROM
+!========================================================================================
+!   !Attention : POD part of the code is not parallelised
+
+    if (shot == 1) open(unit=350,file='SNAPSHOT.txt',status="unknown")
+!
+!   open(unit=340,file='flux_interface.txt',status="unknown")
+!   open(unit=341,file='DELTA_VOLUME.txt',status="unknown")
+
+    if (pod==1) then
+        open(unit=351,file='LAMDA_POD.txt',status="unknown")
+        open(unit=ec_param_pod,file='Parametres_POD.txt',status="unknown")
+        if (test==8) open(unit=400,file='bol_Imput_POD.txt',status="unknown")
+    endif
+!
+    if (pod==0 .and. shot==1) then 
+        allocate(lamda_stock(nelt,3))
+        lamda_stock = 0.d0
+        open(unit=398,file='lamda_snapshot.txt',status="unknown")
+        open(unit=4999,file='Q_eta.txt',status="unknown")
+        open(unit=501,file='Q_eta_tild.txt',status="unknown")
+        open(unit=502,file='Q_hu.txt',status="unknown")
+        open(unit=503,file='Q_hv.txt',status="unknown")
+        open(unit=504,file='Q_h.txt',status="unknown")
+        open(unit=505,file='Q_u.txt',status="unknown")
+        open(unit=506,file='Q_v.txt',status="unknown")
+        open(unit=555,file='Q_coef_friction.txt',status="unknown")
+    endif
+!
+!==========================================================================================================
+!                Ouverture du fichier de stockage des solutions 2D  (Opening the 2D solution storage file)
+!==========================================================================================================
+    write(valtemps,'(f12.3)') TS
+    if (multi_simul==0 ) then 
+        if (pod==0) solfile2d_MC = genrtest // 'FV--  ' //'Q'// debit_tot // ' n'// coef_frot// 't' //valtemps // 's'// '.txt'
+        if (pod==1) solfile2d_MC = genrtest // 'POD-PID--  ' //'Q'// debit_tot // ' n'// coef_frot// 't' //valtemps // 's'// '.txt'
+    endif
+    if (monte_carlo==1 ) then
+        if (pod==0) then
+!           solfile2d_MC = genrtest // 'FV-MULTISIM-2D  ' // 't' //valtemps // 's'// '.txt'
+!           solfile3d_MC = genrtest // 'FV-MULTISIM-3D  ' // 't' //valtemps // 's'// '.txt'
+            solfile2d_MC = 'SOL_FV_MULTISIM_2D.txt'
+            solfile3d_MC = 'SOL_FV_MULTISIM_3D.txt'
+        endif
+        if (pod==1) then
+!           solfile2d_MC = genrtest // 'POD-PID-MULTISIM-2D  ' // 't' //valtemps // 's'// '.txt'
+!           solfile3d_MC = genrtest // 'POD-PID-MULTISIM-3D  ' // 't' //valtemps // 's'// '.txt'
+            solfile2d_MC = 'SOL_POD_MULTISIM_2D.txt'
+            solfile3d_MC = 'SOL_POD_MULTISIM_3D.txt'
+        endif
+        open(unit=3002,file=solfile2d_MC,status="unknown")
+        open(unit=3003,file=solfile3d_MC,status="unknown")
+    endif
+!===============================================================================================================================================
+!
+    if (nbrcoupes>1) then
+        file_Q_coupes = genrtest // 'FV- ' //'debit_coupes'//'.txt'
+        open(unit=ec_Q_coupes,file=file_Q_coupes,status="unknown")
+    endif
+!
+    if (pod==0 .and. shot==1)  call entree_sortie_domaine
+!
+!===============================================================================================================================================
+!
+!   if(pod==0)  d = dtime(t)
+!
+! *** routines de visualisation active de la solution ***
+!
+!   call faglstartwatch(visio, status)
+!   call faglshow(visio, status)
+!   
+!   Appel de la routine pour l'extraction des éléments à l'entrée du domaine, de la longueur de l'interface
+!   et des composantes du vecteur normal
+!
+end subroutine ouv_fichiers
+!
+!*****************************************************************************************************************************************************
+!*****************************************************************************************************************************************************
+!
+subroutine ouv_ferm_fich_elem_selct(ouv, ferm)
+! =================================================================================================================
+!
+!     res_elem_selct == Ouvre ou ferme des fichier text d'exportation des solutions des cellules selectionnées dans la prairie
+!
+!     auteur : Zokagoa Jean-Marie  GRANIT ETSMTL
+!
+!     version : 2.0  ;  mai 31 2010
+! ======================================================================
+!
+!
+    use precision_m
+    use global
+    use m_param
+!
+    implicit none
+!
+! *** bloc interface ***
+!   interface
+!   end interface
+! 
+! ... variables passees en parametre ...................................
+!
+    integer,               intent(in)         :: ouv, ferm
+!
+! ... variables locales ................................................
+!
+! ... debut du traitement
+!
+    if (ouv ==1 .and. ferm==0) then
+!
+        open(unit=701,file='ELEMENT_1.txt',status="unknown")
+        open(unit=702,file='ELEMENT_2.txt',status="unknown")
+        open(unit=703,file='ELEMENT_3.txt',status="unknown")
+        open(unit=704,file='ELEMENT_4.txt',status="unknown")
+        open(unit=705,file='ELEMENT_5.txt',status="unknown")
+        open(unit=706,file='ELEMENT_6.txt',status="unknown")
+        open(unit=707,file='ELEMENT_7.txt',status="unknown")
+        open(unit=708,file='ELEMENT_8.txt',status="unknown")
+        open(unit=709,file='ELEMENT_9.txt',status="unknown")
+        open(unit=710,file='ELEMENT_10.txt',status="unknown")
+        open(unit=711,file='ELEMENT_11.txt',status="unknown")
+        open(unit=712,file='ELEMENT_12.txt',status="unknown")
+        open(unit=713,file='ELEMENT_13.txt',status="unknown")
+        open(unit=714,file='ELEMENT_14.txt',status="unknown")
+        open(unit=715,file='ELEMENT_15.txt',status="unknown")
+        open(unit=716,file='ELEMENT_16.txt',status="unknown")
+        open(unit=717,file='ELEMENT_17.txt',status="unknown")
+        open(unit=718,file='ELEMENT_18.txt',status="unknown")
+        open(unit=719,file='ELEMENT_19.txt',status="unknown")
+        open(unit=720,file='ELEMENT_20.txt',status="unknown")
+!
+    elseif(ouv ==0 .and. ferm==1) then
+!   
+        close(701)
+        close(702)
+        close(703)
+        close(704)
+        close(705)
+        close(706)
+        close(707)
+        close(708)
+        close(709)
+        close(710)
+        close(711)
+        close(712)
+        close(713)
+        close(714)
+        close(715)
+        close(716)
+        close(717)
+        close(718)
+        close(719)
+        close(720)
+!
+    else                
+!
+        write(*,*) 'donnee (ouverture fermeture fichier)  non convenable'
+    endif
+!
+end subroutine ouv_ferm_fich_elem_selct
+!*****************************************************************************************************************
+!
+!*****************************************************************************************************************
+!
+subroutine res_elem_selct(icel,bathy,solution)
+! =================================================================================================================
+!
+!     res_elem_selct == Exporte dans un fichier text les solutions des cellules selectionnées dans la prairie
+! 
+!                        Export to a text file the solutions of the cells selected in the meadow
+!
+!     auteur : Zokagoa Jean-Marie  GRANIT ETSMTL
+!
+!     version : 2.0  ;  mai 31 2010
+! ======================================================================
+!
+!
+    use precision_m
+    use global
+    use m_param
+!
+    implicit none
+!
+! *** bloc interface ***
+!   interface
+!   end interface
+! 
+! ... variables passees en parametre ...................................
+!
+    integer,               intent(in)       :: icel
+    real(fp_kind), dimension(:), intent(inout)    :: bathy
+    real(fp_kind), dimension(:,:), intent(inout)  :: solution
+!
+! ... variables locales ................................................
+!
+! ... debut du traitement
+
+        if (icel==elts(1))  write(701,'(5f16.6)')   tc, solution(icel,1), solution(icel,1) + bathy(icel), solution(icel,2), solution(icel,3)
+        if (icel==elts(2))  write(702,'(5f16.6)')   tc, solution(icel,1), solution(icel,1) + bathy(icel), solution(icel,2), solution(icel,3)
+        if (icel==elts(3))  write(703,'(5f16.6)')   tc, solution(icel,1), solution(icel,1) + bathy(icel), solution(icel,2), solution(icel,3)
+        if (icel==elts(4))  write(704,'(5f16.6)')   tc, solution(icel,1), solution(icel,1) + bathy(icel), solution(icel,2), solution(icel,3)
+        if (icel==elts(5))  write(705,'(5f16.6)')   tc, solution(icel,1), solution(icel,1) + bathy(icel), solution(icel,2), solution(icel,3)
+        if (icel==elts(6))  write(706,'(5f16.6)')   tc, solution(icel,1), solution(icel,1) + bathy(icel), solution(icel,2), solution(icel,3)
+        if (icel==elts(7))  write(707,'(5f16.6)')   tc, solution(icel,1), solution(icel,1) + bathy(icel), solution(icel,2), solution(icel,3)
+        if (icel==elts(8))  write(708,'(5f16.6)')   tc, solution(icel,1), solution(icel,1) + bathy(icel), solution(icel,2), solution(icel,3)
+        if (icel==elts(9))  write(709,'(5f16.6)')   tc, solution(icel,1), solution(icel,1) + bathy(icel), solution(icel,2), solution(icel,3)
+        if (icel==elts(10)) write(710,'(5f16.6)')   tc, solution(icel,1), solution(icel,1) + bathy(icel), solution(icel,2), solution(icel,3)
+        if (icel==elts(11)) write(711,'(5f16.6)')   tc, solution(icel,1), solution(icel,1) + bathy(icel), solution(icel,2), solution(icel,3)
+        if (icel==elts(12)) write(712,'(5f16.6)')   tc, solution(icel,1), solution(icel,1) + bathy(icel), solution(icel,2), solution(icel,3)
+        if (icel==elts(13)) write(713,'(5f16.6)')   tc, solution(icel,1), solution(icel,1) + bathy(icel), solution(icel,2), solution(icel,3)
+        if (icel==elts(14)) write(714,'(5f16.6)')   tc, solution(icel,1), solution(icel,1) + bathy(icel), solution(icel,2), solution(icel,3)
+        if (icel==elts(15)) write(715,'(5f16.6)')   tc, solution(icel,1), solution(icel,1) + bathy(icel), solution(icel,2), solution(icel,3)
+        if (icel==elts(16)) write(716,'(5f16.6)')   tc, solution(icel,1), solution(icel,1) + bathy(icel), solution(icel,2), solution(icel,3)
+        if (icel==elts(17)) write(717,'(5f16.6)')   tc, solution(icel,1), solution(icel,1) + bathy(icel), solution(icel,2), solution(icel,3)
+        if (icel==elts(18)) write(718,'(5f16.6)')   tc, solution(icel,1), solution(icel,1) + bathy(icel), solution(icel,2), solution(icel,3)
+        if (icel==elts(19)) write(719,'(5f16.6)')   tc, solution(icel,1), solution(icel,1) + bathy(icel), solution(icel,2), solution(icel,3)
+        if (icel==elts(20)) write(720,'(5f16.6)')   tc, solution(icel,1), solution(icel,1) + bathy(icel), solution(icel,2), solution(icel,3)
+
+end subroutine res_elem_selct
+!
+subroutine res_elem_selct_ligne(icel,bathy,solution)
+! =================================================================================================================
+!
+!     res_elem_selct == Exporte dans un fichier text les solutions des cellules selectionnées sur une ligne dans la prairie
+!                       Export to a text file the solutions of the cells selected on a line in the meadow
+!     auteur : Zokagoa Jean-Marie  GRANIT ETSMTL
+!
+!     version : 2.0  ;  mai 31 2010
+! ======================================================================
+!
+!
+    use precision_m
+    use global
+    use m_param
+!
+    implicit none
+!
+! *** bloc interface ***
+!   interface
+!   end interface
+! 
+! ... variables passees en parametre ...................................
+!
+    integer,               intent(in)       :: icel
+    real(fp_kind), dimension(:), intent(inout)    :: bathy
+    real(fp_kind), dimension(:,:), intent(inout)  :: solution
+!
+! ... variables locales ................................................
+!
+    integer :: r
+    real(fp_kind) :: tolerance, x, y
+    integer :: s1, s2, s3, s4
+    real(fp_kind) :: x1, x2 ,x3, x4, y1, y2, y3, y4, surface
+    real(fp_kind) :: xg, yg
+!
+! ... debut du traitement
+!
+    tolerance = 1.7
+!
+        s1 = connectivite(icel,1)
+        s2 = connectivite(icel,2)
+        s3 = connectivite(icel,3)
+        x1 = coordonnees(s1,1)
+        x2 = coordonnees(s2,1)
+        x3 = coordonnees(s3,1)
+        y1 = coordonnees(s1,2)
+        y2 = coordonnees(s2,2)
+        y3 = coordonnees(s3,2)
+        xg=(x1 + x2 + x3)/3
+        yg=(y1 + y2 + y3)/3
+        
+
+  
+    open(unit=721,file='ligneprairie.txt',status="unknown")
+!        
+        read(721,*) ncel 
+!        
+        do r = 1,ncel
+!           if (icel==elts(r))  write(ec_sol2d,'(i,6f16.6)')    icel, 0.0, bathy(icel), solution(icel,1), solution(icel,1) + bathy(icel), solution(icel,2), solution(icel,3)
+            read(721,*) x , y
+            if (abs(x-xg) <= tolerance .and. abs(y-yg) <= tolerance) then
+                if (xg > x0) then
+                    write(ec_sol2d,'(i,6f16.6)')    icel, xg , bathy(icel), solution(icel,1), solution(icel,1) + bathy(icel), solution(icel,2), solution(icel,3)
+                    x0=xg
+                endif
+            endif
+        enddo
+!    
+    close(721)
+! 
+!   if (ncel > 0) then 
+!       call ouv_ferm_fich_elem_selct(1, 0) ! Exportation des solutions des elements selectionnées dans la prairie
+!   endif
+!
+!                       *********   Exportation des solutions des éléments sélectionnés dans la prairie ************
+!               
+!   if (test ==7 .and. ncel > 0) then
+!       do i=1,nelt 
+!           call res_elem_selct(i,zm,vdlg0)
+!       enddo
+!   endif
+!       
+end subroutine res_elem_selct_ligne
+!
+!***************************************************************************************************************************************************************************
+!
+subroutine entree_sortie_domaine
+!
+! =============================================================================================================
+!
+!     entree_domaine : Routine pour extraire les cellules à l'entrée du domaine,
+!                      les longueurs des interfaces et les vecteurs normaux
+!
+!     auteur : Jean-Marie Zokagoa  GRANIT ETSMTL
+!
+!     version : 2.0  ;  Mars 28 2011
+! ==============================================================================================================
+!
+    use precision_m
+    use global
+    use m_param
+!
+! ... variables passees en parametre .........................................................................................
+!
+! ... variables locales ................................................
+!
+    integer               :: i, nc1, nc2, ne
+    real(fp_kind)               :: x1, x2, y1, y2, ln
+    real(fp_kind), dimension(2) :: norm
+!
+    open(unit=507,file=genrtest //'Donnees_POD_Entree.dat',status="unknown")
+        write(507,*) ndi-1
+    open(unit=508,file=genrtest //'Donnees_POD_Sortie.dat',status="unknown")
+        write(508,*) ndo-1  
+        do i=1,nelt
+!
+            do j=1,ns
+!    
+                if(boundary(i,j)==-1) then  ! Frontière = Entree
+                    nc1 = connectivite(i,j)
+                    if ( j < ns ) then
+                        nc2 = connectivite(i,j+1)
+                    else
+                        nc2 = connectivite(i,1) 
+                    endif
+!                   *** calcul du vecteur normal à ce coté ***
+                    x1 = coordonnees(nc1,1)
+                    x2 = coordonnees(nc2,1)
+                    y1 = coordonnees(nc1,2)
+                    y2 = coordonnees(nc2,2)
+                    ln = sqrt( (x2 - x1)**2 + (y2 - y1)**2 )
+                    norm(1) = ( y2 - y1 ) / ln
+                    norm(2) = ( x1 - x2 ) / ln
+!               
+                    write(507,'(i6,3f16.8)') i, ln, norm(1), norm(2)
+               endif
+!   ******************************************************************************    
+               if(boundary(i,j)==-2) then  ! Frontière = Sortie
+                    nc1 = connectivite(i,j)
+                    if ( j < ns ) then
+                        nc2 = connectivite(i,j+1)
+                    else
+                        nc2 = connectivite(i,1) 
+                    endif
+!                   *** calcul du vecteur normal à ce coté ***
+                    x1 = coordonnees(nc1,1)
+                    x2 = coordonnees(nc2,1)
+                    y1 = coordonnees(nc1,2)
+                    y2 = coordonnees(nc2,2)
+                    ln = sqrt( (x2 - x1)**2 + (y2 - y1)**2 )
+                    norm(1) = ( y2 - y1 ) / ln
+                    norm(2) = ( x1 - x2 ) / ln
+!               
+                    write(508,'(i6,3f16.8)') i, ln, norm(1), norm(2)
+               endif
+!
+            enddo
+!
+        enddo
+!
+    close(507)
+    close(508)
+!    
+ end subroutine entree_sortie_domaine
+!
+!***************************************************************************************************************
+!***************************************************************************************************************
+!
+subroutine lecture_fichier_matlab(nfichier, ni, nj, matrx)
+! =======================================================================
+!
+!     lecture_fichier_matlab : range en matrice le vecteur issu de matlab
+!
+!     auteur : Zokagoa Jean-Marie  GRANIT ETSMTL
+!
+!     version : 2.0  ;  17 Avril 2010
+! =======================================================================
+    use precision_m
+!   use global
+!   use m_param
+!
+    implicit none
+! 
+! ... variables passees en parametre ...................................
+    integer ,intent(in)                   :: nfichier, ni,nj
+    real(fp_kind), dimension(:,:),  intent(out) :: matrx
+!
+! ... variables locales ................................................
+    integer :: i,j,k,ninj 
+!
+! ... debut du traitement
+    j=1
+    i=1
+    ninj=ni*nj
+    do k=1,ninj 
+        read (nfichier,*) matrx(i,j)             
+        j=j+1
+        if (j>nj) then
+            j=1 
+            i=i+1
+        endif       
+    enddo
+!
+!   ...  Fin du traitement  
+end subroutine lecture_fichier_matlab
+!
+!***************************************************************************************************************
+!***************************************************************************************************************
+!
+subroutine bluekenue_export(solh, soleta, solhu, solhv)
+! ==============================================================================================================
+!
+!     bluekenue_export == Exporte dans un fichier text les solutions pour postraitement avec Bluekenue
+!
+!     auteur : Zokagoa Jean-Marie  GRANIT ETSMTL
+!
+!     version : 2.0  ;  mai 31 2010
+! =============================================================================================================
+!
+!
+    use precision_m
+    use global
+    use m_param
+!
+    implicit none
+! 
+! ... variables passees en parametre ...................................
+!
+    real(fp_kind), dimension(:), intent(inout)  :: soleta, solh, solhu, solhv
+!
+! ... variables locales ................................................
+!
+    integer :: nd, iel
+    real(fp_kind) :: solu, solv
+!
+! ... Debut du traitement
+!
+            write(valtemps,'(f12.3)') tc 
+            solfile_eta_T3S = genrtest // 'FV-ETA-Bluekenue '// 't' //valtemps // 's .T3S'
+            solfile_h_T3S   = genrtest //   'FV-H-Bluekenue '// 't' //valtemps // 's .T3S'
+            solfile_u_T3S   = genrtest //   'FV-U-Bluekenue '// 't' //valtemps // 's .T3S'
+            solfile_v_T3S   = genrtest //   'FV-V-Bluekenue '// 't' //valtemps // 's .T3S'
+
+!
+            open(unit=ec_Bluekenu_eta,file=solfile_ETA_T3S,status="unknown")
+            open(unit=ec_Bluekenu_h,file=solfile_H_T3S,    status="unknown")
+            open(unit=ec_Bluekenu_u,file=solfile_U_T3S,    status="unknown")
+            open(unit=ec_Bluekenu_v,file=solfile_V_T3S,    status="unknown")
+!
+                write(ec_Bluekenu_eta,*) ':NodeCount', nnt
+                write(ec_Bluekenu_eta,*) ':ElementCount', nelt
+                write(ec_Bluekenu_eta,*) ':ElementType  T3'
+                write(ec_Bluekenu_eta,*) ':EndHeader'
+!
+                write(ec_Bluekenu_h,*) ':NodeCount', nnt
+                write(ec_Bluekenu_h,*) ':ElementCount', nelt
+                write(ec_Bluekenu_h,*) ':ElementType  T3'
+                write(ec_Bluekenu_h,*) ':EndHeader'
+!
+                write(ec_Bluekenu_u,*) ':NodeCount', nnt
+                write(ec_Bluekenu_u,*) ':ElementCount', nelt
+                write(ec_Bluekenu_u,*) ':ElementType  T3'
+                write(ec_Bluekenu_u,*) ':EndHeader'
+!
+                write(ec_Bluekenu_v,*) ':NodeCount', nnt
+                write(ec_Bluekenu_v,*) ':ElementCount', nelt
+                write(ec_Bluekenu_v,*) ':ElementType  T3'
+                write(ec_Bluekenu_v,*) ':EndHeader'
+!
+                do nd=1, nnt
+                    if ( solh(nd) > tolisec ) then
+                        solu = solhu(nd)/solh(nd)
+                        solv = solhv(nd)/solh(nd)
+                    else
+                        solu = 0.d0
+                        solv = 0.d0
+                    endif
+                    write(ec_Bluekenu_eta,'(3f16.6)') coordonnees(nd,1), coordonnees(nd,2), soleta(nd) + z_min_correction
+                    write(ec_Bluekenu_h,'(3f16.6)')   coordonnees(nd,1), coordonnees(nd,2), solh(nd)
+                    write(ec_Bluekenu_u,'(3f16.6)')   coordonnees(nd,1), coordonnees(nd,2), solu
+                    write(ec_Bluekenu_v,'(3f16.6)')   coordonnees(nd,1), coordonnees(nd,2), solv
+                enddo
+                do iel=1, nelt
+                    write(ec_Bluekenu_eta,*) connectivite(iel,1) , connectivite(iel,2) , connectivite(iel,3)
+                    write(ec_Bluekenu_h,*) connectivite(iel,1) , connectivite(iel,2) , connectivite(iel,3)
+                    write(ec_Bluekenu_u,*) connectivite(iel,1) , connectivite(iel,2) , connectivite(iel,3)
+                    write(ec_Bluekenu_v,*) connectivite(iel,1) , connectivite(iel,2) , connectivite(iel,3)
+                enddo
+!
+            close(ec_Bluekenu_eta)
+            close(ec_Bluekenu_h)
+            close(ec_Bluekenu_u)
+            close(ec_Bluekenu_v)
+!
+!   ...  Fin du traitement      
+end subroutine bluekenue_export
+!
+!*******************************************************************************************************************
+!*******************************************************************************************************************
+
+subroutine tecplot_export(solh, soleta, solhu, solhv)
+! =================================================================================================================
+!
+!     bluekenue_export == Exporte dans un fichier text les solutions pour postraitement avec Tecplot
+!     bluekenue_export == Export to a text file the solutions for postraitement with Tecplot
+
+!
+!     auteur : Zokagoa Jean-Marie  GRANIT ETSMTL
+!
+!     version : 2.0  ;  mai 13 2018
+! ======================================================================
+!
+    use precision_m
+    use global
+    use m_param
+!
+    implicit none
+! 
+! ... variables passees en parametre ...................................
+!
+    real(fp_kind), dimension(:), intent(inout)  :: soleta, solh, solhu, solhv
+!
+! ... variables locales ................................................
+!
+    integer :: nd, i
+    real(fp_kind) :: solu, solv
+!
+! ... debut du traitement
+!               write(debit_tot,'(f10.3)') debitglob
+!               write(coef_frot,'(f7.3)') manning
+!
+    if ( start == 1 ) then
+!           
+        if(pod==0) tecplot   =  genrtest//'FV Tecplot.dat'
+        if(pod==1) tecplot   =  genrtest//'POD Tecplot.dat'
+!
+        open(unit=ec_tecplot,file=tecplot,status="unknown")
+!
+            write(ec_tecplot,*) 'title = "hauteur"'
+            write(ec_tecplot,*) 'variables = "x","y","z","h","eta","u","v", "manning"'
+            if ( ns == 3 ) then
+                write(ec_tecplot,*) 'zone t="pas:',valtemps, '" , f=fepoint, n=',nnt, ',e=',nelt, ',et=triangle'
+            else
+                write(ec_tecplot,*) 'zone t="pas : valtemps ", f=fepoint, n=',nnt, ',e=',nelt, ',et=quadrilateral'
+            endif
+            do nd=1, nnt
+                write(ec_tecplot,'(8f16.6)') coordonnees(nd,1),coordonnees(nd,2),coordonnees(nd,3),solh(nd),soleta(nd),solhu(nd),solhv(nd),manning_nd(nd)
+            enddo
+        write(ec_tecplot,*)' '
+        write(ec_tecplot,*)' '
+!
+        do i=1, nelt
+            if ( ns == 3 ) then
+                write(ec_tecplot,*) connectivite(i,1) , connectivite(i,2) , connectivite(i,3)
+            else
+                write(ec_tecplot,*) connectivite(i,1), connectivite(i,2), connectivite(i,3), connectivite(i,4)
+            endif
+        enddo
+        write(ec_tecplot,*)' '
+        write(ec_tecplot,*)' '
+!
+    else
+!
+        if ( ns == 3 ) then
+            write(ec_tecplot,*) 'zone t="pas:',tc, '" , f=fepoint, n=',nnt, ',e=',nelt, ',et=triangle', ',D=(feconnect)'
+        else
+            write(ec_tecplot,*) 'zone t="pas:',tc, '" , f=fepoint, n=',nnt, ',e=',nelt, ',et=quadrilateral', ',D=(feconnect)'
+        endif
+        do nd=1, nnt
+            write(ec_tecplot,'(8f16.6)') coordonnees(nd,1), coordonnees(nd,2), soleta(nd)-solh(nd), solh(nd), soleta(nd), solhu(nd), solhv(nd), manning_nd(nd)
+        enddo
+!
+        write(ec_tecplot,*)' '
+!
+        write(ec_tecplot,*)' '
+    endif
+!
+!   ...  Fin du traitement
+end subroutine tecplot_export
+
+
+!
+!***************************************************************************************************************
+!***************************************************************************************************************
+!
+

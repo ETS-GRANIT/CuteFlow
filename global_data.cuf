@@ -1,0 +1,152 @@
+ module global
+    use precision_m
+    use cudafor
+
+!
+! ======================================================================
+!     global = module de stockage des variables
+!
+!     auteur  : Youssef Loukili  GRANIT ETSMTL
+!
+!     version : 1.0  ;  May 12 2003
+! ======================================================================
+!
+! ***************** variables mpi ***************
+    integer :: my_id, num_procs
+!
+! ***************** noms des fichiers de donnees ***************
+
+!
+    character(len=30)   :: fichter, fichmai, fichini, fichsim, fichinput
+!
+    namelist/datafich/ fichter, fichmai, fichini, fichsim, fichinput
+!
+! ***************** variables donnees du terrain ***************
+!
+    character(len=6)    :: limiteN, limiteS, limiteW, limiteE
+    character(len=3)    :: bathy_reel
+    integer             :: pente, friction
+    real(fp_kind)             :: lcx, lcy, valxpente, bathyx0, step, xstep, gp, manning, z_min_correction
+!
+    namelist/datafield/ lcx, lcy, pente, valxpente, bathyx0, bathy_reel, step, xstep, gp, z_min_correction, friction,manning, limiteN, limiteS, limiteW, limiteE
+!
+! ***************** variables donnees du maillage **************
+!
+    character(len=60)       :: meshfile
+    integer                 :: aleat, mail, mtri, nnx, nny, numerot, zcolumn
+    integer                 :: ncel, elt_bound
+    integer, dimension(20)  :: elts
+!
+    namelist/datamesh/ aleat, mail, mtri, nnx, nny, meshfile, elt_bound, numerot, zcolumn, ncel, elts 
+!
+! ***************** variables donnees initiales ****************
+!
+    character(len=200)  :: fich_sol_init
+    integer             :: solinit, eqlin_barrage
+    real(fp_kind)             :: h_amont, u_amont, v_amont, h_aval, u_aval, v_aval
+    real(fp_kind)             :: xcenter, ycenter, xgate, rayon, x1eqbar, x2eqbar, y1eqbar, y2eqbar
+!
+    namelist/datainit/ h_amont, u_amont, v_amont, h_aval, u_aval, v_aval, & 
+                     & xgate, xcenter, ycenter, rayon, eqlin_barrage, x1eqbar, x2eqbar, y1eqbar, y2eqbar, solinit, fich_sol_init
+!
+! ***************** variables donnees de simulation ************
+!
+    character(len=10)   :: timedisc
+    character(len=6)    :: inlet
+    character(len=30)   :: nom_test, loi_debitglob
+    integer :: test, iflux, limiteur, pas_dt, grd, visual, fricimplic, debit_var  
+    integer :: freqvisual, freqaffich, freqjauges, nbrjauges, nbrcoupes, densite_coupe, instjauges, soldomaine, n_soldom
+    integer :: comptvisu, cptvis2d, cptvis3d, cptvideo, cptvisjauge, cptvisdom, cptdebit 
+    real(fp_kind) :: long, critere_arret, debitglob, h_sortie, h_pod, alfa, delta_Q_pod
+    real(fp_kind) :: tbase, divbase, ts, tsstab, dt, cfl, tol, tolisec, tolratio, tolaffiche, tol_reg_perm
+    real(fp_kind), dimension(10) :: coupe_a, coupe_b, long_coupe
+    real(fp_kind), dimension(100000) :: tvis2d , tvis3d 
+    real(fp_kind), dimension(100) :: xjauges , yjauges
+    real(fp_kind) :: fact_lamda_pod, fact_h_pod, fact_lamda_pod_tild
+    integer :: pod, pid, shot, nsnap, n_video, base_unique, uselamdapodmoymax, nonlin, video, dim, k_base
+    integer :: multi_simul, monte_carlo
+!
+    namelist/datasimul/ test, nom_test, iflux, limiteur, fricimplic, timedisc, & 
+       & inlet,debit_var, debitglob, loi_debitglob, long, h_sortie, &
+       & tbase, divbase, ts, dt, pas_dt, cfl, tol_reg_perm, tol, tolisec, tolratio, tolaffiche, & 
+       & grd, visual, freqvisual, freqaffich, freqjauges, instjauges, &
+       & nbrjauges, xjauges, yjauges, nbrcoupes, densite_coupe, coupe_a, coupe_b, long_coupe,  &
+       & tvis2d, tvis3d, soldomaine, n_soldom, video, n_video, alfa, pod, shot, nsnap,&
+       & uselamdapodmoymax, fact_lamda_pod, fact_lamda_pod_tild, fact_h_pod, dim, multi_simul, monte_carlo
+!
+! ******************* input pour l'analyse stochastique ***************************
+!
+!   real(fp_kind)             ::debitglob, manning
+!   namelist/datainput/ debitglob, manning
+! **************************************************************
+!
+    character (2)  :: key, genrelt
+    character (3)  :: un_voisin_sec
+    character,  allocatable  :: un_voisin_sec1(:)
+    character (30) :: aaa1, bbb1, ntrirec, genrtest, genrmeth
+    character (30) :: valtemps, D_ETA, D_DEBIT, AFF_DEBITS, debit_tot, coef_frot
+    character (2)  :: njaug
+    character (200):: SOLFILE2D, SOLFILE3D, SOLFILE2D_MC, SOLFILE3D_MC, TECPLOT, SOLFILEMC, fichsolfile3d_MC_FV, fichsolfile3d_MC_POD 
+    character (200):: SOLFILEJ_ETA, SOLFILEJ_H, SOLFILEJ_U, SOLFILEJ_V, fich_debit_coupe, file_BC, file_Q_coupes
+    character (200):: sol_elt_ts, sol_elt_final, sol_nd_ts, sol_nd_final 
+    character (200):: solfile_eta_T3S, solfile_h_T3S, solfile_u_T3S, solfile_v_T3S
+!
+    character (20):: base_h_num, base_eta_num, base_eta_tild_num, base_hu_num, base_hv_num, base_u_num, base_v_num, lamda_moy_num, lamda_max_num, h_pod_num, fric_pod_num
+    character (1)::  num_seq_base1
+    character (2)::  num_seq_base2
+    character (3)::  num_seq_base3
+
+    integer, parameter :: w=1, idim=1000, ndim=2, ndln=3     
+    integer, parameter :: departchrono=1
+    integer, parameter :: podftfull=1, convec=1
+    real,    parameter :: tolisec2=1.e-6, tolhfriction=1.e-4
+!
+    integer :: n_seq_base, i_seq_pod, compt_snap    
+    integer :: nelt, nnt, ns, ndi, ndo, ndw, correction, prediction, nbase, nbase_h, nbase_eta, nbase_eta_tild, nbase_hu, nbase_hv, nbase_u, nbase_v, maxdimbase
+    integer :: nelt_loc, nnt_loc
+    integer :: nelt_fant_recep, nelt_fant_envoi
+    integer :: nelt_entree, nelt_sortie, n_Q, tc_init, start
+    real(fp_kind) :: t_seq_pod, dt_seq_pod    
+! 
+    real(fp_kind) :: tc, cotemin, t_reg_perm, flux_total, long_entree, debit_n, x0, vol_tot_entre, vol_tot_sorti, debit_sortie,debit_sortie0, debit_entree, distcote
+    real(fp_kind) :: h0, coef_bol  ! Pour le problème du bol parabolique 
+!
+    real(fp_kind), dimension(100000)             :: tvis3d2 , tvis2d2, tvisjauge, tvisdom, tvideo
+    integer, dimension(:)  ,   allocatable :: ndinput, ndoutput, ndwall, i_dry_wet, nbr_nds_coupes
+    integer, dimension(:,:), allocatable :: elt_fant_recep, elt_fant_envoi
+    integer, dimension(:,:),   allocatable :: connectivite, boundary, ij_wet_dry, ij_dry_wet, elts_coupes_transv, nds_coupes
+    real(fp_kind), dimension(:)  ,   allocatable :: flux_interface, manning_nd, manning_nelt
+    real(fp_kind), dimension(:,:),   allocatable :: coo_table_elemwise, coordonnees, phi, phi_h, phi_eta, phi_eta_tild, phi_hu, phi_hv, phi_u, phi_v, phij_u, phij_v, phi_h_eta
+    real(fp_kind), dimension(:,:),   allocatable :: a, a0, a01, resred, Mpk1_hu, Mpk1_hv, vdlg_moy_snap
+    real(fp_kind), dimension(:,:),   allocatable :: Mpk_deta, Mpk_dhu, Mpk_dhv, Mpk_u, Mpk_v, hgn1, hgn2, un1,un2, vn1, vn2, Sfxu, Sfxv, Sfyv, Sfyu 
+    real(fp_kind), dimension(:,:,:), allocatable :: Cg2, Cg3, Chuu2, Chuv2, Chvv3, Chuv3, MSfxu, MSfxv, MSfyv, MSfyu
+    real(fp_kind), dimension(:),     allocatable :: a_eta, a0_eta, a01_eta, resred_eta, MQk_eta, Mcl_out_eta
+    real(fp_kind), dimension(:),     allocatable :: a_hu,  a0_hu,  a01_hu,  resred_hu, MQk_hu, Mcl_out_hu
+    real(fp_kind), dimension(:),     allocatable :: a_hv,  a0_hv,  a01_hv,  resred_hv, MQk_hv, Mcl_out_hv
+    real(fp_kind), dimension(:),     allocatable :: a_h, a_u,  a_v, hun1, hvn2, deta, dhu, dhv, hgHn1, hgHn2, huun1, huun2, huvn1, hvvn2, Sfx1, Sfx2, Sfy1, Sfy2
+    real(fp_kind), dimension(:),     allocatable :: huun1full, huun2full, huvn1full, hvvn2full, BQi_eta, BQi_hu, BQi_hv 
+    real(fp_kind), dimension(:,:),   allocatable :: Bi_jp,Bijp,Bijpn1_eta,Bijpn2_eta,Bijpn3_hu,Bijpn3_hv,Bi_jp_hu,Bi_jp_hv
+    real(fp_kind), dimension(:,:,:), allocatable :: Bijpn_uhu, Bijpn_uhv, Bijpn_vhu, Bijpn_vhv
+    real(fp_kind), dimension(:),     allocatable :: Bzmij, vectpod1, vectpod2, vectpod3, phi_h_zi, podlamdamoy, podlamdamax, h_pod_elt, coef_fric_pod_elt
+    real(fp_kind), dimension(:,:),   allocatable :: lamda_stock, vectpod, podlamdainterf, donnees_entree, donnees_sortie
+    real(fp_kind)                                :: podlamda,podlamda_moy,podlamda_max, lamda, max_a_eta, coef_friction_pod
+    real(fp_kind), dimension(:)  ,   allocatable :: podlamdafull, zero_pod, sourcfric_hu, sourcfric_hv, pod_friction_hu, pod_friction_hv, elts_entree, elts_sortie
+    real(fp_kind), dimension(:,:),   allocatable :: Cg2_eta_tild, Cg3_eta_tild, debit_t
+!
+    real(fp_kind), dimension(10)                 :: Q_coupe
+
+
+    type(cudaDeviceProp)                    :: prop
+
+
+    real(fp_kind), allocatable :: debit_entree_arr(:), x_centroid(:), y_centroid(:)
+    real(fp_kind), allocatable :: debit_sortie_arr(:)
+    real(fp_kind), allocatable :: vol_tot_entre_arr(:)
+    real(fp_kind), allocatable :: vol_tot_sorti_arr(:)
+    integer, allocatable :: io_identifier(:)
+    real(fp_kind), allocatable :: rtests_1d(:), rtests_2d(:,:), rtests1_1d(:), rtests1_2d(:,:)
+    real(fp_kind), allocatable :: itests_1d(:), itests_2d(:,:), itests1_1d(:), itests1_2d(:,:)
+    integer :: gridxlim, gridylim
+
+!
+end module global

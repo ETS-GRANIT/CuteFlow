@@ -1,0 +1,977 @@
+subroutine mail_rect_cudaf
+!
+! ======================================================================
+!
+!     mail_rect = routine de construction d'un maillage rectangulaire
+!
+!     auteur : Youssef Loukili  GRANIT ETSMTL
+!
+!     version : 1.0  ;  May 12 2003
+! ======================================================================
+!
+!     parametres =
+!
+! ======================================================================
+!
+    use precision_m
+    use global
+    use global_device
+    use m_param
+    use cudafor
+!
+    implicit none
+
+    interface
+
+        attributes(global) subroutine const_rect_coordonnees(hx, hy)
+            use precision_m
+            use global_device
+
+            real(fp_kind), value        :: hx, hy
+        end subroutine const_rect_coordonnees
+
+        attributes(global) subroutine const_rect_connectivite()
+            use precision_m
+            use global_device
+        end subroutine const_rect_connectivite
+
+    end interface
+
+! ... debut de l interface .............................................
+!
+! ... fin de l interface ...............................................
+! 
+! ... variables passees en parametre ...................................
+!
+! ... variables locales ................................................
+!
+    integer :: i, j, k
+    real(fp_kind)  :: hx, hy
+    type ( dim3 ) :: grid_loc, tblock_loc
+!
+! ... debut du traitement
+!   
+    nnt = nnx * nny
+    nelt = (nnx-1) * (nny-1)
+
+    nelt_d = nelt
+    nnt_d = nnt
+
+    call cuda_glerror('ierr <- (H->D) data transfer <- mail_rect_cudaf <-- mesh_construct.cuf',1)
+
+    allocate(coordonnees(nnt,3), coordonnees_d(nnt, 3))
+    allocate(connectivite(nelt,4), connectivite_d(nelt, 4))
+    allocate(boundary(nelt,4), boundary_d(nelt, 4))
+
+    call cuda_glerror('ierr <- device memory allocation <-- mail_rect_cudaf <-- mesh_construct.cuf',1)
+
+
+!
+    hx  = lcx / (nnx-1)
+    hy  = lcy / (nny-1)
+
+    if(nnx > 32 .and. nny > 32 .and. nnt > 1024) then 
+        
+        tblock_loc = dim3(32,32,1)
+        grid_loc  =  dim3(ceiling(real(nnx)/real(tblock_loc%x)), ceiling(real(nny)/real(tblock_loc%y)),1)
+        call check_gridlim(tblock_loc, grid_loc, 'err <- mail_rect_cudaf <-- mesh_construct.cuf (1)')
+
+        
+        call const_rect_coordonnees<<<grid_loc, tblock_loc>>>(hx, hy)
+        call cuda_glerror('ierr <- const_rect_coordonnees <-- mail_rect_cudaf <--- mesh_construct.cuf',1)
+
+        grid_loc  =  dim3(ceiling(real(nnx-1)/real(tblock_loc%x)), ceiling(real(nny-1)/real(tblock_loc%y)),1)
+        call check_gridlim(tblock_loc, grid_loc, 'err <- mail_rect_cudaf <-- mesh_construct.cuf (2)')
+
+        call const_rect_connectivite<<<grid_loc, tblock_loc>>>()
+        call cuda_glerror('ierr <- const_rect_connectivite <-- mail_rect_cudaf <--- mesh_construct.cuf',1)
+
+
+        coordonnees     = coordonnees_d
+        connectivite    = connectivite_d
+        boundary        = boundary_d
+        call cuda_glerror('ierr <- (D->H) data transfer into coordonnees, boundary, connectivite <-- mail_rect_cudaf <--- mesh_construct.cuf',1)
+
+    else
+
+        write(*,*) 'no. of mesh elements too small (< 1024), parallelisation not recommended for very small data size'
+        write(*,*) 'exiting ...'
+        call exit(1)
+
+    endif
+   
+!
+!------- table d'éléments de frontière -------!
+! ------- border elements table -------!
+!   
+    do i=1,nelt
+        write(ec_bound,*) i, boundary(i,1), boundary(i,2), boundary(i,3), boundary(i,4)
+    enddo
+!
+! ... fin du traitement ................................................
+!
+
+end subroutine mail_rect_cudaf
+
+
+attributes(global) subroutine const_rect_coordonnees(hx, hy)
+    
+    use precision_m
+    use global_device
+
+    implicit none
+
+    real(fp_kind), value        :: hx, hy
+
+
+    integer                     :: ti, tj, gi, gj, k
+
+    ti = threadIdx%x
+    tj = threadIdx%y
+    gi = (blockIdx%x - 1)*blockDim%x + ti
+    gj = (blockIdx%y - 1)*blockDim%y + tj
+
+    if (gi <= nnx_d .and. gj <= nny_d) then 
+
+        k = gi + nnx_d*(gj-1)
+        coordonnees_d(k,1) = (gi-1) * hx
+        coordonnees_d(k,2) = (gj-1) * hy
+        coordonnees_d(k,3) = 0.d0
+
+    endif
+
+end subroutine const_rect_coordonnees
+
+attributes(global) subroutine const_rect_connectivite()
+    use precision_m
+    use global_device
+
+    implicit none
+
+    integer                     :: ti, tj, gi, gj, k
+
+    ti = threadIdx%x
+    tj = threadIdx%y
+    gi = (blockIdx%x - 1)*blockDim%x + ti
+    gj = (blockIdx%y - 1)*blockDim%y + tj
+
+    if (gi <= (nnx_d -1) .and. gj <= (nny_d -1)) then    
+    
+            k = gi + (nnx_d-1) * (gj-1)
+    
+            connectivite_d(k,1) = k + gj - 1
+            connectivite_d(k,2) = k + gj
+            connectivite_d(k,3) = k + nnx_d + gj
+            connectivite_d(k,4) = k + nnx_d + gj - 1
+           
+            boundary_d(k,1) = k - (nnx_d-1)
+            boundary_d(k,2) = k + 1
+            boundary_d(k,3) = k + (nnx_d-1)
+            boundary_d(k,4) = k - 1
+    
+            if (gj ==1)             boundary_d(k,1) = k
+            if (gi == (nnx_d-1))    boundary_d(k,2) = k
+            if (gj == (nny_d-1))    boundary_d(k,3) = k
+            if (gi ==1)             boundary_d(k,4) = k
+    endif
+
+end subroutine const_rect_connectivite
+
+!*********************************************************************************************************************************************
+!*********************************************************************************************************************************************
+!*********************************************************************************************************************************************
+!*********************************************************************************************************************************************
+!*********************************************************************************************************************************************
+!*********************************************************************************************************************************************
+!*********************************************************************************************************************************************
+!*********************************************************************************************************************************************
+                                                                !mail_tri_a
+!*********************************************************************************************************************************************
+!*********************************************************************************************************************************************
+!*********************************************************************************************************************************************
+!*********************************************************************************************************************************************
+!*********************************************************************************************************************************************
+!*********************************************************************************************************************************************
+!*********************************************************************************************************************************************
+!*********************************************************************************************************************************************
+!*********************************************************************************************************************************************
+
+subroutine mail_tri_a_cudaf
+!
+! ======================================================================
+!
+!     mail_tri_a = routine de construction d'un maillage triangulaire type (a)
+!
+!     auteur : Youssef Loukili  GRANIT ETSMTL
+!
+!     version : 1.0  ;  May 12 2003
+! ======================================================================
+!
+!     parametres =
+!
+! ======================================================================
+!
+    use precision_m
+    use global
+    use global_device
+    use m_param
+    use cudafor
+
+    implicit none
+
+! ... debut de l interface .............................................
+!
+! ... fin de l interface ...............................................
+! 
+! ... variables passees en parametre ...................................
+!
+! ... variables locales ................................................
+!
+    integer         :: i, j, k, kplus
+    real(fp_kind)   :: hx, hy
+    type ( dim3 )   :: grid_loc, tblock_loc
+
+
+    interface
+        attributes(global) subroutine const_tri_a_coordonnees(hx, hy)
+            use precision_m
+            use global_device
+            implicit none
+            real(fp_kind), value        :: hx, hy
+        end subroutine const_tri_a_coordonnees
+
+        attributes(global) subroutine const_tri_a_connectivite()
+            use precision_m
+            use global_device
+            implicit none
+
+        end subroutine const_tri_a_connectivite
+    end interface
+!
+! ... debut du traitement
+!   
+    nnt     = nnx * nny
+    nelt    = 2 * (nnx-1) * (nny-1)
+    nnt_d   = nnt
+    nelt_d  = nelt
+    
+    
+    call cuda_glerror('ierr <- (H->D) data transfer into nnt_d, nelt_d <-- mail_tri_a_cudaf <--- mesh_construct.cuf',1)
+
+    allocate(coordonnees(nnt,3), coordonnees_d(nnt, 3))
+    allocate(connectivite(nelt,3), connectivite_d(nelt, 3))
+    call cuda_glerror('ierr <- device memory allocation <-- mail_tri_a_cudaf <--- mesh_construct.cuf',1)
+!   
+    hx  = lcx / (nnx-1)
+    hy  = lcy / (nny-1)
+!
+    if(nnx > 32 .and. nny > 32 .and. nnt > 1024) then 
+        
+        tblock_loc = dim3(16,16,1)
+        grid_loc  =  dim3(ceiling(real(nnx)/real(tblock_loc%x)), ceiling(real(nny)/real(tblock_loc%y)),1)
+
+        call check_gridlim(tblock_loc, grid_loc, 'err <- mail_tri_a_cudaf <-- mesh_construct.cuf (1)')
+
+        call const_tri_a_coordonnees<<<grid_loc, tblock_loc>>>(hx, hy)
+        call cuda_glerror('ierr <- const_tri_a_coordonnees <-- mail_tri_a_cudaf <--- mesh_construct.cuf',1)
+
+        grid_loc  =  dim3(ceiling(real(nnx-1)/real(tblock_loc%x)), ceiling(real(nny-1)/real(tblock_loc%y)),1)
+
+        call check_gridlim(tblock_loc, grid_loc, 'err <- mail_tri_a_cudaf <-- mesh_construct.cuf (2)')
+
+        call const_tri_a_connectivite<<<grid_loc, tblock_loc>>>()
+        call cuda_glerror('ierr <- const_tri_a_connectivite <-- mail_tri_a_cudaf <--- mesh_construct.cuf',1)
+
+        coordonnees     = coordonnees_d
+        connectivite    = connectivite_d
+        call cuda_glerror('ierr <- (D->H) data transfer into coordonnees, connectivite <-- mail_tri_a_cudaf <--- mesh_construct.cuf',1)
+
+    else
+
+        write(*,*) 'no. of nodes too small (< 1024), parallelisation not recommended for very small data size'
+        write(*,*) 'exiting ...'
+        call exit(1)
+        
+    endif
+!
+! == table de connectivite d'un maillage triangulaire pris du maillage rectangulaire :
+!
+!  -----
+! | - u |
+! |  -  |i = 1,2,4 -- u = 2,3,4 - type (a)
+! |i  - |
+!  -----
+
+!  -----
+! |u   -|
+! |  -  |i = 1,2,3 -- u = 1,3,4 - type (b)
+! |- i  |
+!  -----
+!
+! ... fin du traitement ................................................
+!
+end subroutine mail_tri_a_cudaf
+
+attributes(global) subroutine const_tri_a_coordonnees(hx, hy)
+    
+    use precision_m
+    use global_device
+
+    implicit none
+
+    real(fp_kind), value        :: hx, hy
+
+    integer                     :: ti, tj, gi, gj, k
+
+    ti = threadIdx%x
+    tj = threadIdx%y
+    gi = (blockIdx%x - 1)*blockDim%x + ti
+    gj = (blockIdx%y - 1)*blockDim%y + tj
+
+    if (gi <= nnx_d .and. gj <= nny_d) then 
+
+        k = gi + nnx_d*(gj-1)
+        if(test_d == 8) then    ! Cas du bol 
+            coordonnees_d(k,1) = (gi-1) * hx -lcx_d/2
+            coordonnees_d(k,2) = (gj-1) * hy -lcy_d/2
+        else
+            coordonnees_d(k,1) = (gi-1) * hx
+            coordonnees_d(k,2) = (gj-1) * hy
+        endif       
+
+        coordonnees_d(k,3) = 0.d0
+
+    endif
+
+end subroutine const_tri_a_coordonnees
+
+attributes(global) subroutine const_tri_a_connectivite()
+    
+    use precision_m
+    use global_device
+
+    implicit none
+
+    integer                     :: ti, tj, gi, gj, k, kplus
+
+    ti = threadIdx%x
+    tj = threadIdx%y
+    gi = (blockIdx%x - 1)*blockDim%x + ti
+    gj = (blockIdx%y - 1)*blockDim%y + tj
+
+    if (gi <= (nnx_d -1) .and. gj <= (nny_d -1)) then    
+    
+        k = gi + (nnx_d-1) * (gj-1)
+      
+        connectivite_d(k,1) = k + gj - 1
+        connectivite_d(k,2) = k + gj
+        connectivite_d(k,3) = k + nnx_d + gj - 1
+
+        kplus = k + (nnx_d-1) * (nny_d-1)
+
+        connectivite_d(kplus,1) = k + gj
+        connectivite_d(kplus,2) = k + nnx_d + gj
+        connectivite_d(kplus,3) = k + nnx_d + gj - 1
+
+    endif
+
+end subroutine const_tri_a_connectivite
+
+!*********************************************************************************************************************************************
+!*********************************************************************************************************************************************
+!*********************************************************************************************************************************************
+!*********************************************************************************************************************************************
+!*********************************************************************************************************************************************
+!*********************************************************************************************************************************************
+!*********************************************************************************************************************************************
+!*********************************************************************************************************************************************
+                                                                !mail_tri_b_cudaf
+!*********************************************************************************************************************************************
+!*********************************************************************************************************************************************
+!*********************************************************************************************************************************************
+!*********************************************************************************************************************************************
+!*********************************************************************************************************************************************
+!*********************************************************************************************************************************************
+!*********************************************************************************************************************************************
+!*********************************************************************************************************************************************
+!*********************************************************************************************************************************************
+
+subroutine mail_tri_b_cudaf
+!
+! ======================================================================
+!
+!     mail_tri_b = routine de construction d'un maillage triangulaire type (b)
+!
+!     auteur : Youssef Loukili  GRANIT ETSMTL
+!
+!     version : 1.0  ;  May 12 2003
+! ======================================================================
+!
+!     parametres =
+!
+! ======================================================================
+!
+    use precision_m
+    use global
+    use global_device
+    use m_param
+    use cudafor
+
+    implicit none
+
+! ... debut de l interface .............................................
+!
+! ... fin de l interface ...............................................
+! 
+! ... variables passees en parametre ...................................
+!
+! ... variables locales ................................................
+!
+    integer :: i, j, k, kplus
+    real(fp_kind)  :: hx, hy
+    type ( dim3 ) :: grid_loc, tblock_loc
+
+    interface
+        attributes(global) subroutine const_tri_b_coordonnees(hx, hy)
+            use precision_m
+            use global_device
+            implicit none
+            real(fp_kind), value        :: hx, hy
+        end subroutine const_tri_b_coordonnees
+
+        attributes(global) subroutine const_tri_b_connectivite()
+            use precision_m
+            use global_device
+            implicit none
+
+        end subroutine const_tri_b_connectivite
+    end interface
+!
+! ... debut du traitement
+!   
+    nnt     = nnx * nny
+    nelt    = 2 * (nnx-1) * (nny-1)
+    nnt_d   = nnt
+    nelt_d  = nelt
+
+    call cuda_glerror('ierr <-(H->D) data transfer into nnt_d, nelt_d <-- mail_tri_b_cudaf  <--- mesh_construct.cuf',1)
+
+    allocate(coordonnees(nnt,3), coordonnees_d(nnt, 3))
+    allocate(connectivite(nelt,3), connectivite_d(nelt, 3))
+    call cuda_glerror('ierr <- device memory allocation  <-- mail_tri_b_cudaf <--- mesh_construct.cuf',1)
+!   
+    hx  = lcx / (nnx-1)
+    hy  = lcy / (nny-1)
+
+    if(nnx > 32 .and. nny > 32 .and. nnt > 1024) then 
+        
+        tblock_loc = dim3(16,16,1)
+        grid_loc  =  dim3(ceiling(real(nnx)/real(tblock_loc%x)), ceiling(real(nny)/real(tblock_loc%y)),1) 
+
+        call check_gridlim(tblock_loc, grid_loc, 'err <- mail_tri_b_cudaf <-- mesh_construct.cuf (1)')
+
+        call const_tri_b_coordonnees<<<grid_loc, tblock_loc>>>(hx, hy)
+        call cuda_glerror('ierr <- const_tri_b_coordonnees <-- mail_tri_b_cudaf <--- mesh_construct.cuf',1)
+
+        grid_loc  =  dim3(ceiling(real(nnx-1)/real(tblock_loc%x)), ceiling(real(nny-1)/real(tblock_loc%y)),1)
+        call check_gridlim(tblock_loc, grid_loc, 'err <- mail_tri_b_cudaf <-- mesh_construct.cuf (2)')
+
+        call const_tri_b_connectivite<<<grid_loc, tblock_loc>>>()
+        call cuda_glerror('ierr <- const_tri_b_connectivite <-- mail_tri_b_cudaf <--- mesh_construct.cuf',1)
+
+        coordonnees     = coordonnees_d
+        connectivite    = connectivite_d
+        call cuda_glerror('ierr <- (D->H) data transfer into coordonnees, connectivite <-- mail_tri_b_cudaf <--- mesh_construct.cuf',1)
+
+    else
+
+        write(*,*) 'no. of nodes too small (< 1024), parallelisation not recommended for very small data size'
+        write(*,*) 'exiting ...'
+        call exit(1)
+
+    endif
+!
+! == table de connectivite d'un maillage triangulaire pris du maillage rectangulaire :
+!
+!  -----
+! | - u |
+! |  -  |i = 1,2,4 -- u = 2,3,4 - type (a)
+! |i  - |
+!  -----
+
+!  -----
+! |u   -|
+! |  -  |i = 1,2,3 -- u = 1,3,4 - type (b)
+! |- i  |
+!  -----
+!
+! ... fin du traitement ................................................
+!
+end subroutine mail_tri_b_cudaf
+
+attributes(global) subroutine const_tri_b_coordonnees(hx, hy)
+    
+    use precision_m
+    use global_device
+
+    implicit none
+
+    real(fp_kind), value        :: hx, hy
+
+    integer                     :: ti, tj, gi, gj, k
+
+    ti = threadIdx%x
+    tj = threadIdx%y
+    gi = (blockIdx%x - 1)*blockDim%x + ti
+    gj = (blockIdx%y - 1)*blockDim%y + tj
+
+    if (gi <= nnx_d .and. gj <= nny_d) then 
+        
+        k = gi + nnx_d * (gj-1)
+        coordonnees_d(k,1) = (gi-1) * hx
+        coordonnees_d(k,2) = (gj-1) * hy
+        coordonnees_d(k,3) = 0.d0
+
+    endif
+
+end subroutine const_tri_b_coordonnees
+
+attributes(global) subroutine const_tri_b_connectivite()
+    
+    use precision_m
+    use global_device
+
+    implicit none
+
+    integer                     :: ti, tj, gi, gj, k, kplus
+
+    ti = threadIdx%x
+    tj = threadIdx%y
+    gi = (blockIdx%x - 1)*blockDim%x + ti
+    gj = (blockIdx%y - 1)*blockDim%y + tj
+
+    if (gi <= (nnx_d -1) .and. gj <= (nny_d -1)) then    
+        
+        k = gi + (nnx_d-1) * (gj-1)
+       
+        connectivite_d(k,1) = k + gj - 1
+        connectivite_d(k,2) = k + gj
+        connectivite_d(k,3) = k + nnx_d + gj
+
+        kplus = k + (nnx_d-1) * (nny_d-1)
+
+        connectivite_d(kplus,1) = k + gj - 1
+        connectivite_d(kplus,2) = k + nnx_d + gj
+        connectivite_d(kplus,3) = k + nnx_d + gj - 1
+
+    endif
+
+end subroutine const_tri_b_connectivite
+
+
+
+!*********************************************************************************************************************************************
+!*********************************************************************************************************************************************
+!*********************************************************************************************************************************************
+!*********************************************************************************************************************************************
+!*********************************************************************************************************************************************
+!*********************************************************************************************************************************************
+!*********************************************************************************************************************************************
+!*********************************************************************************************************************************************
+                                                                !mail_tri_c_cudaf
+!*********************************************************************************************************************************************
+!*********************************************************************************************************************************************
+!*********************************************************************************************************************************************
+!*********************************************************************************************************************************************
+!*********************************************************************************************************************************************
+!*********************************************************************************************************************************************
+!*********************************************************************************************************************************************
+!*********************************************************************************************************************************************
+!*********************************************************************************************************************************************
+
+subroutine mail_tri_c_cudaf
+!
+! ======================================================================
+!
+!     mail_tri_c = routine de construction d'un maillage triangulaire type (c)
+!
+!     auteur : Youssef Loukili  GRANIT ETSMTL
+!
+!     version : 1.0  ;  May 12 2003
+! ======================================================================
+!
+!     parametres =
+!
+! ======================================================================
+!
+    use precision_m
+    use global
+    use global_device
+    use m_param
+    use cudafor
+
+    implicit none
+
+! ... debut de l interface .............................................
+!
+! ... fin de l interface ...............................................
+! 
+! ... variables passees en parametre ...................................
+!
+!
+! ... variables locales ................................................
+!
+    integer :: i, j, k, kplus, nnx1, nny1
+    real(fp_kind)  :: hx, hy
+    type ( dim3 ) :: grid_loc, tblock_loc
+
+
+    interface
+        attributes(global) subroutine const_tri_c_coordonnees(hx, hy)
+            use precision_m
+            use global_device
+            implicit none
+            real(fp_kind), value        :: hx, hy
+        end subroutine const_tri_c_coordonnees
+
+        attributes(global) subroutine const_tri_c_connectivite()
+            use precision_m
+            use global_device
+            implicit none
+
+        end subroutine const_tri_c_connectivite
+    end interface
+!
+! ... debut du traitement
+!   
+    nnt     = nnx * nny
+    nelt    = 2 * (nnx-1) * (nny-1)
+    nnt_d   = nnt
+    nelt_d  = nelt
+
+    call cuda_glerror('ierr <- (H->D) data transfer into nnt_d, nelt_d <-- mail_tri_c_cudaf <--- mesh_construct.cuf ',1)
+
+    allocate(coordonnees(nnt,3), coordonnees_d(nnt, 3))
+    allocate(connectivite(nelt,3), connectivite_d(nelt, 3))
+    call cuda_glerror('ierr <- device memory allocation <-- mail_tri_c_cudaf <--- mesh_construct.cuf',1)
+!   
+    hx  = lcx / (nnx-1)
+    hy  = lcy / (nny-1)
+!
+
+    if(nnx > 32 .and. nny > 32 .and. nnt > 1024) then 
+        tblock_loc = dim3(16,16,1)
+        grid_loc  =  dim3(ceiling(real(nnx)/real(tblock_loc%x)), ceiling(real(nny)/real(tblock_loc%y)),1) 
+
+        call check_gridlim(tblock_loc, grid_loc, 'err <- mail_tri_c_cudaf <-- mesh_construct.cuf (1)')
+
+        call const_tri_c_coordonnees<<<grid_loc, tblock_loc>>>(hx, hy)
+        call cuda_glerror('ierr <- const_tri_c_coordonnees <-- mail_tri_c_cudaf <--- mesh_construct.cuf',1)
+
+        grid_loc  =  dim3(ceiling(real(nnx-1)/real(tblock_loc%x)), ceiling(real(nny-1)/real(tblock_loc%y)),1)
+
+        call check_gridlim(tblock_loc, grid_loc,  'err <- mail_tri_c_cudaf <-- mesh_construct.cuf (2)')
+
+        call const_tri_c_connectivite<<<grid_loc, tblock_loc>>>()
+        call cuda_glerror('ierr <- const_tri_c_connectivite <-- mail_tri_c_cudaf <--- mesh_construct.cuf',1)
+
+        coordonnees     = coordonnees_d
+        connectivite    = connectivite_d
+
+        call cuda_glerror('ierr <- (D->H) data transfer into coordonnees, connectivite mail_tri_c_cudaf <--- mesh_construct.cuf',1)
+
+    else
+
+        write(*,*) 'no. of nodes too small (< 1024), parallelisation not recommended for very small data size'
+        write(*,*) 'exiting ...'
+        call exit(1)
+
+    endif
+!
+!
+! ... fin du traitement ................................................
+!
+end subroutine mail_tri_c_cudaf
+
+
+
+
+
+
+attributes(global) subroutine const_tri_c_coordonnees(hx, hy)
+    
+    use precision_m
+    use global_device
+
+    implicit none
+
+    real(fp_kind), value        :: hx, hy
+
+    integer                     :: ti, tj, gi, gj, k
+
+    ti = threadIdx%x
+    tj = threadIdx%y
+    gi = (blockIdx%x - 1)*blockDim%x + ti
+    gj = (blockIdx%y - 1)*blockDim%y + tj
+
+    if (gi <= nnx_d .and. gj <= nny_d) then 
+
+        k = gi + nnx_d * (gj-1)
+        coordonnees_d(k,1) = (gi-1) * hx
+        coordonnees_d(k,2) = (gj-1) * hy
+        coordonnees_d(k,3) = 0.d0
+
+    endif
+
+end subroutine const_tri_c_coordonnees
+
+attributes(global) subroutine const_tri_c_connectivite()
+    
+    use precision_m
+    use global_device
+
+    implicit none
+
+    integer                     :: ti, tj, gi, gj, k, kplus, nnx1, nny1, nnx, nny, flag
+
+    ti = threadIdx%x
+    tj = threadIdx%y
+    gi = (blockIdx%x - 1)*blockDim%x + ti
+    gj = (blockIdx%y - 1)*blockDim%y + tj
+
+    nnx   = nnx_d
+    nny   = nny_d
+
+    nnx1  = int(nnx/2.0d0 + 1)
+    nny1  = int(nny/2.0d0 + 1)
+
+    k     = gi + (nnx-1) * (gj-1)
+    kplus = k + (nnx-1) * (nny-1)
+
+    flag = 0
+
+    if( ( gi <= (nnx -1) .and. gi >= nnx1 .and. gj <= (nny1 -1) ) .or. ( gj <= (nny - 1) .and. gj >= nny1 .and. gi <= (nnx1 -1) ) ) flag = 1
+
+    if (gi <= (nnx -1) .and. gj <= (nny -1)) then
+
+        connectivite_d(k,1) = k + gj - 1
+        connectivite_d(k,2) = k + gj
+        connectivite_d(k,3) = k + nnx + gj - 1*flag
+
+        call syncthreads()
+
+        connectivite_d(kplus,1) = k + gj - 1*(1 - flag)
+        connectivite_d(kplus,2) = k + nnx + gj
+        connectivite_d(kplus,3) = k + nnx + gj - 1    
+
+    endif
+
+end subroutine const_tri_c_connectivite
+
+!*********************************************************************************************************************************************
+!*********************************************************************************************************************************************
+!*********************************************************************************************************************************************
+!*********************************************************************************************************************************************
+!*********************************************************************************************************************************************
+!*********************************************************************************************************************************************
+!*********************************************************************************************************************************************
+!*********************************************************************************************************************************************
+                                                                !tab_bound_rect_cudaf
+!*********************************************************************************************************************************************
+!*********************************************************************************************************************************************
+!*********************************************************************************************************************************************
+!*********************************************************************************************************************************************
+!*********************************************************************************************************************************************
+!*********************************************************************************************************************************************
+!*********************************************************************************************************************************************
+!*********************************************************************************************************************************************
+!*********************************************************************************************************************************************
+
+subroutine tab_bound_rect_cudaf
+!
+! ======================================================================
+!
+!     tab_bound_rect = construction table des elements frontiers (cas rectangulaire)
+!
+!     auteur : Youssef Loukili  GRANIT ETSMTL
+!
+!     version : 1.0  ;  May 12 2003
+! ======================================================================
+!
+!     parametres =
+!
+! ======================================================================
+!
+    use precision_m
+    use global
+    use global_device
+    use m_param
+    use cudafor
+!
+    implicit none
+
+    interface
+        attributes (global) subroutine set_boundary()
+            use precision_m
+            use global_device
+            implicit none
+        end subroutine set_boundary
+
+        attributes (global) subroutine find_neighbour_rect()
+            use precision_m
+            use global_device
+            implicit none
+        end subroutine find_neighbour_rect
+
+        attributes (global) subroutine find_neighbour_rect_big(nmin, nmax)
+            use precision_m
+            use global_device
+            implicit none
+
+            integer, value :: nmin, nmax
+        end subroutine find_neighbour_rect_big
+    end interface
+!
+    type ( dim3 ) :: grid_loc, tblock_loc, block_set, grid_set
+    integer :: ierr_loc, nity, i
+
+    block_set = dim3(32,1,1)
+    grid_set  = dim3(ceiling(real(nelt)/real(block_set%x)),1,1)
+    call check_gridlim(block_set, grid_set, 'err <- tab_bound_rect_cudaf <-- mesh_construct.cuf (1)')
+    
+    tblock_loc = dim3(16,16,1)
+    grid_loc  =  dim3(ceiling(real(nelt)/real(tblock_loc%x)), ceiling(real(nelt)/real(tblock_loc%y)),1) 
+
+    if(grid_loc%x > gridxlim) then 
+
+        tblock_loc = dim3(32,32,1)
+        grid_loc  =  dim3(ceiling(real(nelt)/real(tblock_loc%x)), ceiling(real(nelt)/real(tblock_loc%y)),1)
+        
+        if(grid_loc%x  > gridxlim) then 
+            write(*,*) 'Error -> The no. of blocks required to complete the operation of constructing boundary table exceed the limits'
+            write(*,*) 'Exiting....'
+            call exit(1)
+        endif
+
+    endif 
+
+    call set_boundary<<<grid_set, block_set>>>()
+    call cuda_glerror('ierr <- tab_bound_tri_cudaf <- set_boundary <- mesh_construct.cuf',1)
+
+    if(grid_loc%y > gridylim) then
+
+        tblock_loc = dim3(32,32,1)
+        grid_loc  =  dim3(ceiling(real(nelt)/real(tblock_loc%x)), ceiling(real(nelt)/real(tblock_loc%y)),1) 
+        
+        if(grid_loc%y > gridylim) then
+
+            nity = ceiling(real(grid_loc%y)/real(gridylim))
+            
+            grid_loc = dim3(ceiling(real(nelt)/real(tblock_loc%x)), gridylim, 1)
+            write(*,*) 'nity = ', nity
+            write(*,*) 'grid_loc%x, grid_loc%y  = ', grid_loc%x, grid_loc%y
+
+            do i = 1,nity
+                call find_neighbour_rect_big<<<grid_loc, tblock_loc>>>((i-1)*gridylim*tblock_loc%y + 1, i*gridylim*tblock_loc%y)
+                call cuda_glerror('ierr <- tab_bound_tri_cudaf <--find_neighbour_big <-- mesh_construct.cuf',1)
+            enddo
+        
+        else
+            call find_neighbour_rect<<<grid_loc, tblock_loc>>>()
+            call cuda_glerror('ierr <- tab_bound_tri_cudaf <-- find_neighbour (1) <-- mesh_construct.cuf',1)
+        endif
+
+    else
+
+        call find_neighbour_rect<<<grid_loc, tblock_loc>>>()
+        call cuda_glerror('ierr <- tab_bound_tri_cudaf <-- find_neighbour (2) <-- mesh_construct.cuf',1)
+
+    endif
+!
+! ... fin du traitement ................................................
+!
+end subroutine tab_bound_rect_cudaf
+
+attributes (global) subroutine find_neighbour_rect()
+    use precision_m
+    use global_device
+    implicit none
+
+    integer :: ti,tj,gi,gj,m1,m2,m3,m4,n1,n2,n3,n4
+
+    ti = threadIdx%x
+    tj = threadIdx%y
+    gi = (blockIdx%x - 1)*blockDim%x + ti
+    gj = (blockIdx%y - 1)*blockDim%y + tj
+
+    if(gi /= gj .and. gi <= nelt_d .and. gj <=nelt_d) then
+        
+        n1 = connectivite_d(gi,1)
+        n2 = connectivite_d(gi,2)
+        n3 = connectivite_d(gi,3)
+        n3 = connectivite_d(gi,4)
+
+
+        m1 = connectivite_d(gj,1)
+        m2 = connectivite_d(gj,2)
+        m3 = connectivite_d(gj,3)
+        m4 = connectivite_d(gj,4)
+
+        if ( m1==n1 .and. m4==n2 .or. m4==n1 .and. m3==n2 &
+             &.or. m3==n1 .and. m2==n2 .or. m2==n1 .and. m1==n2 ) boundary_d(gi,1) = gj
+
+        if ( m1==n2 .and. m4==n3 .or. m4==n2 .and. m3==n3 &
+             &.or. m3==n2 .and. m2==n3 .or. m2==n2 .and. m1==n3 ) boundary_d(gi,2) = gj
+
+        if ( m1==n3 .and. m4==n4 .or. m4==n3 .and. m3==n4 &
+             &.or. m3==n3 .and. m2==n4 .or. m2==n3 .and. m1==n4 ) boundary_d(gi,3) = gj
+
+        if ( m1==n4 .and. m4==n1 .or. m4==n4 .and. m3==n1 &
+             &.or. m3==n4 .and. m2==n1 .or. m2==n4 .and. m1==n1 ) boundary_d(gi,4) = gj
+
+    endif
+
+end subroutine find_neighbour_rect
+
+attributes (global) subroutine find_neighbour_rect_big(nmin, nmax)
+    use precision_m
+    use global_device
+    implicit none
+
+    integer, value :: nmin, nmax
+
+    integer :: ti,tj,gi,gj,m1,m2,m3,m4,n1,n2,n3,n4
+
+    ti = threadIdx%x
+    tj = threadIdx%y
+    gi = (blockIdx%x - 1)*blockDim%x + ti
+    gj = nmin - 1 + (blockIdx%y - 1)*blockDim%y + tj
+
+    if(gi /= gj .and. gi <= nelt_d .and. gj <= nmax .and. gj >= nmin .and. gj <= nelt_d) then
+        
+        n1 = connectivite_d(gi,1)
+        n2 = connectivite_d(gi,2)
+        n3 = connectivite_d(gi,3)
+        n3 = connectivite_d(gi,4)
+
+
+        m1 = connectivite_d(gj,1)
+        m2 = connectivite_d(gj,2)
+        m3 = connectivite_d(gj,3)
+        m4 = connectivite_d(gj,4)
+
+        if ( n1==m1 .and. n4==m2 .or. n4==m1 .and. n3==m2 &
+             &.or. n3==m1 .and. n2==m2 .or. n2==m1 .and. n1==m2 ) boundary_d(gj,1) = gi
+
+        if ( n1==m2 .and. n4==m3 .or. n4==m2 .and. n3==m3 &
+             &.or. n3==m2 .and. n2==m3 .or. n2==m2 .and. n1==m3 ) boundary_d(gj,2) = gi
+
+        if ( n1==m3 .and. n4==m4 .or. n4==m3 .and. n3==m4 &
+             &.or. n3==m3 .and. n2==m4 .or. n2==m3 .and. n1==m4 ) boundary_d(gj,3) = gi
+
+        if ( n1==m4 .and. n4==m1 .or. n4==m4 .and. n3==m1 &
+             &.or. n3==m4 .and. n2==m1 .or. n2==m4 .and. n1==m1 ) boundary_d(gj,4) = gi
+
+    endif
+
+end subroutine find_neighbour_rect_big

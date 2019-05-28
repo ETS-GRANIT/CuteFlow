@@ -1,0 +1,1138 @@
+subroutine Full_FV 
+!====================================================================================================   
+!                                       FULL FV
+!====================================================================================================
+!
+!     Auteur : Jean-Marie Zokagoa
+!
+!     version : 2010
+!
+! ======================================================================
+!
+    use precision_m
+    use global
+    use global_device
+    use main_prog_variables
+    use m_param
+    use cudafor
+!
+!   use avdef
+!   use avviewer
+!   use dflib
+!   use dfmt
+!   use dflogm
+!
+    implicit none
+! *** bloc interface ***
+!
+    interface
+
+        subroutine get_io_index
+            use precision_m
+            use global
+            use global_device
+            implicit none
+        end subroutine get_io_index
+
+
+        attributes(global) subroutine cflcond_cudaf(solut_d, deltatmin_d)
+            use precision_m
+            use global_device 
+            real(fp_kind), dimension(:,:), intent(in)     :: solut_d
+            real(fp_kind), intent(inout)                  :: deltatmin_d(:)
+        end subroutine cflcond_cudaf
+
+        attributes(global) subroutine mise_a_jr_zone_seche_cudaf(zm_d,vdlg_d, vdlg1_d)
+            use precision_m
+            use global_device
+
+            real(fp_kind), dimension(:), intent(in)         :: zm_d
+            real(fp_kind), dimension(:,:), intent(inout)    :: vdlg_d, vdlg1_d
+        end subroutine mise_a_jr_zone_seche_cudaf
+
+        attributes(global) subroutine init_vdlg(vdlg_d, vdlg1_d,  zm_d)
+            use precision_m
+            use global_device
+            implicit none
+                    
+            real(fp_kind), intent(in)    :: vdlg1_d(:,:), zm_d(:)
+            real(fp_kind), intent(inout) :: vdlg_d(:,:)
+
+        end subroutine init_vdlg
+
+        attributes(global) subroutine copy_2d(a,b,n)
+            use precision_m
+            real(fp_kind), intent(inout) :: a(:,:), b(:,:)
+            integer, intent(in) :: n
+        end subroutine copy_2d
+
+        attributes(global) subroutine copy_2d_1(vdlg1_d, vdlg01_d, resj_d, niter, iter, dt_d, nelt_d)
+            use precision_m
+            real(fp_kind), intent(inout) :: vdlg1_d(:,:), vdlg01_d(:,:)
+            real(fp_kind), intent(in) :: resj_d(:,:), dt_d
+            integer, intent(in) :: nelt_d
+            integer, value :: niter, iter
+        end subroutine copy_2d_1
+
+        attributes(global) subroutine copy_into_res_d(niter_d, nelt_d)
+            use precision_m
+            use main_prog_variables
+            integer, intent(in) :: niter_d, nelt_d
+
+        end subroutine copy_into_res_d
+
+        attributes(global) subroutine copy_1d(a,b,n)
+            use precision_m
+            real(fp_kind), intent(inout) :: a(:), b(:)
+            integer, intent(in) :: n
+        end subroutine copy_1d
+
+        attributes(global) subroutine update_un_voisin_sec()
+            use precision_m
+            use global_device
+            implicit none
+        end subroutine update_un_voisin_sec
+
+        attributes(global) subroutine cotes_cudaf3(surf_d,zm_d,gradz_d,vdlg_d)
+            use precision_m
+            use global_device
+            implicit none
+            ! real(fp_kind), intent(inout)                 :: debit_sorti_d, debit_entre_d
+            real(fp_kind), dimension(:), intent(in)      :: surf_d, zm_d
+            real(fp_kind), dimension(:,:), intent(in)    :: gradz_d  ! remove it if not used
+            real(fp_kind), dimension(:,:), intent(in)    :: vdlg_d
+        end subroutine cotes_cudaf3
+
+        attributes(global) subroutine cotes_cudaf4(surf_d,zm_d,gradz_d,vdlg_d)
+            use precision_m
+            use global_device
+            implicit none
+            ! real(fp_kind), intent(inout)                 :: debit_sorti_d, debit_entre_d
+            real(fp_kind), dimension(:), intent(in)      :: surf_d, zm_d
+            real(fp_kind), dimension(:,:), intent(in)    :: gradz_d  ! remove it if not used
+            real(fp_kind), dimension(:,:), intent(in)    :: vdlg_d
+        end subroutine cotes_cudaf4
+
+!
+        subroutine gradeta(kvol,sh,greta)
+            use precision_m
+            use global
+            use m_param
+            integer , intent(in)                  :: kvol
+            real(fp_kind), dimension(:), intent(in)     :: sh
+            real(fp_kind), dimension(2), intent(inout)  :: greta
+        end subroutine gradeta
+!
+!
+        subroutine sol_nodes(vdlg,surf,zm,soleta,solh,solhu,solhv,solu,solv)
+            use precision_m
+            use global
+            use m_param
+            real(fp_kind), dimension(:,:), intent(in)   :: vdlg
+            real(fp_kind), dimension(:), intent(in)     :: surf, zm
+            real(fp_kind), dimension(:), intent(inout)  :: soleta,solh,solhu,solhv,solu,solv
+        end subroutine sol_nodes
+!
+
+        attributes(global) subroutine source_cudaf(vdlg_d,surf_d,zm_d,gradz_d)
+            use precision_m
+            use global_device
+            implicit none
+
+            real(fp_kind), dimension(:,:), intent(in)    :: vdlg_d
+            real(fp_kind), dimension(:), intent(in)      :: surf_d, zm_d
+            real(fp_kind), dimension(:,:), intent(in)    :: gradz_d
+        end subroutine source_cudaf
+!
+!
+        subroutine stock_coupe2D(solh, soleta, solhu, solu)
+            use precision_m
+            use global
+            use m_param
+            real(fp_kind), dimension(:), intent(inout)  :: solh, soleta, solhu, solu
+        end subroutine stock_coupe2D
+!
+        subroutine v_tecplot_vol(visio,vdlg,zm)
+            use precision_m
+            use global
+            use m_param
+            real(fp_kind), dimension(:,:), intent(in)    :: visio, vdlg
+            real(fp_kind), dimension(:), intent(in)      :: zm
+        end subroutine v_tecplot_vol
+!
+        subroutine v_tecplot_nod(solfile,she,sh,su,sv)
+            use precision_m
+            use global
+            use m_param
+            character (50), intent(in)              :: solfile
+            real(fp_kind), dimension(:), intent(in)       :: she, sh, su, sv
+        end subroutine v_tecplot_nod
+!
+        subroutine bluekenue_export(solh, soleta, solhu, solhv)
+            use precision_m
+            use global
+            use m_param
+            real(fp_kind), dimension(:), intent(inout)  :: soleta, solh, solhu, solhv
+        end subroutine bluekenue_export
+!
+        subroutine tecplot_export(solh, soleta, solhu, solhv)
+            use precision_m
+            use global
+            use m_param
+            real(fp_kind), dimension(:), intent(inout)  :: solh, soleta, solhu, solhv
+        end subroutine tecplot_export
+
+        attributes(global) subroutine calcul_residue_ele_cudaf(surf_d, resj_d)
+            use precision_m
+            use global_device
+            implicit none
+
+            real(fp_kind), intent(in) :: surf_d(:)
+            real(fp_kind), intent(inout) :: resj_d(:,:)
+        end subroutine calcul_residue_ele_cudaf
+!                           
+    end interface
+!  
+!
+!*** Variables locales ***
+!   
+    character (10) :: aaa, bbb, no_coupe
+    integer :: i, ii, j, p, kk, ss, iel, nd, dl, niter, iter, n, c, nt, n0, som, som1, som2, som3, n_it, nitf
+    integer :: evoisin, status, k, l, icor
+    integer :: nodjauge, is_solnode
+    integer, dimension(30) :: nodjauges
+!
+    real(fp_kind) :: v, r, uinf, flux, s, xyc, xiel, yiel, coupe_y, distjaugm1, distjaug, dt1, sizecheck
+    real(fp_kind) :: x, d, t, dtime, tcm, xc, yc, hauteur, newhaut, xnorm, zero, delta_debit0,delta_debit,deb_entre,deb_sorti,delta_eta
+    real(fp_kind) :: volume_entre,volume_sorti, delta_volume, volume_total, volume0, volume1, volume2,vol_tot_init, delta_volume_tot, delta_sol_tot, som_dtres_tot
+    real(fp_kind) :: h_output0, h_output, tc_arret, h_max, t_h_max, t_h_moy, scal, scal1, scal2, scal3, aux, som_Q_coupe
+!
+    real(fp_kind), dimension(2)  :: greta, grhaut
+!
+    ! real(fp_kind), dimension(:,:), allocatable :: greta_lisec, delta_sol
+    real(fp_kind) :: d2, t2, dtime2, tcm2
+
+    type(dim3 )                             :: grid, tblock, grid_nodes, tblock_nodes, grid11, tblock11, grids, tblocks,block_copy, grid_copy 
+    real(fp_kind)                           :: time_start, time_stop
+    real(fp_kind)                           :: errf, errf1, errf2, errf3, errf4, errf5
+    integer                                 :: ierr
+    real                                    :: time_cuda
+    type(cudaEvent)                         :: startEvent , stopEvent
+
+    integer, device                         :: niter_d
+    ! real(fp_kind), allocatable              :: dt_arr_pageable(:)
+    real(fp_kind), allocatable, pinned      :: dt_arr(:)
+    real(fp_kind), device, allocatable      :: deltatmin_d(:)
+
+!   
+    zero        = 0.d0
+    tc          = 0.d0
+    t_reg_perm  = 0.d0
+    nt          = 0          ! *** opérateur pour le nombre de pas ***! *** operator for the number of steps ***
+    comptvisu   = 0
+    cptvis2d    = 1
+    cptvis3d    = 1
+    compt_snap  = 1
+    cptvisjauge = 1
+    tc_d        = tc
+    kk          = 1
+    is_solnode  = 0
+
+    !Attention : POD part of the code is not parallelised
+    if (shot==1) pod=0
+!   -------------------------------------------
+    if (shot==1) then
+        do ii = 1,nsnap  ! Nombre de Snapshot
+            tvis3d2(ii) =  ii*ts/nsnap
+        enddo
+    endif
+!   -------------------------------------------
+    print*, ''
+    print*, 'FULL-ORDER : VOLUMES FINIS'
+    print*, ''
+
+    !Attention : POD part of the code is not parallelised
+    if(shot==1) print*, 'Stockage des Snaphots'
+    print*, ''
+        
+!   open(unit=499,file='COUPE.txt',status="unknown")
+       
+    ! allocate(greta_lisec(nelt,2))
+    ! allocate(vdlg_init(nelt,ndln))
+
+    allocate(resc_d(nelt, ndln),res_d(nelt, ndln), res1_d(nelt, ndln))
+    allocate(sourcfric_d(nelt,ndln))
+    allocate(io_identifier(nelt), io_identifier_d(nelt), debit_entree_arr(ndi+2), debit_entree_arr_d(ndi+2), debit_sortie_arr(ndo+2))
+    allocate(debit_sortie_arr_d(ndo), vol_tot_entre_arr_d(ndi+2), vol_tot_entre_arr(ndi+2), vol_tot_sorti_arr_d(ndo+2), vol_tot_sorti_arr(ndo+2))
+    allocate(dt_arr(nelt), deltatmin_d(nelt))
+    allocate(un_voisin_sec1_d(nelt))
+    allocate(afm1_d(nelt, 9))
+
+    call cuda_glerror('ierr <- cuda device mem allocation <-- Full_FV_cudaf_shared.cuf',1)
+
+    call get_io_index()
+
+!=========================================================================================================
+! *** detection des noeuds 'nodjauges' les plus proches des jauges ***
+! *** detection of nodes 'nodjauges' closest to the gauges ***!
+
+    if ( nbrjauges > 0 ) then
+        do j=1,nbrjauges
+            distjaugm1 = 100 * distcote
+            do i=1,nnt
+                distjaug = sqrt( ( xjauges(j) - coordonnees(i,1) )**2 + ( yjauges(j) - coordonnees(i,2) )**2 )
+                if ( distjaug < distjaugm1 ) then
+                    nodjauges(j) = i
+                    distjaugm1 = distjaug
+                endif
+            enddo
+        enddo
+    endif
+!
+! *** debut stokage solution pour les gauges ***
+! *** early storage solution for gauges ***!
+
+    if ( nbrjauges > 0 .and. nodjauges(1) >  0) then
+        write(njaug,'(i2)') nbrjauges
+        solfilej_eta = genrtest // 'FV ' // njaug // 'gauges' // '_eta' // '.txt'
+        solfilej_h = genrtest // 'FV ' // njaug // 'gauges' // '_h' // '.txt'
+        solfilej_u = genrtest // 'FV ' // njaug // 'gauges' // '_u' // '.txt'
+        solfilej_v = genrtest // 'FV ' // njaug // 'gauges' // '_v' // '.txt'
+
+        open(unit=ec_solj_eta,file=solfilej_eta,status="unknown")
+        open(unit=ec_solj_h,file=solfilej_h,status="unknown")
+        open(unit=ec_solj_u,file=solfilej_u,status="unknown")
+        open(unit=ec_solj_v,file=solfilej_v,status="unknown")
+        if ( nbrjauges <= 30 ) then
+            write(ec_solj_eta,'(f8.3,30f14.6)') 0.0 , (sh0(nodjauges(j)), j=1,nbrjauges)
+            write(ec_solj_h,'(f8.3,30f14.6)') 0.0 ,   (she0(nodjauges(j)),j=1,nbrjauges)
+            write(ec_solj_u,'(f8.3,30f14.6)') 0.0 ,   (su0(nodjauges(j)), j=1,nbrjauges)
+            write(ec_solj_v,'(f8.3,30f14.6)') 0.0 ,   (sv0(nodjauges(j)), j=1,nbrjauges)
+        else
+            write(*,*) '*** Attention : nombre de jauges > 30 ***'
+        endif
+    endif
+!
+!*****************************************************************************************************
+! *** preparation du nombre d'iterations concernant la discretisation en temps ***
+! *** preparation of the number of iterations concerning time discretization ***
+
+    if ( timedisc == 'euler' ) then         ! *** Euler ***
+        niter = 1
+        niter_d = niter
+    elseif ( timedisc == 'second' ) then    ! *** Second ordre ***
+        niter = 2
+        niter_d = niter
+        allocate(res2_d(nelt, ndln))
+    elseif ( timedisc == 'runge' ) then ! *** Runge-kutta ***
+        niter = 4
+        niter_d = niter
+        allocate(res2_d(nelt, ndln), res3_d(nelt, ndln), res4_d(nelt, ndln) )
+    else
+        write(*,*) 'choix de timedisc non valide'
+    endif
+    call cuda_glerror('ierr <- (H->D) data transfer into niter_d <-- Full_FV_cudaf_shared.cuf',1)
+
+ 
+!
+!*****************************************************************************************************
+!
+! *** début de la boucle sur les iterations du schema temporel ***
+! *** beginning of the loop on the temporal scheme iterations ***
+
+!
+
+    tblock = dim3(128, 1, 1)
+    grid   = dim3(ceiling(real(nelt)/real(tblock%x)), 1, 1)
+    call check_gridlim(tblock, grid, 'err <- Full_FV_cudaf_shared.cuf (1)')
+
+    block_copy = dim3(32,1,1) 
+    grid_copy = dim3(ceiling(real(nelt)/real(block_copy%x)),1,1)
+    call check_gridlim(block_copy, grid_copy, 'err <- Full_FV_cudaf_shared.cuf (2)')
+
+
+    tblock11 = dim3(128, 1, 1)
+    grid11   = dim3(ceiling(real(nelt)/real(tblock11%x)), 1, 1)
+    call check_gridlim(tblock11, grid11, 'err <- Full_FV_cudaf_shared.cuf (3)')
+
+
+    tblocks = dim3(64, ns, 1)
+    grids   = dim3(ceiling(real(nelt)/real(tblocks%x)), 1, 1)
+    call check_gridlim(tblocks, grids, 'err <- Full_FV_cudaf_shared.cuf (3)')
+
+    
+    if (solinit==1) then
+        if (tc_init < TS) then
+            tc = tc_init
+            tc_d = tc
+        else
+            print*,'TEMPS TOTAL DE SIMULATION INFERIEUR AU TEMPS DE LA SOLUTION INITIALE'
+            tc = 0.
+            tc_d = tc
+        endif
+
+    endif    
+!       
+    if ( pas_dt == 2 ) then 
+        call  cflcond_cudaf<<<grid, tblock>>>(vdlg0_d, deltatmin_d)
+        dt_arr = deltatmin_d
+        dt  = minval(dt_arr)
+        dt_d = dt
+    endif
+    call cuda_glerror('ierr<-cflcond_cudaf (1) <-- Full_FV_cudaf_shared.cuf',1)
+
+           
+!====================================================================================================
+    call cpu_time(ti)
+!====================================================================================================
+
+    debit_sortie0 = 0.d0
+    tc = 0.d0
+    tc_d = tc
+    call cuda_glerror('ierr <- tc_d = tc <-- Full_FV_cudaf_shared.cuf',1)
+    
+    nt = 0
+    kk = 1
+    ierr = cudaEventCreate(startEvent)
+    ierr = cudaEventCreate(stopEvent)
+    ierr = cudaEventRecord(startEvent,0)
+
+    write(*,*) '******************************************************************************************************************************'
+    write(*,*) '********************************************Loop over time starts now for the PARALLEL CODE*************************************'
+    write(*,*) '******************************************************************************************************************************'
+
+    do while ( (tc - ts + 2*tol ) < tol )
+
+        debit_entree  = 0.d0
+        debit_sortie  = 0.d0
+
+        is_solnode = 0
+!
+        nt = nt + 1
+!
+        tcm = tc / 60   ! *** temps en minutes ***
+!
+!==================================================================================================
+!   initialisation pour la sommation sur le debit dans la routine cote *****
+
+        if ( debit_var==1 .and. abs(debit_t(cptdebit,1) - tc) < tolaffiche ) then
+            cptdebit = cptdebit + 1
+            debitglob = debit_t(cptdebit-1,2)
+            debitglob_d = debitglob
+            call cuda_glerror('ierr <- (H->D) data transfer into debitglob_d <-- Full_FV_cudaf_shared.cuf',1)
+        endif 
+!==================================================================================================
+!
+! *** début de la boucle sur les iterations du schema temporel ***
+!
+        do iter=1,niter
+!
+            if ( niter == 1 ) then          ! *** Euler ***
+!
+                call copy_2d<<<grid_copy, block_copy>>>(vdlg1_d, vdlg01_d, nelt_d)
+                call cuda_glerror('ierr<-copy_2d{if(niter == 1)} <-- Full_FV_cudaf_shared.cuf',1)
+
+                call mise_a_jr_zone_seche_cudaf<<<grid, tblock>>>(zm_d, vdlg_d, vdlg1_d)
+                call cuda_glerror('ierr<-mise_a_jr_zone_seche_cudaf{if(niter == 1)} <-- Full_FV_cudaf_shared.cuf',1)
+!
+            elseif ( niter == 2 ) then      ! *** Second ordre ***
+!
+                if ( iter == 1 ) then
+                    call copy_2d<<<grid_copy, block_copy>>>(vdlg1_d, vdlg01_d, nelt_d)
+                    call cuda_glerror('ierr<-copy_2d{if(niter == 2, iter == 1)} <-- Full_FV_cudaf_shared.cuf',1)
+
+                    call mise_a_jr_zone_seche_cudaf<<<grid, tblock>>>(zm_d, vdlg_d, vdlg1_d)
+                    call cuda_glerror('ierr<-mise_a_jr_zone_seche_cudaf{if(niter == 2, iter == 1)} <-- Full_FV_cudaf_shared.cuf',1)
+
+                else
+                    call copy_2d_1<<<grid_copy, block_copy>>>(vdlg1_d, vdlg01_d, res1_d, niter, iter, dt_d, nelt_d)
+                    call cuda_glerror('ierr<-copy_2d_1{if(niter == 2 iter == 2)} <-- Full_FV_cudaf_shared.cuf',1)
+
+                    call mise_a_jr_zone_seche_cudaf<<<grid, tblock>>>(zm_d, vdlg_d, vdlg1_d)
+                    call cuda_glerror('ierr<-mise_a_jr_zone_seche_cudaf{if(niter == 2,  iter == 2)} <-- Full_FV_cudaf_shared.cuf',1)
+
+                endif
+!
+            elseif ( niter == 4 ) then      ! *** Runge-kutta ***
+!
+                if ( iter == 1 ) then                   
+                    call copy_2d<<<grid_copy, block_copy>>>(vdlg1_d, vdlg01_d, nelt_d)
+                    call cuda_glerror('ierr<-copy_2d{if(niter == 4, iter == 1)} <-- Full_FV_cudaf_shared.cuf',1)
+
+                    call mise_a_jr_zone_seche_cudaf<<<grid, tblock>>>(zm_d, vdlg_d, vdlg1_d)
+                    call cuda_glerror('ierr<-mise_a_jr_zone_seche_cudaf{if(niter == 4, iter == 1)} <-- Full_FV_cudaf_shared.cuf',1)
+
+                elseif ( iter == 2 ) then
+                    call copy_2d_1<<<grid_copy, block_copy>>>(vdlg1_d, vdlg01_d, res1_d, niter, iter, dt_d, nelt_d)
+                    call cuda_glerror('ierr<-copy_2d_1{if(niter == 4, iter == 2)} <-- Full_FV_cudaf_shared.cuf',1)
+
+                    call mise_a_jr_zone_seche_cudaf<<<grid, tblock>>>(zm_d, vdlg_d, vdlg1_d)
+                    call cuda_glerror('ierr<-mise_a_jr_zone_seche_cudaf{if(niter == 4, iter == 2)} <-- Full_FV_cudaf_shared.cuf',1)
+
+                elseif ( iter == 3 ) then
+                    call copy_2d_1<<<grid_copy, block_copy>>>(vdlg1_d, vdlg01_d, res2_d, niter, iter, dt_d, nelt_d)
+                    call cuda_glerror('ierr<-copy_2d_1{if(niter == 4, iter== 3)} <-- Full_FV_cudaf_shared.cuf',1)
+
+                    call mise_a_jr_zone_seche_cudaf<<<grid, tblock>>>(zm_d, vdlg_d, vdlg1_d)
+                    call cuda_glerror('ierr<-mise_a_jr_zone_seche_cudaf{if(niter == 4, iter == 3)} <-- Full_FV_cudaf_shared.cuf',1)
+
+                else
+                    call copy_2d_1<<<grid_copy, block_copy>>>(vdlg1_d, vdlg01_d, res3_d, niter, iter, dt_d, nelt_d)
+                    call cuda_glerror('ierr<-copy_2d_1{if(niter == 4, iter== 4)} <-- Full_FV_cudaf_shared.cuf',1)
+
+                    call mise_a_jr_zone_seche_cudaf<<<grid, tblock>>>(zm_d, vdlg_d, vdlg1_d)
+                    call cuda_glerror('ierr<-mise_a_jr_zone_seche_cudaf{if(niter == 4, iter == 4)} <-- Full_FV_cudaf_shared.cuf',1)
+
+                endif
+
+            endif ! de if ( niter == 1 )
+
+    
+            call init_vdlg<<<grid, tblock>>>(vdlg_d, vdlg1_d, zm_d)
+            call cuda_glerror('ierr<-init_vdlg <-- Full_FV_cudaf_shared.cuf',1)
+
+!******************************************************************************************************************************
+!********************************************** Calculation of Flux starts ******************************************************
+
+            call update_un_voisin_sec<<<grid11, tblock11>>>()
+            call cuda_glerror('ierr<-update_un_voisin_sec <-- Full_FV_cudaf_shared.cuf',1)
+
+            if(ns == 3) then 
+                call cotes_cudaf3<<<grids, tblocks>>>(surf_d,zm_d,gradz_d,vdlg_d)
+            elseif(ns == 4) then 
+                call cotes_cudaf4<<<grids, tblocks>>>(surf_d,zm_d,gradz_d,vdlg_d)
+            endif
+
+            call cuda_glerror('ierr<-cotes_cudaf <-- Full_FV_cudaf_shared.cuf',1)
+
+            debit_sortie_arr  = debit_sortie_arr_d
+            debit_entree_arr  = debit_entree_arr_d
+            call cuda_glerror('ierr<-(D->H) mem transfer debit_sortie_arr or debit_entree_arr <-- Full_FV_cudaf_shared.cuf',1)
+
+
+            debit_entree  =  debit_entree + sum(debit_entree_arr)
+            debit_sortie  =  debit_sortie + sum(debit_sortie_arr)
+
+
+
+!******************************************************************************************************************************
+!******************************** Calculation of Flux over and calculation of source terms starts******************************
+
+            call source_cudaf<<<grid, tblock>>>(vdlg_d,surf_d,zm_d,gradz_d)
+            call cuda_glerror('ierr<-source_cuda <-- Full_FV_cudaf_shared.cuff',1)
+
+!******************************************************************************************************************************
+!********************************************** Calculation of Source Terms over **********************************************
+
+            if ( niter == 1 ) then          ! *** Euler ***
+!
+                call calcul_residue_ele_cudaf<<<grid, tblock>>>(surf_d, res1_d)
+!
+            elseif ( niter == 2 ) then      ! *** Second ordre ***
+!
+                if ( iter.eq.1 ) then
+                    call calcul_residue_ele_cudaf<<<grid, tblock>>>(surf_d, res1_d)
+                else
+                    call calcul_residue_ele_cudaf<<<grid, tblock>>>(surf_d, res2_d)
+                endif
+!
+            elseif ( niter == 4 ) then      ! *** Runge-kutta ***
+!
+                if ( iter.eq.1 ) then
+                    call calcul_residue_ele_cudaf<<<grid, tblock>>>(surf_d, res1_d)
+                else if ( iter.eq.2 ) then
+                    call calcul_residue_ele_cudaf<<<grid, tblock>>>(surf_d, res2_d)
+                else if ( iter.eq.3 ) then
+                    call calcul_residue_ele_cudaf<<<grid, tblock>>>(surf_d, res3_d)
+                else
+                    call calcul_residue_ele_cudaf<<<grid, tblock>>>(surf_d, res4_d)
+                endif
+!
+            endif ! de if ( niter == 1 ) then
+            call cuda_glerror('ierr<-calcul_residue_ele_cudaf <-- Full_FV_cudaf_shared.cuf',1)
+
+
+!
+!           Stockage du flux pour le POD
+!           Attention : POD Part of this code is not parallelised
+            if (pod==0 .and. shot==1) then 
+                if ( abs( tc - tvis3d2(cptvis3d) ) < 1.0E-01) then 
+                    vdlg = vdlg_d
+                    call cuda_glerror('ierr<- (D->H) meme transfer to vdlg <-- Full_FV_cudaf_shared.cuf',1)
+                    write(405,*) vdlg(iel,1)                                             
+                endif                   
+            endif
+!
+!
+        enddo   ! *** fin de la boucle sur les iterations *** ! *** end of the loop on the iterations ***
+! *** residu à la fin du pas suivant la discretisation en temps ***
+        debit_entree = debit_entree/niter
+        debit_sortie = debit_sortie/niter
+!
+        call copy_into_res_d<<<grid_copy, block_copy>>>(niter_d, nelt_d)
+        call cuda_glerror('ierr<-copy_into_res_d  <-- Full_FV_cudaf_shared.cuf',1)
+!
+! *** solution à la fin du pas avec traitement de la zone seche ***
+!
+        call copy_2d_1<<<grid_copy, block_copy>>>(vdlg1_d, vdlg01_d, res_d, 2, 2, dt_d, nelt_d)
+        call cuda_glerror('ierr<-copy_2d_1 <-- Full_FV_cudaf_shared.cuf',1)
+
+! *** mise a jour de la zone seche ***
+!
+       call mise_a_jr_zone_seche_cudaf<<<grid, tblock>>>(zm_d, vdlg_d, vdlg1_d)
+       call cuda_glerror('mise_a_jr_zone_seche_cudaf(2) <-- Full_FV_cudaf_shared.cuf',1)
+
+!
+! *** Calcul du pas de temps via la CFL ***
+!
+        if ( pas_dt == 2 )  then
+            call cflcond_cudaf<<<grid, tblock>>>(vdlg_d,deltatmin_d)
+            dt_arr = deltatmin_d
+            dt = minval(dt_arr)
+            dt_d = dt
+        endif
+        call cuda_glerror('ierr<-cflcond_cudaf (2) <-- Full_FV_cudaf_shared.cuf',1)
+            
+! *** visualisation de la solution ***
+!
+!             do iel=1, nelt
+!                 if(visual==1) visio(iel,3) = vdlg(iel,1) ! * visualiser la profondeur *
+!                 if(visual==2) visio(iel,3) = vdlg(iel,1)+zm(iel) ! * visualiser la surface *
+!                 if(visual==3) visio(iel,3) = vdlg(iel,2)/vdlg(iel,1) ! * visualiser la vitesse *
+!                 if(visual==4) visio(iel,3) = vdlg(iel,3)/vdlg(iel,1) ! * visualiser la vitesse *
+!             enddo
+! !
+! !
+            if ( tc < tbase ) dt = dt / divbase
+! !
+! ! *** affichage de la solution en temps réel pour des pas multiples de freqvisual ***
+! !
+! !           if ( mod(comptvisu,freqvisual) == 0 ) then
+! !               call faglname(visio, "saint venant 2d - profondeur ", status)
+! !               call faglupdate(visio, status)
+! !           endif
+! !
+!             comptvisu = comptvisu + 1
+! !
+
+! ! *** mise à jour du temps et de la solution initiale ***
+!
+            tc = tc + dt
+            tc_d = tc
+!           
+            call copy_2d<<<grid_copy, block_copy>>>(vdlg01_d, vdlg1_d, nelt_d)
+            call copy_2d<<<grid_copy, block_copy>>>(vdlg0_d, vdlg_d, nelt_d)
+            call cuda_glerror('ierr<-copy_2d(2) <-- Full_FV_cudaf_shared.cuf',1)
+
+            ! call cuda_glerror('ierr->Device_Synchronization',2)
+!
+!*********************************************************************************************************************
+! *** affichage du journal des iterations ***
+! *** posting of the iterations newspaper ***
+!
+            if ( mod(nt,freqaffich)==0 ) then
+                print*,'---------------------------------------------------------------------------'
+                write(*,*) 'nt = ', nt
+                if (tc < 3600)   print*, 'tc = ', tc, ' Secondes   =>', tc/60,    ' Minutes' 
+                if (tc >= 3600)  print*, 'tc = ', tc, ' Secondes   =>', tc/3600,  ' Heures'
+                if (tc >= 86400) print*, 'tc = ', tc, ' Secondes   =>', tc/86400, ' Jours'
+                print*,''
+!               if (debit_var==1) print*, 'debitglob=',debitglob
+                print*, 'debit_entre =', debit_entree, 'M3/S'
+                print*, 'debit_sorti =', debit_sortie, 'M3/S'  
+!               print*, 'nt', nt, '   tc', tc, 'debit_entre=', debit_entree, 'debit_sorti=', debit_sortie
+!               print*, debitglob
+                print*,'---------------------------------------------------------------------------'
+            endif
+
+!
+! *** stockage de la solution en coupes 2D pour les temps du tableau 'tvis2d' 
+!     lu dans les donnees de simulation *** 
+
+! *** storage of the solution in 2D sections for the table time 'tvis2d'
+! read in the simulation data ***
+!
+        som_Q_coupe = 0.d0
+!
+        if ( abs( tc - tvis2d(cptvis2d) ) < tolaffiche) then
+            if (nbrcoupes > 0 ) then
+                if(is_solnode == 0) then 
+                    vdlg = vdlg_d
+                    call cuda_glerror('ierr<- (D->H) data_transfer into vdlg(1) <-- Full_FV_cudaf_shared.cuf',1)
+                    
+                    call sol_nodes(vdlg,surf,zm,sh0,she0,shu0,shv0,su0,sv0)
+                    is_solnode = 1
+                endif
+
+                start=0
+                call stock_coupe2D(she0,    sh0, shu0, su0)
+                cptvis2d = cptvis2d + 1
+            endif
+        endif
+
+!
+! *** stockage de la solution pour les positions des gauges 'xjauges' et 'yjauges'*******************************
+!     lues dans les donnees de simulation *** 
+!
+!           if ( mod(nt,freqjauges)==0 .and. nbrjauges > 0 ) then
+            if ( abs( tc - tvisjauge(cptvisjauge) ) <= tolaffiche) then
+                if ( nbrjauges > 0 .and. nodjauges(1) >  0) then
+                    if ( nbrjauges <= 30 ) then
+                        
+                        if(is_solnode == 0) then 
+                            vdlg = vdlg_d
+                            call cuda_glerror('ierr<- (D->H) data_transfer into vdlg(2)',1)
+
+                            call sol_nodes(vdlg,surf,zm,sh0,she0,shu0,shv0,su0,sv0)
+                            is_solnode = 1
+                        endif
+                        
+                        write(ec_solj_eta,'(f18.3,30f14.6)')   tc , (sh0(nodjauges(j)),  j=1,nbrjauges)
+                        write(ec_solj_h,'  (f18.3,30f14.6)')   tc , (she0(nodjauges(j)), j=1,nbrjauges)
+                        write(ec_solj_u,'  (f18.3,30f14.6)')   tc , (shu0(nodjauges(j)), j=1,nbrjauges)
+                        write(ec_solj_v,'  (f18.3,30f14.6)')   tc , (shv0(nodjauges(j)), j=1,nbrjauges)
+                     else
+                        if ( nbrjauges > 30) write(*,*) '*** Attention : nombre de jauges > 30 ***'
+                    endif
+                    cptvisjauge = cptvisjauge + 1
+                endif
+
+!               Ecriture des debits a travers les differentes coupes
+!               if (nbrcoupes>1) write(ec_Q_coupes,'(f18.3,30f16.3)')   tc , (Q_coupe(j), j=1,nbrcoupes) 
+!
+            endif
+!
+!****************************************************************************************************************
+!****************************************************************************************************************
+            if (video == 1 .and. multi_simul ==0 ) then
+! *** Stockage de la solution pour postraitement et animation 
+!
+                if ( abs( tc - tvideo(cptvideo) ) <= tolaffiche) then
+
+                    if(is_solnode == 0) then 
+                        vdlg = vdlg_d
+                        call cuda_glerror('ierr<- (D->H) data_transfer into vdlg(3) <-- Full_FV_cudaf_shared.cuf',1)
+
+                        call sol_nodes(vdlg,surf,zm,sh0,she0,shu0,shv0,su0,sv0)
+                        is_solnode = 1
+                    endif
+!
+!-----------------   Tecplot ------------------------------------------
+                    start=0
+                    call tecplot_export (she0, sh0, shu0, shv0)
+!-----------------------------------------------------------------------
+!
+                    cptvideo = cptvideo + 1
+!
+                endif   ! de if ( abs( tc - tvis3d2(cptvis3d) ) <= tolaffiche) then
+!               
+            endif   ! de if (video ==1) then
+
+!******************************************************************************************************************************************
+!              STOCKAGE DE SOLUTIONS INTERMEDIAIRES  (Pour redemarrage)
+
+        if (multi_simul ==0) then 
+            if(soldomaine==1 .and. abs( tc - tvisdom(cptvisdom) ) <= tolaffiche) then
+
+                if(is_solnode == 0) then 
+                    vdlg = vdlg_d
+                    call cuda_glerror('ierr<- (D->H) data_transfer into vdlg(3)',1)
+
+                    call sol_nodes(vdlg,surf,zm,sh0,she0,shu0,shv0,su0,sv0)
+                    is_solnode = 1
+                endif
+
+                vdlg1 = vdlg1_d
+                call cuda_glerror('ierr<- (D->H) data_transfer into vdlg1{if(soldomaine == 1 ... )} <-- Full_FV_cudaf_shared.cuf',1)
+
+                write(ec_sol_elt_t,*) tc                        
+                do iel=1,nelt
+                    write(ec_sol_elt_t,'(4f16.6)') vdlg(iel,1), vdlg1(iel,1), vdlg1(iel,2), vdlg1(iel,3)
+                enddo
+                write(ec_sol_nd_t,*) tc
+                do nd=1,nnt
+                    write(ec_sol_nd_t,'(7f16.6)')  coordonnees(nd,1),coordonnees(nd,2),sh0(nd)-she0(nd),she0(nd),sh0(nd),shu0(nd),shv0(nd)
+                enddo
+                cptvisdom = cptvisdom + 1
+            endif
+        endif
+        rewind (ec_sol_elt_t)
+        rewind (ec_sol_nd_t)
+!
+! !========================================   STOCKAGE DE LA SOLUTION SNAPSHOT (POUR LE POD   ===================================================
+!Attention : POD part of the code is not parallelised
+
+        if (shot==1) then
+            start=0
+            call pod_snapshot(vdlg, vdlg0, vdlg1, vdlg01)
+        endif
+! !
+! !==============================================================================================================================================
+! !
+            if ( debitglob > 0.0 .and. debit_sortie0 > tol_reg_perm ) then
+!               if ( (abs(debit_sortie0 - debit_sortie) < 1.0E-10) .or. (abs(debit_entree - debit_sortie)/debit_entree < tol_reg_perm) ) then
+                if ( abs(debit_entree - debit_sortie)/debit_entree < tol_reg_perm ) then
+                    ! print*,('================================================================================')
+                    if ((60   <= tc) .and. (tc < 3600))   print*, 'tc = ', tc, ' Secondes   =>', tc/60,    ' Minutes' 
+                    if ((3600 <= tc) .and. (tc< 86400))  print*, 'tc = ', tc, ' Secondes   =>', tc/3600,  ' Heures'
+                    if (tc  >= 86400)        print*, 'tc = ', tc, ' Secondes   =>', tc/86400, ' Jours'
+                    print*,('')
+                    print*, 'debit_entre =', debit_entree
+                    print*, 'debit_sorti =', debit_sortie
+                    print*, '' 
+                    print*, 'LE REGIME PERMANENR EST ATTEINT' !THE PERMANENT REGIME IS REACHED
+                    print*,('================================================================================')
+!
+                    t_reg_perm = tc
+                    tc   = tc + ts  ! pour sortir de la boucle while !to exit the while loop
+                    tc_d = tc
+                    call cuda_glerror('ierr <- tc_d = tc (2) <-- Full_FV_cudaf_shared.cuf',1)
+                endif
+            endif
+
+            debit_sortie0 = debit_sortie
+!================================================================================================================================================================
+!
+    
+    enddo      ! *** fin de la boucle sur le temps ***
+
+!================================================================================================================================================================
+!================================================================================================================================================================
+!=========================================================================LOOP ON TIME ENDS HERE=================================================================
+!================================================================================================================================================================
+!================================================================================================================================================================
+   
+
+    
+    write(*,*) 'nt (end of loop on time) = ', nt
+
+
+    ierr = cudaEventRecord (stopEvent,0)
+    ierr = cudaEventSynchronize(stopEvent)
+    ierr = cudaEventElapsedTime(time_cuda, startEvent, stopEvent)
+    write(*,*) 'Time taken by time loop (parallel) = ',time_cuda,'ms'
+    
+    vdlg   = vdlg_d
+    vdlg1  = vdlg1_d
+    vdlg0  = vdlg0_d
+    vdlg01 = vdlg01_d 
+
+    call cuda_glerror('ierr<- (D->H) data_transfer into vdlg(DEBUT DU POSTRAITEMENT) <-- Full_FV_cudaf_shared.cuf',1)
+
+    call sol_nodes(vdlg,surf,zm,sh0,she0,shu0,shv0,su0,sv0)
+
+!**********************************************************************************************************************************************
+!                       *********     DEBUT DU POSTRAITEMENT   *********
+!**********************************************************************************************************************************************
+!
+        if ( t_reg_perm > 0.0) tc  = t_reg_perm  ! Pour revenir au temps du regime permanent ! To return to the steady state
+!
+!**********************************************************************************************************************************************
+!
+        if (multi_simul ==0) then
+!     =========================  Enrefistrement de la solution finale pour post-traitement avec Bluekenue       ============================
+
+            call bluekenue_export (she0, sh0, shu0, shv0)
+!
+!***********************************************************************************************************************************************
+!
+!               STOCKAGE DE LA SOLUTIONS FINALE DANS TOUS LES NOEUDS DU DOMAINE (Pour redemarrage)
+!               STORAGE OF FINAL SOLUTIONS IN ALL NODES OF THE DOMAIN (For restarting)
+            write(ec_sol_elt_final,*) tc                        
+            do i=1,nelt
+                write(ec_sol_elt_final,'(4f16.6)') vdlg(i,1), vdlg1(i,1), vdlg1(i,2), vdlg1(i,3)
+            enddo
+!
+        endif  ! de if (multi_simul ==1)
+!
+! ======  STOCKAGE DE LA SOLUTION POUR TRAITEMENT PAR MONTE CARLO  =============================================
+!
+        if (multi_simul ==1) then
+!
+            if (monte_carlo == 0) then
+                do i=1,nnt
+                    if ( sqrt( ( xjauges(1) - coordonnees(i,1) )**2 + ( yjauges(1) - coordonnees(i,2) )**2 ) < distcote ) nodjauge=i
+                enddo
+                write(3000,'(6f8.3)') debitglob, H_AMONT, H_AVAL, manning, vdlg(nodjauge,1), vdlg1(nodjauge,1)
+            else
+!
+!-----------------------------------------------------------------------------------------------------------------
+!
+                if ( abs( tc - TS ) < tolaffiche) then
+                    do i=1,nnt
+!                       Stockage de la solution finale par scenario le long d'une coupe pour l'analyse statistique -----------------------
+                        ! Storage of the final solution by scenario along a section for the statistical analysis -----------------------
+                        coupe_y = coupe_a(1) * coordonnees(i,1) + coupe_b(1)
+                        aux = su0(i)/sh0(i)
+                        if (sh0(i)<=tolisec) aux=0.0
+                        if ( abs( coordonnees(i,2) - coupe_y ) <= distcote/densite_coupe  ) &
+                            write(3002,'(5f16.6)') coordonnees(i,1), sh0(i)-she0(i), she0(i), sh0(i), shu0(i)
+!------------------------------------------------------------------------------------------------------------------------------------------
+!                       Stockage de la solution finale par scenario dans tout le domaine pour l'analyse statistique ------------------------------------------
+                        write(3003,'(i7,7f16.6)') i, coordonnees(i,1), coordonnees(i,2), abs(sh0(i)-she0(i)), she0(i), sh0(i), shu0(i), shv0(i)
+!                       --------------------------------------------------------------------------------------------------------------------------------------                  
+                    enddo
+                endif   ! de ( abs( tc - TS ) < tolaffiche) then
+!
+            endif ! de if (monte_carlo == 0) then
+!
+        endif ! de if (multi_simul ==1) then
+!  =============================================================================================================
+!
+    call cpu_time(tf)
+
+    deallocate(resc_d,res_d, res1_d)
+    deallocate(sourcfric_d)
+    deallocate(io_identifier, io_identifier_d, debit_entree_arr, debit_entree_arr_d, debit_sortie_arr)
+    deallocate(debit_sortie_arr_d, vol_tot_entre_arr_d, vol_tot_entre_arr, vol_tot_sorti_arr_d, vol_tot_sorti_arr)
+    deallocate(dt_arr, deltatmin_d)
+    deallocate(un_voisin_sec1_d)
+    deallocate(afm1_d)
+!
+end subroutine Full_FV
+
+attributes(global) subroutine copy_2d(a,b,n)
+    use precision_m
+    real(fp_kind), intent(inout) :: a(:,:), b(:,:)
+    integer, intent(in) :: n
+
+    integer :: ti,gi
+    
+
+    ti = threadIdx%x
+    gi = (blockIdx%x - 1)*blockDim%x + ti
+
+    if(gi <= n) then
+        a(gi,:) = b(gi,:)
+    endif
+
+end subroutine copy_2d
+
+attributes(global) subroutine copy_2d_1(vdlg1_d, vdlg01_d, resj_d, niter, iter, dt_d, nelt_d)
+    use precision_m
+    real(fp_kind), intent(inout) :: vdlg1_d(:,:), vdlg01_d(:,:)
+    real(fp_kind), intent(in) :: resj_d(:,:), dt_d
+    integer, intent(in) :: nelt_d
+    integer, value :: niter, iter
+
+    integer :: ti,gi
+    
+
+    ti = threadIdx%x
+    gi = (blockIdx%x - 1)*blockDim%x + ti
+
+    if(gi <= nelt_d) then
+
+        if(niter == 2 .and. iter == 2) then 
+            
+            vdlg1_d(gi,:) = vdlg01_d(gi,:) + dt_d * resj_d(gi,:)
+        
+        elseif(niter == 4 .and. (iter == 2 .or. iter == 3)) then 
+
+            vdlg1_d(gi,:) = vdlg01_d(gi,:) + dt_d * resj_d(gi,:)/2
+
+        elseif(niter == 4 .and. iter == 4) then 
+
+            vdlg1_d(gi,:) = vdlg01_d(gi,:) + dt_d * resj_d(gi,:)
+
+        endif
+    endif
+
+end subroutine copy_2d_1
+
+attributes(global) subroutine copy_into_res_d(niter_d, nelt_d)
+    use precision_m
+    use main_prog_variables
+    integer, intent(in) :: niter_d, nelt_d
+    
+    integer :: thi,gi
+
+    thi = threadIdx%x
+    gi = (blockIdx%x - 1)*blockDim%x + thi
+    
+    if (gi <= nelt_d) then
+        if ( niter_d == 1 ) then          ! *** Euler ***
+    !
+            res_d(gi,:) = res1_d(gi,:)
+    !
+        elseif ( niter_d == 2 ) then      ! *** Second order ***
+    !
+            res_d(gi,:) = (res1_d(gi,:) + res2_d(gi,:) ) / 2
+    !
+        elseif ( niter_d == 4 ) then      ! *** Runge-kutta ***
+    !
+            res_d(gi,:) = (res1_d(gi,:) + 2 * res2_d(gi,:) + 2 * res3_d(gi,:) + res4_d(gi,:)) / 6
+    !
+        endif
+    endif
+
+end subroutine copy_into_res_d
+
+
+attributes(global) subroutine copy_1d(a,b,n)
+    use precision_m
+    real(fp_kind), intent(inout) :: a(:), b(:)
+    integer, intent(in) :: n
+
+    integer :: ti,gi
+    
+
+    ti = threadIdx%x
+    gi = (blockIdx%x - 1)*blockDim%x + ti
+
+    if(gi <= n) then
+        a(gi) = b(gi)
+    endif
+
+end subroutine copy_1d
+
+attributes(global) subroutine calcul_residue_ele_cudaf(surf_d, resj_d)
+    use precision_m
+    
+    use global_device
+    implicit none
+
+    real(fp_kind), intent(in) :: surf_d(:)
+    real(fp_kind), intent(inout) :: resj_d(:,:)
+
+    integer :: ti,gi, fric
+    real(fp_kind) :: resini(3)
+
+    fric = fricimplic_d
+    
+    ti = threadIdx%x
+    gi = (blockIdx%x - 1)*blockDim%x + ti
+
+    if(gi <= nelt_d) then
+        if ( friction_d == 1) then
+!
+            if ( fric == 1 .or. fric == 2 ) then
+
+                resini = ( sourcfric_d(gi,:) - resc_d(gi,:) ) / surf_d(gi)
+                resj_d(gi,1) = sum(afm1_d(gi,1:3)*resini)
+                resj_d(gi,2) = sum(afm1_d(gi,4:6)*resini)
+                resj_d(gi,3) = sum(afm1_d(gi,7:9)*resini)
+            else
+                resj_d(gi,:) = (sourcfric_d(gi,:) - resc_d(gi,:)) / surf_d(gi)
+            endif
+        else 
+            resj_d(gi,:) = - resc_d(gi,:) / surf_d(gi)
+        endif
+    endif
+    
+end subroutine calcul_residue_ele_cudaf
+
+attributes(global) subroutine init_vdlg(vdlg_d, vdlg1_d,  zm_d)
+    use precision_m
+
+    use global_device
+    implicit none
+    
+    real(fp_kind), intent(in)    :: vdlg1_d(:,:), zm_d(:)
+    real(fp_kind), intent(inout) :: vdlg_d(:,:)
+    
+    integer :: ti,gi
+    real(fp_kind) :: vdlgtmp
+    
+    ti = threadIdx%x
+    gi = (blockIdx%x - 1)*blockDim%x + ti
+
+    if(gi <= nelt_d) then
+
+        vdlgtmp = vdlg1_d(gi,1) - zm_d(gi)
+        vdlg_d(gi,1) = vdlgtmp
+        if ( vdlgtmp <= tolisec_d )   vdlg_d(gi,1) = tolisec_d           
+        vdlg_d(gi,2) = vdlg1_d(gi,2)
+        vdlg_d(gi,3) = vdlg1_d(gi,3)
+    
+    endif
+
+end subroutine init_vdlg
+
+attributes(global) subroutine update_un_voisin_sec()
+    use precision_m
+    use main_prog_variables
+    use global_device
+    implicit none
+
+
+    integer :: thi, gi, j, kvoisin, i
+    character :: output
+    real(fp_kind) :: v1
+
+    thi = threadIdx%x
+    gi = (blockIdx%x - 1)*blockDim%x + thi
+
+    if(gi <= nelt_d) then
+        v1 = vdlg_d(gi,1)
+        output = 'n'        
+        do i=1,ns_d
+            kvoisin = boundary_d(gi,i)
+            if( kvoisin > 0 .and. (vdlg_d(kvoisin,1) <= tolisec_d  .or.   v1 <= tolisec_d) )   output = 'y' 
+        enddo
+        un_voisin_sec1_d(gi) = output
+
+    endif
+end subroutine update_un_voisin_sec
+
+subroutine get_io_index
+    use precision_m
+    use global
+    use global_device
+    implicit none
+    integer :: i, j, k, count
+    debit_entree_arr = 0.d0
+    debit_sortie_arr = 0.d0
+    vol_tot_entre_arr = 0.d0
+    vol_tot_sorti_arr = 0.d0
+
+    debit_entree_arr_d = debit_entree_arr
+    debit_sortie_arr_d = debit_sortie_arr
+    vol_tot_entre_arr_d = vol_tot_entre_arr
+    vol_tot_sorti_arr_d = vol_tot_sorti_arr
+    call cuda_glerror('ierr <- (H->D) data transfer (1) <-- get_io_index <--- Full_FV_cudaf_shared.cuf ',1)
+
+    io_identifier = 0
+
+    if(ns == 3) then 
+        count = 1
+        do i = 1, nelt
+            if(boundary(i,1) == -1 .or. boundary(i,2) == -1 .or. boundary(i,3) == -1) then 
+                io_identifier(i) =  count
+                count = count + 1
+            endif
+        enddo
+
+        count = 1
+        do i = 1, nelt
+            if(boundary(i,1) == -2 .or. boundary(i,2) == -2 .or. boundary(i,3) == -2) then 
+                io_identifier(i) =  count
+                count = count + 1
+            endif
+        enddo
+
+    elseif (ns == 4) then 
+
+        count = 1
+        do i = 1, nelt
+            if(boundary(i,1) == -1 .or. boundary(i,2) == -1 .or. boundary(i,3) == -1 .or. boundary(i,4) == -1) then 
+                io_identifier(i) =  count
+                count = count + 1
+            endif
+        enddo
+
+        count = 1
+        do i = 1, nelt
+            if(boundary(i,1) == -2 .or. boundary(i,2) == -2 .or. boundary(i,3) == -2 .or. boundary(i,4) == -2) then 
+                io_identifier(i) =  count
+                count = count + 1
+            endif
+        enddo
+    endif
+
+    io_identifier_d = io_identifier
+    call cuda_glerror('ierr <- (H->D) data transfer (2) <-- get_io_index <--- Full_FV_cudaf_shared.cuf ',1)
+
+
+end subroutine get_io_index
+
