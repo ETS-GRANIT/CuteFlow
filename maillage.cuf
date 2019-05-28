@@ -848,9 +848,9 @@ subroutine lec_mail_tri_mpi
     read(lec_mesh,*) nelt_fant_recep
     print*,"id ", my_id, ", ", ndw, " noeuds de murs"
     if (nelt_fant_recep>0) then
-        allocate(elt_fant_recep(ndw))
+        allocate(elt_fant_recep(ndw,2))
         do i=1,nelt_fant_recep
-            read(lec_mesh,*) elt_fant_recep(i)
+            read(lec_mesh,*) elt_fant_recep(i, 1), elt_fant_recep(i, 2)
         enddo
     endif
 !
@@ -860,9 +860,9 @@ subroutine lec_mail_tri_mpi
     read(lec_mesh,*) nelt_fant_envoi
     print*,"id ", my_id, ", ", ndw, " noeuds de murs"
     if (nelt_fant_envoi>0) then
-        allocate(elt_fant_envoi(ndw))
+        allocate(elt_fant_envoi(ndw,2))
         do i=1,nelt_fant_envoi
-            read(lec_mesh,*) elt_fant_envoi(i)
+            read(lec_mesh,*) elt_fant_envoi(i, 1), elt_fant_envoi(i, 2)
         enddo
     endif
 !
@@ -872,7 +872,7 @@ subroutine lec_mail_tri_mpi
 
     allocate(coordonnees_d(nnt,3), manning_nd_d(nnt))
     allocate(connectivite_d(nelt,3), manning_nelt_d(nelt))
-    allocate(ndinput_d(ndi), ndoutput_d(ndo), ndwall_d(ndw), elt_fant_d(nelt_fant))
+    allocate(ndinput_d(ndi), ndoutput_d(ndo), ndwall_d(ndw), elt_fant_envoi_d(nelt_fant_envoi,2), elt_fant_recep_d(nelt_fant_recep,2))
 
     call cuda_glerror('ierr->memory allocation-->lec_mail_tri--> (maillage.cuf)',1)
 

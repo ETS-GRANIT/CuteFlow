@@ -101,7 +101,7 @@
 !
     ! real(fp_kind), dimension(100000)             :: tvis3d2 , tvis2d2, tvisjauge, tvisdom
     integer, device, dimension(:)  ,   allocatable :: ndinput_d, ndoutput_d, ndwall_d !, i_dry_wet_d
-    integer, device, dimension(:)  ,   allocatable :: elt_fant_recep_d, elt_fant_envoi_d
+    integer, device, dimension(:, :)  ,   allocatable :: elt_fant_recep_d, elt_fant_envoi_d
     integer, device, dimension(:,:),   allocatable :: connectivite_d, boundary_d !, ij_wet_dry_d, ij_dry_wet_d, elts_coupes_transv_d, nds_coupes_d
     integer, device, dimension(:,:,:),   allocatable :: connectivite_mpi_d
     real(fp_kind), device, dimension(:)  ,   allocatable :: manning_nd_d, manning_nelt_d
