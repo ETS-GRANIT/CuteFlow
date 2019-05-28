@@ -1,0 +1,10 @@
+#!/bin/bash
+#SBATCH --nodes=1
+#SBATCH --ntasks-per-node=2
+#SBATCH --gres=gpu:2
+#SBATCH --mem=500M
+#SBATCH --time=0-00:05
+#SBATCH --account=def-soulaima
+#SBATCH --output=outfile.out
+
+mpirun ./runfile
