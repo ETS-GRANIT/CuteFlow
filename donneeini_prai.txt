@@ -1,0 +1,7 @@
+&DATAINIT  H_AMONT=16.0 , U_AMONT=0 , V_AMONT=0 ,
+           H_AVAL =16.0 , U_AVAL =0 , V_AVAL =0 ,
+           XGATE=601000.0 , XCENTER=20 , YCENTER=20 , RAYON=2.5 ,
+           eqlin_barrage=1, 
+           x1eqbar=601051, x2eqbar=600830, 
+           y1eqbar=5044205, y2eqbar=5044475,
+	   solinit=0, fich_sol_init='prairie  sol_init Q2000 h17 t500s.txt'/

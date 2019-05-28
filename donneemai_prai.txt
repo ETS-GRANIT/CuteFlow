@@ -1,0 +1,5 @@
+&DATAMESH  ALEAT=1 , MAIL=2 , MTRI=1 , NNX=153 , NNY=8 , meshfile='Mesh_Prairie_man_25976elts.txt' , 
+           elt_bound=0, numerot=1 , zcolumn=1,
+	   ncel=0,
+           elts=140,   911,   2000,  2998,  3714,  5172,  7175,  8382,  9574,  11541,
+                12879, 12879, 16626, 18695, 20242, 21373, 22470, 23838, 24734, 25638 /
