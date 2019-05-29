@@ -262,8 +262,15 @@ subroutine Full_FV
 
     allocate(resc_d(nelt, ndln),res_d(nelt, ndln), res1_d(nelt, ndln))
     allocate(sourcfric_d(nelt,ndln))
-    allocate(io_identifier(nelt), io_identifier_d(nelt), debit_entree_arr(ndi+2), debit_entree_arr_d(ndi+2), debit_sortie_arr(ndo+2))
-    allocate(debit_sortie_arr_d(ndo), vol_tot_entre_arr_d(ndi+2), vol_tot_entre_arr(ndi+2), vol_tot_sorti_arr_d(ndo+2), vol_tot_sorti_arr(ndo+2))
+    !!allocate(io_identifier(nelt), io_identifier_d(nelt), debit_entree_arr(ndi+2), debit_entree_arr_d(ndi+2), debit_sortie_arr(ndo+2))
+    !!allocate(debit_sortie_arr_d(ndo), vol_tot_entre_arr_d(ndi+2), vol_tot_entre_arr(ndi+2), vol_tot_sorti_arr_d(ndo+2), vol_tot_sorti_arr(ndo+2))
+    allocate(io_identifier(nelt), io_identifier_d(nelt))
+    if(ndi>0) then
+      allocate(debit_entree_arr(ndi+2), debit_entree_arr_d(ndi+2),vol_tot_entre_arr_d(ndi+2), vol_tot_entre_arr(ndi+2))
+    endif
+    if(ndo>0) then
+      allocate(debit_sortie_arr(ndo+2),debit_sortie_arr_d(ndo+2),vol_tot_sorti_arr_d(ndo+2), vol_tot_sorti_arr(ndo+2))
+    endif
     allocate(dt_arr(nelt), deltatmin_d(nelt))
     allocate(un_voisin_sec1_d(nelt))
     allocate(afm1_d(nelt, 9))
@@ -883,8 +890,14 @@ subroutine Full_FV
 
     deallocate(resc_d,res_d, res1_d)
     deallocate(sourcfric_d)
-    deallocate(io_identifier, io_identifier_d, debit_entree_arr, debit_entree_arr_d, debit_sortie_arr)
-    deallocate(debit_sortie_arr_d, vol_tot_entre_arr_d, vol_tot_entre_arr, vol_tot_sorti_arr_d, vol_tot_sorti_arr)
+    !!deallocate(io_identifier, io_identifier_d, debit_entree_arr, debit_entree_arr_d, debit_sortie_arr)
+    !!deallocate(debit_sortie_arr_d, vol_tot_entre_arr_d, vol_tot_entre_arr, vol_tot_sorti_arr_d, vol_tot_sorti_arr)
+    if(ndi>0) then
+      deallocate(debit_entree_arr, debit_entree_arr_d,vol_tot_entre_arr_d, vol_tot_entre_arr)
+    endif
+    if(ndo>0) then
+      deallocate(debit_sortie_arr,debit_sortie_arr_d,vol_tot_sorti_arr_d, vol_tot_sorti_arr)
+    endif
     deallocate(dt_arr, deltatmin_d)
     deallocate(un_voisin_sec1_d)
     deallocate(afm1_d)
