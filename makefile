@@ -10,4 +10,4 @@ runfile : ${OBJS}
 	${CC} ${CFLAGS} ${OBJS} -o $@
 
 clean:
-	-rm -f *.o *.core runfile *.mod *T3S outfile*
+	-rm -f *.o *.core *.mod *T3S outfile*

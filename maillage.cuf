@@ -849,7 +849,7 @@ subroutine lec_mail_tri_mpi
 !
     read(lec_mesh,*) tarati
     read(lec_mesh,*) nelt_fant_recep
-    print*,"id ", my_id, ", ", ndw, " noeuds de murs"
+    print*,"id ", my_id, ", ", nelt_fant_recep, " noeuds fantomes a recep"
     if (nelt_fant_recep>0) then
         allocate(elt_fant_recep(ndw,2))
         allocate(elt_fant_recep_d(ndw,2))
@@ -862,7 +862,7 @@ subroutine lec_mail_tri_mpi
 !
     read(lec_mesh,*) tarati
     read(lec_mesh,*) nelt_fant_envoi
-    print*,"id ", my_id, ", ", ndw, " noeuds de murs"
+    print*,"id ", my_id, ", ", nelt_fant_envoi, " noeuds fantomes a envoyer"
     if (nelt_fant_envoi>0) then
         allocate(elt_fant_envoi(ndw,2))
         allocate(elt_fant_envoi_d(ndw,2))
@@ -1032,6 +1032,8 @@ subroutine lec_mail_tri
 ! == host to device data transfer :
 
     nelt_d = nelt  
+    nelt_fant_recep_d = nelt_fant_recep
+    nelt_fant_envoi_d = nelt_fant_envoi
     nnt_d  = nnt
     ndi_d  = ndi
     ndo_d  = ndo

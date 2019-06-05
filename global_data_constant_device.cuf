@@ -91,6 +91,7 @@
     ! integer :: n_seq_base, i_seq_pod
 
     integer, constant:: nelt_d, nnt_d, ns_d, ndi_d, ndo_d, ndw_d, correction_d, prediction_d, nbase_d, nbase_h_d, nbase_eta_d, nbase_eta_tild_d, nbase_hu_d, nbase_hv_d, nbase_u_d, nbase_v_d, maxdimbase_d
+    integer, constant :: nelt_fant_recep_d, nelt_fant_envoi_d
     integer, constant:: nelt_entree_d, nelt_sortie_d, n_Q_d, tc_init_d, start_d
     ! real(fp_kind), constant:: t_seq_pod_d, dt_seq_pod_d
     

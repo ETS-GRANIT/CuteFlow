@@ -3,8 +3,8 @@
 #SBATCH --ntasks-per-node=2
 #SBATCH --gres=gpu:2
 #SBATCH --mem=2000M
-#SBATCH --time=0-00:05
+#SBATCH --time=0-00:01
 #SBATCH --account=def-soulaima
 #SBATCH --output=outfile.out
 
-mpirun ./runfile
+mpirun sh -c './runfile > outfile.$OMPI_COMM_WORLD_RANK'

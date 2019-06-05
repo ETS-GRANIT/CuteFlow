@@ -59,6 +59,7 @@
     integer :: comptvisu, cptvis2d, cptvis3d, cptvideo, cptvisjauge, cptvisdom, cptdebit 
     real(fp_kind) :: long, critere_arret, debitglob, h_sortie, h_pod, alfa, delta_Q_pod
     real(fp_kind) :: tbase, divbase, ts, tsstab, dt, cfl, tol, tolisec, tolratio, tolaffiche, tol_reg_perm
+    real(fp_kind), allocatable, dimension(:) :: dt_vector
     real(fp_kind), dimension(10) :: coupe_a, coupe_b, long_coupe
     real(fp_kind), dimension(100000) :: tvis2d , tvis3d 
     real(fp_kind), dimension(100) :: xjauges , yjauges
