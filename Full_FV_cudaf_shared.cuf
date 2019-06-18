@@ -224,6 +224,7 @@ subroutine Full_FV
     integer, device                         :: niter_d
     ! real(fp_kind), allocatable              :: dt_arr_pageable(:)
     real(fp_kind), allocatable, pinned      :: dt_arr(:)
+    real(fp_kind), allocatable      :: dt_vector(:)
     real(fp_kind), device, allocatable      :: deltatmin_d(:)
 
 !   
@@ -276,7 +277,7 @@ subroutine Full_FV
     allocate(dt_arr(nelt), deltatmin_d(nelt))
     allocate(un_voisin_sec1_d(nelt))
     allocate(afm1_d(nelt, 9))
-    allocate(dt_vector(0:num_procs-1))
+    allocate(dt_vector(num_procs))
 
     call cuda_glerror('ierr <- cuda device mem allocation <-- Full_FV_cudaf_shared.cuf',1)
 
@@ -603,16 +604,24 @@ subroutine Full_FV
 ! *** Calcul du pas de temps via la CFL ***
 !
         if ( pas_dt == 2 )  then
+            print*,my_id,"avant cfl PAS DE TEMPS ", dt
             call cflcond_cudaf<<<grid, tblock>>>(vdlg_d,deltatmin_d)
+            print*,my_id,"avant cfl PAS DE TEMPS ", dt, dt_vector(0)
             dt_arr = deltatmin_d
-            dt = minval(dt_arr)
+            !!dt = minval(dt_arr)
+            dt = 1.
+            do i=1,nelt
+              if(dt>dt_arr(i)) then
+                dt = dt_arr(i)
+              end if
+            enddo
+            print*,my_id,"après minval PAS DE TEMPS ", dt
             !!Echange pas de temps entre les procs mpi
             dt_vector(my_id) =  dt
             print*,my_id,"avant gather PAS DE TEMPS ", dt
-            call MPI_BARRIER(MPI_COMM_WORLD, mpi_ierr)
-            call MPI_ALLGATHER(dt_vector(my_id),1,MPI_REAL,dt_vector(0),1,MPI_REAL,MPI_COMM_WORLD, mpi_ierr)
+            call MPI_ALLGATHER(dt_vector,1,MPI_REAL,dt_vector,1,MPI_REAL,MPI_COMM_WORLD, mpi_ierr)
             print*,my_id,"après gather PAS DE TEMPS ", dt
-            do i=0,num_procs-1
+            do i=1,num_procs
               if(dt_vector(i)>dt) then
                 dt = dt_vector(i)
               end if

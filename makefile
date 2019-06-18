@@ -1,4 +1,4 @@
-CFLAGS = -Mcuda=cc60  
+CFLAGS = -Mcuda=cc60 -O0 
 CC = mpif90 
 
 OBJS = precision.cuf global_data.cuf global_data_constant_device.cuf data_transfer.cuf  m_param.cuf main_prog_variables.cuf \
@@ -10,4 +10,4 @@ runfile : ${OBJS}
 	${CC} ${CFLAGS} ${OBJS} -o $@
 
 clean:
-	-rm -f *.o *.core *.mod *T3S outfile*
+	-rm -f *.o *.core *.mod *T3S outfile* core*
