@@ -232,7 +232,7 @@
 ! *** Attribution des GPUs et Get Device Properties*****************************************************
     
     !ierr = cudaDeviceReset()
-    ierr = cudaSetDevice(my_id) !! %modif 
+    !ierr = cudaSetDevice(my_id) !! %modif 
     ierr = cudaGetDeviceProperties (prop , 0)
     call cuda_glerror('ierr <- cudaGetDeviceProperties <-- general_cudaf.cuf)',1)
 

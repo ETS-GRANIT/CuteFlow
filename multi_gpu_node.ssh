@@ -1,10 +1,10 @@
 #!/bin/bash
-#SBATCH --nodes=1
-#SBATCH --ntasks-per-node=2
-#SBATCH --gres=gpu:2
+#SBATCH --nodes=2
+#SBATCH --ntasks-per-node=1
+#SBATCH --gres=gpu:1
 #SBATCH --mem=2000M
 #SBATCH --time=0-00:01
 #SBATCH --account=def-soulaima
 #SBATCH --output=outfile.out
 
-mpirun sh -c './runfile > outfile.$OMPI_COMM_WORLD_RANK'
+mpirun -n 2 sh -c './runfile > outfile.$OMPI_COMM_WORLD_RANK'
