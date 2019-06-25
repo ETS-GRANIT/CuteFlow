@@ -225,22 +225,9 @@ subroutine Full_FV
     integer, device                         :: niter_d
     ! real(fp_kind), allocatable              :: dt_arr_pageable(:)
     real(fp_kind), allocatable, pinned      :: dt_arr(:)
-    real, allocatable      :: dt_vector(:)
-    real :: dt_test
+    real(fp_kind), allocatable      :: dt_vector(:)
     real(fp_kind), device, allocatable      :: deltatmin_d(:)
 
-    print*,my_id, "before tout "
-    if(my_id==0) then
-      dt_test = 1.
-      print*,"before send test", dt_test 
-      call MPI_SEND(dt_test,1,MPI_REAL,1,2001,MPI_COMM_WORLD, mpi_ierr)
-    end if
-    if(my_id==1) then
-      dt_test = 0.
-      print*,"before recv test", dt_test
-      call MPI_RECV(dt_test,1,MPI_REAL,0,2001,MPI_COMM_WORLD, stat, mpi_ierr)
-      print*,"after recv test", dt_test
-    end if
 
 !   
     zero        = 0.d0
@@ -619,45 +606,20 @@ subroutine Full_FV
 ! *** Calcul du pas de temps via la CFL ***
 !
         if ( pas_dt == 2 )  then
-            print*,my_id,"avant cfl PAS DE TEMPS ", dt
             call cflcond_cudaf<<<grid, tblock>>>(vdlg_d,deltatmin_d)
-            print*,my_id,"avant cfl PAS DE TEMPS ", dt, dt_vector(1)
             dt_arr = deltatmin_d
-            !!dt = minval(dt_arr)
-            dt = 1.
-            do i=1,nelt
-              if(dt>dt_arr(i)) then
-                dt = dt_arr(i)
-              end if
-            enddo
-            print*,my_id,"après minval PAS DE TEMPS ", dt
-            do i=1,num_procs
-              print*, my_id, dt_vector(i)
-            enddo
+            dt = minval(dt_arr)
             !!Echange pas de temps entre les procs mpi
             dt_vector(my_id+1) =  dt
-            dt_test = dt
             print*,my_id,"avant gather PAS DE TEMPS ", dt
-            !call MPI_ALLGATHER(dt_vector,1,MPI_REAL,dt_vector,1,MPI_REAL,MPI_COMM_WORLD, mpi_ierr)
+            call MPI_ALLGATHER(dt_vector(my_id+1),1,MPI_REAL,dt_vector(1),1,MPI_REAL,MPI_COMM_WORLD, mpi_ierr)
 
-            if(my_id==0) then
-              print*,"before send test", dt_vector(1)
-              call MPI_SEND(dt_test,1,MPI_REAL,1,2001,MPI_COMM_WORLD, mpi_ierr)
-              !call MPI_RECV(dt_vector(2),1,MPI_REAL,1,0,MPI_COMM_WORLD, stat, mpi_ierr)
-            end if
-            if(my_id==1) then
-              !call MPI_SEND(dt_vector(2),1,MPI_REAL,0,0,MPI_COMM_WORLD, mpi_ierr)
-              print*,"before recv test", dt_vector(1)
-              call MPI_RECV(dt_test,1,MPI_REAL,0,2001,MPI_COMM_WORLD, stat, mpi_ierr)
-              print*,"after recv test", dt_vector(1)
-            end if
-            print*,my_id,"après gather PAS DE TEMPS ", dt
+            !!Choix du dt dans le vecteur
             do i=1,num_procs
-              if(dt_vector(i)>dt) then
+              if(dt_vector(i)>dt) then !!Normalement il faut prendre <
                 dt = dt_vector(i)
               end if
             enddo
-            print*,my_id,"après rectif PAS DE TEMPS ", dt
             
             dt_d = dt
         endif
