@@ -74,11 +74,11 @@
             use global
             use m_param
             real(fp_kind), dimension(:,:), intent(inout):: ut, ut1
-        end subroutine cond_initial2
-!
-        subroutine stock_coupe2D(solh, soleta, solhu, solu)
-            use precision_m
-            use global
+            end subroutine cond_initial2
+  !
+subroutine stock_coupe2D(solh, soleta, solhu, solu)
+  use precision_m
+  use global
             use m_param
             real(fp_kind), dimension(:), intent(inout)  :: solh, soleta, solhu, solu
         end subroutine stock_coupe2D
@@ -490,6 +490,7 @@
         call cuda_glerror('ierr <- data_tansfer(D-->H) to vdlg0 <-- general_cudaf.cuf',1)
         
         call sol_nodes(vdlg0,surf,zm,sh0,she0,shu0,shv0,su0,sv0)
+        call bluekenue_export (she0, sh0, shu0, shv0)
 !
 !************************************************************************************************************************************************
 !

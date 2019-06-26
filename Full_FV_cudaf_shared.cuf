@@ -613,7 +613,6 @@ subroutine Full_FV
             dt_vector(my_id+1) =  dt
             print*,my_id,"avant gather PAS DE TEMPS ", dt
             call MPI_ALLGATHER(dt_vector(my_id+1),1,MPI_REAL,dt_vector(1),1,MPI_REAL,MPI_COMM_WORLD, mpi_ierr)
-
             !!Choix du dt dans le vecteur
             do i=1,num_procs
               if(dt_vector(i)>dt) then !!Normalement il faut prendre <
