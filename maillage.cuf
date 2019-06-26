@@ -264,7 +264,11 @@ subroutine lect_const_mail
                 call cuda_glerror('ierr <- memory allocation in boundary_d <-- (aleat = 1, mail == 2) <--- maillage.cuf',1)
             else
                 print*,my_id, ' Lecture du maillage en cours'
-                call lec_mail_tri_mpi
+                if(num_procs>1) then
+                  call lec_mail_tri_mpi
+                else
+                  call lec_mail_tri
+                end if
                 print*,my_id, ' Lecture du maillage reussie'
 
 
