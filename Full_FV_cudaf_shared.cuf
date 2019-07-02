@@ -622,7 +622,7 @@ subroutine Full_FV
             !!Choix du dt dans le vecteur
             do i=0,num_procs-1
               print*,"id ", i, " dt ", dt_vector(i)
-              if(dt_vector(i)<dt) then !!Normalement il faut prendre <
+              if(dt_vector(i)>dt) then !!Normalement il faut prendre <
                 dt = dt_vector(i)
               end if
             enddo
