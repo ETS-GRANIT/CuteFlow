@@ -1,0 +1,2 @@
+#!/bin/bash
+scp -P 2222 *.T3S delmasv@localhost:~/Documents/share_vm
