@@ -1,10 +1,12 @@
 module precision_m
+    use mpi
     integer , parameter :: singlePrecision = kind(0.0)
     integer , parameter :: doublePrecision = kind(0.0d0)
     
     ! Comment out one of the lines below
         ! integer , parameter :: fp_kind = singlePrecision
     integer , parameter :: fp_kind = doublePrecision
+    integer  :: real_kind_mpi
 
     contains
     subroutine cuda_glerror(err_string, which)
