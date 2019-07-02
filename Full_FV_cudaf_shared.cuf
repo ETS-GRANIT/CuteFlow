@@ -200,7 +200,7 @@ subroutine Full_FV
     integer                     :: mpi_ierr
     integer                     :: stat(MPI_STATUS_SIZE)
     character (10) :: aaa, bbb, no_coupe
-    integer :: i, ii, j, p, kk, ss, iel, nd, dl, niter, iter, n, c, nt, n0, som, som1, som2, som3, n_it, nitf
+    integer :: i, ii, j, p, kk, ss, iel, nd, dl, niter, iter, n, c, nt, n0, som, som1, som2, som3, n_it, nitf, ifant
     integer :: evoisin, status, k, l, icor
     integer :: nodjauge, is_solnode
     integer, dimension(30) :: nodjauges
@@ -347,6 +347,8 @@ subroutine Full_FV
     call cuda_glerror('ierr <- (H->D) data transfer into niter_d <-- Full_FV_cudaf_shared.cuf',1)
 
  
+ !!Ajout sauvegarde solution initiale a enlever
+ call bluekenue_export (she0, sh0, shu0, shv0)
 !
 !*****************************************************************************************************
 !
@@ -611,11 +613,10 @@ subroutine Full_FV
             dt = minval(dt_arr)
             !!Echange pas de temps entre les procs mpi
             dt_vector(my_id+1) =  dt
-            print*,my_id,"avant gather PAS DE TEMPS ", dt
             call MPI_ALLGATHER(dt_vector(my_id+1),1,MPI_REAL,dt_vector(1),1,MPI_REAL,MPI_COMM_WORLD, mpi_ierr)
             !!Choix du dt dans le vecteur
             do i=1,num_procs
-              if(dt_vector(i)>dt) then !!Normalement il faut prendre <
+              if(dt_vector(i)<dt) then !!Normalement il faut prendre <
                 dt = dt_vector(i)
               end if
             enddo
@@ -824,7 +825,30 @@ subroutine Full_FV
             debit_sortie0 = debit_sortie
 !================================================================================================================================================================
 !
+    !!Echange des mailles fantomes
+    vdlg = vdlg_d
     
+    do ifant=1,nelt_fant_envoi
+      call MPI_SEND(vdlg(elt_fant_envoi(ifant,1),1),1,MPI_REAL,elt_fant_envoi(ifant,2),elt_fant_envoi(ifant,3),MPI_COMM_WORLD,mpi_ierr)
+    end do
+    do ifant=1,nelt_fant_recep
+      call MPI_RECV(vdlg(elt_fant_recep(ifant,1),1),1,MPI_REAL,elt_fant_recep(ifant,2),elt_fant_recep(ifant,3),MPI_COMM_WORLD,stat,mpi_ierr)
+    end do
+    call MPI_BARRIER(MPI_COMM_WORLD,mpi_ierr)
+    do ifant=1,nelt_fant_envoi
+      call MPI_SEND(vdlg(elt_fant_envoi(ifant,1),2),1,MPI_REAL,elt_fant_envoi(ifant,2),elt_fant_envoi(ifant,3),MPI_COMM_WORLD,mpi_ierr)
+    end do
+    do ifant=1,nelt_fant_recep
+      call MPI_RECV(vdlg(elt_fant_recep(ifant,1),2),1,MPI_REAL,elt_fant_recep(ifant,2),elt_fant_recep(ifant,3),MPI_COMM_WORLD,stat,mpi_ierr)
+    end do
+    call MPI_BARRIER(MPI_COMM_WORLD,mpi_ierr)
+    do ifant=1,nelt_fant_envoi
+      call MPI_SEND(vdlg(elt_fant_envoi(ifant,1),3),1,MPI_REAL,elt_fant_envoi(ifant,2),elt_fant_envoi(ifant,3),MPI_COMM_WORLD,mpi_ierr)
+    end do
+    do ifant=1,nelt_fant_recep
+      call MPI_RECV(vdlg(elt_fant_recep(ifant,1),3),1,MPI_REAL,elt_fant_recep(ifant,2),elt_fant_recep(ifant,3),MPI_COMM_WORLD,stat,mpi_ierr)
+    end do
+    call MPI_BARRIER(MPI_COMM_WORLD,mpi_ierr)
     enddo      ! *** fin de la boucle sur le temps ***
 
 !================================================================================================================================================================

@@ -853,12 +853,12 @@ subroutine lec_mail_tri_mpi
 !
     read(lec_mesh,*) tarati
     read(lec_mesh,*) nelt_fant_recep
-    print*,"id ", my_id, ", ", nelt_fant_recep, " noeuds fantomes a recep"
+    print*,"id ", my_id, ", ", nelt_fant_recep, " mailles fantomes a recep"
     if (nelt_fant_recep>0) then
-        allocate(elt_fant_recep(ndw,2))
-        allocate(elt_fant_recep_d(ndw,2))
+        allocate(elt_fant_recep(ndw,3))
+        allocate(elt_fant_recep_d(ndw,3))
         do i=1,nelt_fant_recep
-            read(lec_mesh,*) elt_fant_recep(i, 1), elt_fant_recep(i, 2)
+            read(lec_mesh,*) elt_fant_recep(i, 1), elt_fant_recep(i, 2), elt_fant_recep(i, 3)
         enddo
     endif
 !
@@ -866,12 +866,12 @@ subroutine lec_mail_tri_mpi
 !
     read(lec_mesh,*) tarati
     read(lec_mesh,*) nelt_fant_envoi
-    print*,"id ", my_id, ", ", nelt_fant_envoi, " noeuds fantomes a envoyer"
+    print*,"id ", my_id, ", ", nelt_fant_envoi, " mailles fantomes a envoyer"
     if (nelt_fant_envoi>0) then
-        allocate(elt_fant_envoi(ndw,2))
-        allocate(elt_fant_envoi_d(ndw,2))
+        allocate(elt_fant_envoi(ndw,3))
+        allocate(elt_fant_envoi_d(ndw,3))
         do i=1,nelt_fant_envoi
-            read(lec_mesh,*) elt_fant_envoi(i, 1), elt_fant_envoi(i, 2)
+            read(lec_mesh,*) elt_fant_envoi(i, 1), elt_fant_envoi(i, 2), elt_fant_envoi(i, 3)
         enddo
     endif
 !
