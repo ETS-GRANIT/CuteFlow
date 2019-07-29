@@ -115,8 +115,8 @@ attributes(global) subroutine cotes_cudaf3(surf_d, zm_d,gradz_d,vdlg_d)
     ! write(*,*) 'inside cotes -5'
     ! write(*,*) 'nelt_d = ', nelt_d
 
-    !!if(gi <= nelt_d) then
-    if(gi <= nelt_d-nelt_fant_recep_d) then
+    if(gi <= nelt_d) then
+    !if(gi <= nelt_d-nelt_fant_recep_d) then
 !
         nc1 = tj
         cond = merge(1,0, nc1 == ns_d)

@@ -7,7 +7,7 @@ POD_SPG.cuf cotes_cudaf_shared.cuf source_cudaf.cuf Full_FV_cudaf_shared.cuf gen
 
 
 runfile : ${OBJS}
-	${CC} ${CFLAGS} ${OBJS} -o $@
+	${CC} ${CFLAGS} ${OBJS} -o $@ -I /cvmfs/restricted.computecanada.ca/easybuild/software/2017/Core/pgi/17.3/linux86-64/17.3/lib
 
 clean:
 	-rm -f *.o *.core *.mod *T3S outfile* core*

@@ -97,6 +97,7 @@ attributes(global) subroutine mise_a_jr_zone_seche_cudaf(zm_d,vdlg_d, vdlg1_d)
 
     ! zero    = 0.d0
     if(gi <= nelt_d) then
+    !if(gi <= nelt_d-nelt_fant_recep_d) then
 
         vdlg_dgi1 = vdlg1_d(gi,1) - zm_d(gi)
         vdlg_d(gi,1) = vdlg_dgi1
