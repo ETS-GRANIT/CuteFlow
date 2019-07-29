@@ -58,8 +58,8 @@ attributes(global) subroutine source_cudaf(vdlg_d,surf_d,zm_d,gradz_d)
 ! ... debut du traitement
 !
 
-    if (gi <= nelt_d) then
-    !!if (gi <= nelt_d-nelt_fant_recep_d) then
+    !!if (gi <= nelt_d) then
+    if (gi <= nelt_d-nelt_fant_recep_d) then
         sourcfric_d(gi,:) = 0.d0
         q1 = vdlg_d(gi,1)
         q2 = vdlg_d(gi,2)

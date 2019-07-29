@@ -420,8 +420,9 @@ subroutine Full_FV
     write(*,*) '********************************************Loop over time starts now for the PARALLEL CODE*************************************'
     write(*,*) '******************************************************************************************************************************'
 
-    !do while ( (tc - ts + 2*tol ) < tol )
-    do while ( nb_iterations < 1 )
+    !!do while ( (tc - ts + 2*tol ) < tol )
+    !!do while ( nb_iterations < 1 )
+    do while ( nb_iterations < 5 )
 
         debit_entree  = 0.d0
         debit_sortie  = 0.d0
@@ -602,6 +603,29 @@ subroutine Full_FV
         if(ndo>0) then
           debit_sortie = debit_sortie/niter
         endif
+
+        call MPI_BARRIER(MPI_COMM_WORLD,mpi_ierr)
+        if(ndi>0) then 
+          do i=0,num_procs-1
+            if(i/=my_id) then
+              call MPI_SEND(debit_entree,1,real_kind_mpi,i,i,MPI_COMM_WORLD,mpi_ierr)
+            end if
+          end do
+        else
+          call MPI_RECV(debit_entree,1,real_kind_mpi,MPI_ANY_SOURCE,my_id,MPI_COMM_WORLD,stat,mpi_ierr)
+        end if
+        call MPI_BARRIER(MPI_COMM_WORLD,mpi_ierr)
+        if(ndo>0) then 
+          do i=0,num_procs-1
+            if(i/=my_id) then
+              call MPI_SEND(debit_sortie,1,real_kind_mpi,i,i,MPI_COMM_WORLD,mpi_ierr)
+            end if
+          end do
+        else
+          call MPI_RECV(debit_sortie,1,real_kind_mpi,MPI_ANY_SOURCE,my_id,MPI_COMM_WORLD,stat,mpi_ierr)
+        end if
+        print*,"echange des debits ok"
+
 !
         !!call copy_into_res_d<<<grid_copy, block_copy>>>(niter_d, nelt_d-nelt_fant_recep_d)
         call copy_into_res_d<<<grid_copy, block_copy>>>(niter_d, nelt_d)
@@ -1077,9 +1101,11 @@ subroutine echange_fant(a)
   do j=1,ndln
     do ifant=1,nelt_fant_envoi
       call MPI_SEND(a(elt_fant_envoi(ifant,1),j),1,real_kind_mpi,elt_fant_envoi(ifant,2),elt_fant_envoi(ifant,3),MPI_COMM_WORLD,mpi_ierr)
+      !!call MPI_SEND(a(elt_fant_envoi(ifant,1),j),1,MPI_REAL,elt_fant_envoi(ifant,2),elt_fant_envoi(ifant,3),MPI_COMM_WORLD,mpi_ierr)
     end do
     do ifant=1,nelt_fant_recep
       call MPI_RECV(a(elt_fant_recep(ifant,1),j),1,real_kind_mpi,elt_fant_recep(ifant,2),elt_fant_recep(ifant,3),MPI_COMM_WORLD,stat,mpi_ierr)
+      !!call MPI_RECV(a(elt_fant_recep(ifant,1),j),1,MPI_REAL,elt_fant_recep(ifant,2),elt_fant_recep(ifant,3),MPI_COMM_WORLD,stat,mpi_ierr)
     end do
     call MPI_BARRIER(MPI_COMM_WORLD,mpi_ierr)
   end do
@@ -1102,7 +1128,8 @@ attributes(global) subroutine calcul_residue_ele_cudaf(surf_d, resj_d)
     ti = threadIdx%x
     gi = (blockIdx%x - 1)*blockDim%x + ti
 
-    if(gi <= nelt_d) then
+    !!if(gi <= nelt_d) then
+    if(gi <= nelt_d-nelt_fant_recep_d) then
         if ( friction_d == 1) then
 !
             if ( fric == 1 .or. fric == 2 ) then
@@ -1163,7 +1190,8 @@ attributes(global) subroutine update_un_voisin_sec()
     thi = threadIdx%x
     gi = (blockIdx%x - 1)*blockDim%x + thi
 
-    if(gi <= nelt_d) then
+    !!if(gi <= nelt_d) then
+    if(gi <= nelt_d-nelt_fant_recep_d) then
         v1 = vdlg_d(gi,1)
         output = 'n'        
         do i=1,ns_d
