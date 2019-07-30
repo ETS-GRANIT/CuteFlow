@@ -226,6 +226,7 @@ subroutine Full_FV
     ! real(fp_kind), allocatable              :: dt_arr_pageable(:)
     real(fp_kind), allocatable, pinned      :: dt_arr(:)
     real(fp_kind), allocatable      :: dt_vector(:)
+    real(fp_kind), allocatable      :: res1(:,:)
     real(fp_kind), device, allocatable      :: deltatmin_d(:)
     integer :: nb_iterations
 
@@ -269,6 +270,7 @@ subroutine Full_FV
     ! allocate(greta_lisec(nelt,2))
     ! allocate(vdlg_init(nelt,ndln))
 
+    allocate(res1(nelt, ndln))
     allocate(resc_d(nelt, ndln),res_d(nelt, ndln), res1_d(nelt, ndln))
     allocate(sourcfric_d(nelt,ndln))
     !!allocate(io_identifier(nelt), io_identifier_d(nelt), debit_entree_arr(ndi+2), debit_entree_arr_d(ndi+2), debit_sortie_arr(ndo+2))
@@ -420,9 +422,10 @@ subroutine Full_FV
     write(*,*) '********************************************Loop over time starts now for the PARALLEL CODE*************************************'
     write(*,*) '******************************************************************************************************************************'
 
-    !!do while ( (tc - ts + 2*tol ) < tol )
+    do while ( (tc - ts + 2*tol ) < tol )
     !!do while ( nb_iterations < 1 )
-    do while ( nb_iterations < 5 )
+    !!do while ( nb_iterations < 2 )
+        print*,"TIME : ", tc
 
         debit_entree  = 0.d0
         debit_sortie  = 0.d0
@@ -445,6 +448,7 @@ subroutine Full_FV
 !==================================================================================================
 !
 ! *** début de la boucle sur les iterations du schema temporel ***
+        print*,"niter = ", niter
 !
         do iter=1,niter
 !
@@ -625,6 +629,7 @@ subroutine Full_FV
           call MPI_RECV(debit_sortie,1,real_kind_mpi,MPI_ANY_SOURCE,my_id,MPI_COMM_WORLD,stat,mpi_ierr)
         end if
         print*,"echange des debits ok"
+        print*,debit_sortie, debit_entree
 
 !
         !!call copy_into_res_d<<<grid_copy, block_copy>>>(niter_d, nelt_d-nelt_fant_recep_d)
@@ -662,6 +667,7 @@ subroutine Full_FV
                 dt = dt_vector(i)
               end if
             enddo
+            !!dt = 0.1*dt !! a enlever test
             dt_d = dt
             print*,"après gather dt ", dt
         endif
@@ -882,10 +888,22 @@ subroutine Full_FV
     vdlg01 = vdlg01_d
     call echange_fant(vdlg01)
     vdlg01_d = vdlg01
+    zm = zm_d
+    call echange_fant_1D(zm)
+    zm_d = zm
+    surf = surf_d
+    call echange_fant_1D(surf)
+    surf_d = surf
+    gradz = gradz_d
+    call echange_fant(gradz)
+    gradz_d = gradz
+    res1 = res1_d
+    call echange_fant(res1)
+    res1_d = res1
 
     nb_iterations = nb_iterations + 1
-    call sol_nodes(vdlg,surf,zm,sh0,she0,shu0,shv0,su0,sv0)
-    call bluekenue_export (she0, sh0, shu0, shv0)
+    !!call sol_nodes(vdlg,surf,zm,sh0,she0,shu0,shv0,su0,sv0)
+    !!call bluekenue_export (she0, sh0, shu0, shv0)
     enddo      ! *** fin de la boucle sur le temps ***
 
 
@@ -988,6 +1006,7 @@ subroutine Full_FV
     deallocate(dt_arr, deltatmin_d)
     deallocate(un_voisin_sec1_d)
     deallocate(afm1_d)
+    deallocate(res1)
 !
 end subroutine Full_FV
 
@@ -1087,6 +1106,27 @@ attributes(global) subroutine copy_1d(a,b,n)
     endif
 
 end subroutine copy_1d
+
+subroutine echange_fant_1D(a)
+  use precision_m
+  use global
+  use global_device
+  use mpi
+
+  real(fp_kind), intent(inout) :: a(nelt)
+  integer                     :: stat(MPI_STATUS_SIZE)
+  integer :: j
+
+  do ifant=1,nelt_fant_envoi
+    call MPI_SEND(a(elt_fant_envoi(ifant,1)),1,real_kind_mpi,elt_fant_envoi(ifant,2),elt_fant_envoi(ifant,3),MPI_COMM_WORLD,mpi_ierr)
+    !!call MPI_SEND(a(elt_fant_envoi(ifant,1),j),1,MPI_REAL,elt_fant_envoi(ifant,2),elt_fant_envoi(ifant,3),MPI_COMM_WORLD,mpi_ierr)
+  end do
+  do ifant=1,nelt_fant_recep
+    call MPI_RECV(a(elt_fant_recep(ifant,1)),1,real_kind_mpi,elt_fant_recep(ifant,2),elt_fant_recep(ifant,3),MPI_COMM_WORLD,stat,mpi_ierr)
+    !!call MPI_RECV(a(elt_fant_recep(ifant,1),j),1,MPI_REAL,elt_fant_recep(ifant,2),elt_fant_recep(ifant,3),MPI_COMM_WORLD,stat,mpi_ierr)
+  end do
+  call MPI_BARRIER(MPI_COMM_WORLD,mpi_ierr)
+  end subroutine echange_fant_1D
 
 subroutine echange_fant(a)
   use precision_m

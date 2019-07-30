@@ -7,4 +7,8 @@
 #SBATCH --account=def-soulaima
 #SBATCH --output=outfile.out
 
+module load pgi/17.3
+
+export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:/cvmfs/restricted.computecanada.ca/easybuild/software/2017/Core/pgi/17.3/linux86-64/17.3/lib"
+
 mpirun -n 2 sh -c './runfile > outfile.$OMPI_COMM_WORLD_RANK'

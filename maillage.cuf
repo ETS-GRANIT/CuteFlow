@@ -187,6 +187,9 @@ subroutine lect_const_mail
     type(cudaEvent)             :: startEvent , stopEvent
     real(fp_kind)               :: start_cpu, stop_cpu, errf1, errf2, errf3
     real                        :: time_cuda
+    integer                     :: mpi_ierr
+    real(fp_kind), dimension(0:num_procs-1) :: cotemin_vector
+    call MPI_TYPE_CREATE_F90_REAL(fp_kind, MPI_UNDEFINED, real_kind_mpi, mpi_ierr)
 !
 ! ... debut du traitement
 
@@ -360,6 +363,7 @@ subroutine lect_const_mail
 !
     cotemin = 1000000.
     do kvol=1,nelt  ! *** boucle sur les éléments ***
+    !!do kvol=1,nelt-nelt_fant_recep  ! *** boucle sur les éléments ***
         do i=1,ns !*** boucle sur les cotés de l'élément ***
             nc1 = connectivite(kvol,i)
             if ( i < ns ) then
@@ -382,6 +386,17 @@ subroutine lect_const_mail
         cotemin = cotemin / 2.
     endif
 
+    cotemin_vector(my_id) = cotemin
+    call MPI_BARRIER(MPI_COMM_WORLD, mpi_ierr)
+    call MPI_ALLGATHER(cotemin_vector(my_id),1,real_kind_mpi,cotemin_vector,1,real_kind_mpi,MPI_COMM_WORLD, mpi_ierr)
+    print*,"avant gather cote min", cotemin
+    do i=0,num_procs-1
+      print*,"id ", i, " cotemin ", cotemin_vector(i)
+      if(cotemin_vector(i)<cotemin) then 
+        cotemin = cotemin_vector(i)
+      end if
+    enddo
+    print*,"après gather cote min", cotemin
     cotemin_d = cotemin
     call cuda_glerror('ierr <- (h->d) data transfer to cotemin_d <-- maillage.cuf',1)
 
