@@ -28,6 +28,7 @@
     use global_device
     use main_prog_variables
     use mpi
+    use mpiDeviceUtil
 
 !
 !   use avdef
@@ -214,7 +215,7 @@ subroutine stock_coupe2D(solh, soleta, solhu, solu)
 ! *** déclaration des variables ***
 !
     integer                                 :: i, ii, j, p, kk, ss, ie, iel, nt, n_MC, i_MC
-    integer                                 :: status, l, ie_coupe_transv, ierr, mpi_ierr
+    integer                                 :: status, l, ie_coupe_transv, ierr, mpi_ierr, dev
     real(fp_kind)                           :: d2, t2, dtime2, tcm2, d, t, zero, time_start, time_stop, maxheight
     real(fp_kind)                           :: errf, errf1, errf2, errf3, errf4, errf5
     real                                    :: time_cuda
@@ -232,7 +233,9 @@ subroutine stock_coupe2D(solh, soleta, solhu, solu)
 ! *** Attribution des GPUs et Get Device Properties*****************************************************
     
     !ierr = cudaDeviceReset()
-    !ierr = cudaSetDevice(my_id) !! %modif 
+    call assignDevice(dev)
+    !!ierr = cudaSetDevice(mod(my_id,2)) !! %modif 
+    ierr = cudaSetDevice(dev) !! 
     ierr = cudaGetDeviceProperties (prop , 0)
     call cuda_glerror('ierr <- cudaGetDeviceProperties <-- general_cudaf.cuf)',1)
 
