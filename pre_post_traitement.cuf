@@ -1090,6 +1090,97 @@ subroutine bluekenue_export(solh, soleta, solhu, solhv)
 end subroutine bluekenue_export
 !
 !*******************************************************************************************************************
+subroutine paraview_export(solh, soleta, solhu, solhv)
+! ==============================================================================================================
+!
+!     paraview_export == Exporte dans un fichier text les solutions pour postraitement avec paraview
+!
+!     auteur : Delmas Vincent
+!
+!     version : 2.0  ;  july 31 2019
+! =============================================================================================================
+!
+!
+    use precision_m
+    use global
+    use m_param
+!
+    implicit none
+! 
+! ... variables passees en parametre ...................................
+!
+    real(fp_kind), dimension(:), intent(inout)  :: soleta, solh, solhu, solhv
+!
+! ... variables locales ................................................
+!
+    integer :: nd, iel
+    real(fp_kind) :: solu, solv
+!
+! ... Debut du traitement
+!
+            write(valtemps,'(f12.3)') tc 
+            solfile_para = genrtest // 'FV-Paraview '// 't' //valtemps // 's .vtk'
+!
+            open(unit=ec_Paraview,file=solfile_para,status="unknown")
+!
+                write(ec_Paraview,'(a)') "# vtk DataFile Version 1.0"
+                write(ec_Paraview,'(a)') "2D Unstructured Grid"
+                write(ec_Paraview,'(a)') "ASCII"
+                write(ec_Paraview,'(a)') ""
+!
+                
+                write(ec_Paraview,'(a)') "DATASET UNSTRUCTURED_GRID"
+                write(ec_Paraview,'(a,I10,a)') "POINTS", nnt, " float"
+
+                do nd=1, nnt
+                  write(ec_Paraview,'(3f16.6)') coordonnees(nd,1), coordonnees(nd,2),coordonnees(nd,3)
+                end do
+
+                write(ec_Paraview,'(a)') ""
+                write(ec_Paraview,'(a,I10,I10)') "CELLS", nelt, 4*nelt
+                do iel=1, nelt
+                  write(ec_Paraview,'(I1,3I10)') 3, connectivite(iel,1)-1, connectivite(iel,2)-1, connectivite(iel,3)-1
+                end do
+
+                write(ec_Paraview,'(a)') ""
+                write(ec_Paraview,'(a,I10)') "CELL_TYPES", nelt
+                do iel=1, nelt
+                  write(ec_Paraview,'(a)') "5"
+                end do
+
+                write(ec_Paraview,'(a)') ""
+                write(ec_Paraview,'(a,I10)') "POINT_DATA", nnt
+                write(ec_Paraview,'(a)') "SCALARS eta float"
+                write(ec_Paraview,'(a)') "LOOKUP_TABLE default"
+                do nd=1, nnt
+                    write(ec_Paraview,'(f16.6)') soleta(nd)
+                end do
+
+                write(ec_Paraview,'(a)') ""
+                write(ec_Paraview,'(a)') "SCALARS h float"
+                write(ec_Paraview,'(a)') "LOOKUP_TABLE default"
+                do nd=1, nnt
+                    write(ec_Paraview,'(f16.6)') solh(nd)
+                end do
+
+                write(ec_Paraview,'(a)') ""
+                write(ec_Paraview,'(a)') "VECTORS velocity float"
+                do nd=1, nnt
+                    if ( solh(nd) > tolisec ) then
+                        solu = solhu(nd)/solh(nd)
+                        solv = solhv(nd)/solh(nd)
+                    else
+                        solu = 0.d0
+                        solv = 0.d0
+                    endif
+                    write(ec_Paraview,'(3f16.6)')   solu, solv, 0.
+                end do
+
+!
+            close(ec_Paraview)
+!
+!   ...  Fin du traitement      
+end subroutine paraview_export
 !*******************************************************************************************************************
 
 subroutine tecplot_export(solh, soleta, solhu, solhv)

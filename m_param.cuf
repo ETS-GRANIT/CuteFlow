@@ -36,6 +36,7 @@
       integer, parameter :: ec_Bluekenu_h       = 804       ! fichier ecriture solution 3d pour Bluekenu (file writing 3d solution for Bluekenu) 
       integer, parameter :: ec_Bluekenu_u       = 805       ! fichier ecriture solution 3d pour Bluekenu (file writing 3d solution for Bluekenu) 
       integer, parameter :: ec_Bluekenu_v       = 806       ! fichier ecriture solution 3d pour Bluekenu (file writing 3d solution for Bluekenu)
+      integer, parameter :: ec_Paraview         = 901       ! fichier ecriture so lution 3d pour Paraview (3d writing file for Paraview)
       integer, parameter :: ec_bilan_sim        = 1000      ! fichier ecriture bilan de la simulation (file write simulation report) 
       integer, parameter :: ec_sol_elt_t        = 1006      ! fichier ecriture stockage des solutions dans les cellules a intervalle de temps (file write storage solutions in cells at time interval)
       integer, parameter :: ec_sol_elt_final    = 1007      ! fichier ecriture stockage de la solution finale dans les cellules (file write storage of the final solution in cells)

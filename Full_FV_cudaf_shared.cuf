@@ -176,6 +176,13 @@ subroutine Full_FV
             real(fp_kind), dimension(:), intent(inout)  :: soleta, solh, solhu, solhv
         end subroutine bluekenue_export
 !
+        subroutine paraview_export(solh, soleta, solhu, solhv)
+            use precision_m
+            use global
+            use m_param
+            real(fp_kind), dimension(:), intent(inout)  :: soleta, solh, solhu, solhv
+        end subroutine paraview_export
+
         subroutine tecplot_export(solh, soleta, solhu, solhv)
             use precision_m
             use global
@@ -356,6 +363,7 @@ subroutine Full_FV
  
  !!Ajout sauvegarde solution initiale a enlever
  call bluekenue_export (she0, sh0, shu0, shv0)
+ call paraview_export (she0, sh0, shu0, shv0)
 !
 !*****************************************************************************************************
 !
@@ -944,6 +952,7 @@ subroutine Full_FV
 !     =========================  Enrefistrement de la solution finale pour post-traitement avec Bluekenue       ============================
 
             call bluekenue_export (she0, sh0, shu0, shv0)
+            call paraview_export (she0, sh0, shu0, shv0)
 !
 !***********************************************************************************************************************************************
 !

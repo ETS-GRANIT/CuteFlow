@@ -90,6 +90,7 @@
     character (200):: SOLFILEJ_ETA, SOLFILEJ_H, SOLFILEJ_U, SOLFILEJ_V, fich_debit_coupe, file_BC, file_Q_coupes
     character (200):: sol_elt_ts, sol_elt_final, sol_nd_ts, sol_nd_final 
     character (200):: solfile_eta_T3S, solfile_h_T3S, solfile_u_T3S, solfile_v_T3S
+    character (200):: solfile_para
 !
     character (20):: base_h_num, base_eta_num, base_eta_tild_num, base_hu_num, base_hv_num, base_u_num, base_v_num, lamda_moy_num, lamda_max_num, h_pod_num, fric_pod_num
     character (1)::  num_seq_base1
