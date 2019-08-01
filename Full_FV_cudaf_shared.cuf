@@ -733,6 +733,10 @@ subroutine Full_FV
 !               print*, 'nt', nt, '   tc', tc, 'debit_entre=', debit_entree, 'debit_sorti=', debit_sortie
 !               print*, debitglob
                 print*,'---------------------------------------------------------------------------'
+                call sol_nodes(vdlg,surf,zm,sh0,she0,shu0,shv0,su0,sv0)
+                !!call sol_nodes(vdlg,surf,zm,sh0,she0,shu0,shv0,su0,sv0)
+                !!call bluekenue_export (she0, sh0, shu0, shv0)
+                call paraview_export(she0, sh0, shu0, shv0)
             endif
 
 !
@@ -831,6 +835,7 @@ subroutine Full_FV
                     call sol_nodes(vdlg,surf,zm,sh0,she0,shu0,shv0,su0,sv0)
                     is_solnode = 1
                 endif
+
 
                 vdlg1 = vdlg1_d
                 call cuda_glerror('ierr<- (D->H) data_transfer into vdlg1{if(soldomaine == 1 ... )} <-- Full_FV_cudaf_shared.cuf',1)

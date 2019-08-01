@@ -1133,7 +1133,7 @@ subroutine paraview_export(solh, soleta, solhu, solhv)
                 write(ec_Paraview,'(a,I10,a)') "POINTS", nnt, " float"
 
                 do nd=1, nnt
-                  write(ec_Paraview,'(3f16.6)') coordonnees(nd,1), coordonnees(nd,2),coordonnees(nd,3)
+                  write(ec_Paraview,'(3f16.6)') coordonnees(nd,1), coordonnees(nd,2), soleta(nd)-solh(nd)
                 end do
 
                 write(ec_Paraview,'(a)') ""
