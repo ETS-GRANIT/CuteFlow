@@ -260,7 +260,7 @@ subroutine stock_coupe2D(solh, soleta, solhu, solu)
 ! ****    preparation of solution file names: solfile2d and solfile3d ****
 
     !!genrtest=nom_test
-    write(genrtest, "(I1)") my_id
+    write(genrtest, "(I2)") my_id
     !!genrtest = genrtest//nom_test
     print*,'Test en cours : ', nom_test, genrtest
 

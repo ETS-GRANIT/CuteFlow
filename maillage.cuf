@@ -467,7 +467,7 @@ subroutine lec_donnees
     read(lu_ter,nml=datafield)
     close(lu_ter)
 !
-    write (prefix, "(I1,A1)") my_id, "_"
+    write (prefix, "(I2,A1)") my_id, "_"
     prefix = trim(prefix)//trim(fichmai)
     open(lu_mail,file=trim(prefix),form='formatted',status='old')
     read(lu_mail,nml=datamesh)
