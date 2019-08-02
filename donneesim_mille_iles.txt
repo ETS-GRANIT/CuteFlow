@@ -2,7 +2,7 @@
 &DATASIMUL  Test=10, nom_test='Mille_Iles', IFLUX=1 , limiteur=0 , fricimplic=1 , timedisc='euler', 
             inlet='inflow', debit_var=0, debitglob=793.0, loi_debitglob='Mille_iles_Qt.txt', long=1710.9, 
             H_sortie=29.3505,
-            tbase=0.0 , divbase=3 , TS=200.0 , dt=0.01 , PAS_DT=2 , CFL=0.4 , 
+            tbase=0.0 , divbase=3 , TS=1000.0 , dt=0.01 , PAS_DT=2 , CFL=0.4 , 
             tol_reg_perm=1.0E-7, tol=1.0E-04 , tolisec=5.E-05 , tolratio=1.0E-04, tolaffiche=1.e-01, GRD=2 , 
             VISUAL=2, freqvisual=10, freqaffich=100, freqjauges=10, instjauges=40,  
             nbrjauges=0 , 

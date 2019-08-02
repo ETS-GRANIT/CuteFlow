@@ -1090,7 +1090,7 @@ subroutine bluekenue_export(solh, soleta, solhu, solhv)
 end subroutine bluekenue_export
 !
 !*******************************************************************************************************************
-subroutine paraview_export(solh, soleta, solhu, solhv)
+subroutine paraview_export(solh, soleta, solhu, solhv, ci)
 ! ==============================================================================================================
 !
 !     paraview_export == Exporte dans un fichier text les solutions pour postraitement avec paraview
@@ -1113,13 +1113,14 @@ subroutine paraview_export(solh, soleta, solhu, solhv)
 !
 ! ... variables locales ................................................
 !
-    integer :: nd, iel
+    integer :: nd, iel, ci
     real(fp_kind) :: solu, solv
 !
 ! ... Debut du traitement
 !
-            write(valtemps,'(f12.3)') tc 
-            solfile_para = genrtest // 'FV-Paraview '// 't' //valtemps // 's .vtk'
+            !write(valtemps,'(f12.3)') tc 
+            write(valtemps,'(I20)') ci
+            solfile_para = trim(valtemps)// 'FV-Paraview'//trim(genrtest)// 's .vtk'
 !
             open(unit=ec_Paraview,file=solfile_para,status="unknown")
 !

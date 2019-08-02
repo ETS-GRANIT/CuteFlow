@@ -176,10 +176,11 @@ subroutine Full_FV
             real(fp_kind), dimension(:), intent(inout)  :: soleta, solh, solhu, solhv
         end subroutine bluekenue_export
 !
-        subroutine paraview_export(solh, soleta, solhu, solhv)
+        subroutine paraview_export(solh, soleta, solhu, solhv, iaff)
             use precision_m
             use global
             use m_param
+            integer, intent(in) :: iaff
             real(fp_kind), dimension(:), intent(inout)  :: soleta, solh, solhu, solhv
         end subroutine paraview_export
 
@@ -207,7 +208,7 @@ subroutine Full_FV
     integer                     :: mpi_ierr
     integer                     :: stat(MPI_STATUS_SIZE)
     character (10) :: aaa, bbb, no_coupe
-    integer :: i, ii, j, p, kk, ss, iel, nd, dl, niter, iter, n, c, nt, n0, som, som1, som2, som3, n_it, nitf, ifant
+    integer :: i, ii, j, p, kk, ss, iel, nd, dl, niter, iter, n, c, nt, n0, som, som1, som2, som3, n_it, nitf, ifant, iaff
     integer :: evoisin, status, k, l, icor
     integer :: nodjauge, is_solnode
     integer, dimension(30) :: nodjauges
@@ -363,7 +364,7 @@ subroutine Full_FV
  
  !!Ajout sauvegarde solution initiale a enlever
  call bluekenue_export (she0, sh0, shu0, shv0)
- call paraview_export (she0, sh0, shu0, shv0)
+ call paraview_export (she0, sh0, shu0, shv0, 0)
 !
 !*****************************************************************************************************
 !
@@ -430,7 +431,7 @@ subroutine Full_FV
     write(*,*) '******************************************************************************************************************************'
     write(*,*) '********************************************Loop over time starts now for the PARALLEL CODE*************************************'
     write(*,*) '******************************************************************************************************************************'
-
+    iaff = 0
     do while ( (tc - ts + 2*tol ) < tol )
     !!do while ( nb_iterations < 1 )
     !!do while ( nb_iterations < 2 )
@@ -733,10 +734,11 @@ subroutine Full_FV
 !               print*, 'nt', nt, '   tc', tc, 'debit_entre=', debit_entree, 'debit_sorti=', debit_sortie
 !               print*, debitglob
                 print*,'---------------------------------------------------------------------------'
+                iaff = iaff + 1
                 call sol_nodes(vdlg,surf,zm,sh0,she0,shu0,shv0,su0,sv0)
                 !!call sol_nodes(vdlg,surf,zm,sh0,she0,shu0,shv0,su0,sv0)
                 !!call bluekenue_export (she0, sh0, shu0, shv0)
-                call paraview_export(she0, sh0, shu0, shv0)
+                call paraview_export(she0, sh0, shu0, shv0, iaff)
             endif
 
 !
@@ -957,7 +959,7 @@ subroutine Full_FV
 !     =========================  Enrefistrement de la solution finale pour post-traitement avec Bluekenue       ============================
 
             call bluekenue_export (she0, sh0, shu0, shv0)
-            call paraview_export (she0, sh0, shu0, shv0)
+            call paraview_export (she0, sh0, shu0, shv0, iaff)
 !
 !***********************************************************************************************************************************************
 !
