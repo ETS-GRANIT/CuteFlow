@@ -45,8 +45,8 @@ attributes(global) subroutine cflcond_cudaf(solut_d, deltatmin_d)
     dt1 = 1000000.00
     min_vmax  = 0.01D0
 
-    if(gi <= nelt_d) then
-    !!if(gi <= nelt_d-nelt_fant_recep_d) then
+    !!if(gi <= nelt_d) then
+    if(gi <= nelt_d-nelt_fant_recep_d) then
 !       
         deltatmin_d(gi) = dt1
         hauteur = solut_d(gi,1)
