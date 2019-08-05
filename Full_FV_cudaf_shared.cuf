@@ -290,7 +290,8 @@ subroutine Full_FV
     if(ndo>0) then
       allocate(debit_sortie_arr(ndo+2),debit_sortie_arr_d(ndo+2),vol_tot_sorti_arr_d(ndo+2), vol_tot_sorti_arr(ndo+2))
     endif
-    allocate(dt_arr(nelt), deltatmin_d(nelt))
+    !!allocate(dt_arr(nelt), deltatmin_d(nelt))
+    allocate(dt_arr(nelt-nelt_fant_recep), deltatmin_d(nelt-nelt_fant_recep))
     allocate(un_voisin_sec1_d(nelt))
     allocate(afm1_d(nelt, 9))
     allocate(dt_vector(0:num_procs-1))
@@ -891,30 +892,30 @@ subroutine Full_FV
 !================================================================================================================================================================
 !
     !!Echange des mailles fantomes
-    vdlg = vdlg_d
+    vdlg(nelt-nelt_fant_recep:nelt,:) = vdlg_d(nelt-nelt_fant_recep:nelt,:)
     call echange_fant(vdlg)
-    vdlg_d = vdlg
-    vdlg1 = vdlg1_d
+    vdlg_d(nelt-nelt_fant_recep:nelt,:) = vdlg(nelt-nelt_fant_recep:nelt,:)
+    vdlg1(nelt-nelt_fant_recep:nelt,:) = vdlg1_d(nelt-nelt_fant_recep:nelt,:)
     call echange_fant(vdlg1)
-    vdlg1_d = vdlg1
-    vdlg0 = vdlg0_d
+    vdlg1_d(nelt-nelt_fant_recep:nelt,:) = vdlg1(nelt-nelt_fant_recep:nelt,:)
+    vdlg0(nelt-nelt_fant_recep:nelt,:) = vdlg0_d(nelt-nelt_fant_recep:nelt,:)
     call echange_fant(vdlg0)
-    vdlg0_d = vdlg0
-    vdlg01 = vdlg01_d
+    vdlg0_d(nelt-nelt_fant_recep:nelt,:) = vdlg0(nelt-nelt_fant_recep:nelt,:)
+    vdlg01(nelt-nelt_fant_recep:nelt,:) = vdlg01_d(nelt-nelt_fant_recep:nelt,:)
     call echange_fant(vdlg01)
-    vdlg01_d = vdlg01
-    zm = zm_d
+    vdlg01_d(nelt-nelt_fant_recep:nelt,:) = vdlg01(nelt-nelt_fant_recep:nelt,:)
+    zm(nelt-nelt_fant_recep:nelt) = zm_d(nelt-nelt_fant_recep:nelt)
     call echange_fant_1D(zm)
-    zm_d = zm
-    surf = surf_d
+    zm_d(nelt-nelt_fant_recep:nelt) = zm(nelt-nelt_fant_recep:nelt)
+    surf(nelt-nelt_fant_recep:nelt) = surf_d(nelt-nelt_fant_recep:nelt)
     call echange_fant_1D(surf)
-    surf_d = surf
-    gradz = gradz_d
+    surf_d(nelt-nelt_fant_recep:nelt) = surf(nelt-nelt_fant_recep:nelt)
+    gradz(nelt-nelt_fant_recep:nelt,:) = gradz_d(nelt-nelt_fant_recep:nelt,:)
     call echange_fant(gradz)
-    gradz_d = gradz
-    res1 = res1_d
+    gradz_d(nelt-nelt_fant_recep:nelt,:) = gradz(nelt-nelt_fant_recep:nelt,:)
+    res1(nelt-nelt_fant_recep:nelt,:) = res1_d(nelt-nelt_fant_recep:nelt,:)
     call echange_fant(res1)
-    res1_d = res1
+    res1_d(nelt-nelt_fant_recep:nelt,:) = res1(nelt-nelt_fant_recep:nelt,:)
 
     nb_iterations = nb_iterations + 1
     !!call sol_nodes(vdlg,surf,zm,sh0,she0,shu0,shv0,su0,sv0)
