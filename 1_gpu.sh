@@ -3,7 +3,7 @@
 #SBATCH --ntasks-per-node=1
 #SBATCH --gres=gpu:1
 #SBATCH --mem=2000M
-#SBATCH --time=0-00:10
+#SBATCH --time=0-01:00
 #SBATCH --account=def-soulaima
 #SBATCH --output=outfile.out
 

@@ -362,8 +362,8 @@ subroutine lect_const_mail
 !       calcul de la longueur caracteristique pour le calcul du pas de temps via la cfl
 !
     cotemin = 1000000.
-    do kvol=1,nelt  ! *** boucle sur les éléments ***
-    !!do kvol=1,nelt-nelt_fant_recep  ! *** boucle sur les éléments ***
+    !!do kvol=1,nelt  ! *** boucle sur les éléments ***
+    do kvol=1,nelt-nelt_fant_recep  ! *** boucle sur les éléments ***
         do i=1,ns !*** boucle sur les cotés de l'élément ***
             nc1 = connectivite(kvol,i)
             if ( i < ns ) then
