@@ -728,7 +728,8 @@ subroutine stock_coupe2D(solh, soleta, solhu, solu)
     deallocate(manning_nelt, manning_nd)
     deallocate(elts_coupes_transv)
     deallocate(manning_nelt_d, manning_nd_d)
-    deallocate(infoSendRecv)
+    deallocate(elt_fant_envoi,elt_fant_recep)
+    deallocate(elt_fant_envoi_bloc,elt_fant_recep_bloc)
 
 !
 !   if (test ==7 .and. ncel > 0) then 

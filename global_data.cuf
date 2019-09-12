@@ -106,6 +106,7 @@
     integer :: nelt, nnt, ns, ndi, ndo, ndw, correction, prediction, nbase, nbase_h, nbase_eta, nbase_eta_tild, nbase_hu, nbase_hv, nbase_u, nbase_v, maxdimbase
     integer :: nelt_loc, nnt_loc
     integer :: nelt_fant_recep, nelt_fant_envoi
+    integer :: nelt_fant_recep_bloc, nelt_fant_envoi_bloc
     integer :: nelt_entree, nelt_sortie, n_Q, tc_init, start
     real(fp_kind) :: t_seq_pod, dt_seq_pod    
 ! 
@@ -115,6 +116,7 @@
     real(fp_kind), dimension(100000)             :: tvis3d2 , tvis2d2, tvisjauge, tvisdom, tvideo
     integer, dimension(:)  ,   allocatable :: ndinput, ndoutput, ndwall, i_dry_wet, nbr_nds_coupes
     integer, dimension(:,:), allocatable :: elt_fant_recep, elt_fant_envoi
+    integer, dimension(:,:), allocatable :: elt_fant_recep_bloc, elt_fant_envoi_bloc
     integer, dimension(:,:),   allocatable :: connectivite, boundary, ij_wet_dry, ij_dry_wet, elts_coupes_transv, nds_coupes
     real(fp_kind), dimension(:)  ,   allocatable :: flux_interface, manning_nd, manning_nelt
     real(fp_kind), dimension(:,:),   allocatable :: coo_table_elemwise, coordonnees, phi, phi_h, phi_eta, phi_eta_tild, phi_hu, phi_hv, phi_u, phi_v, phij_u, phij_v, phi_h_eta
@@ -144,7 +146,6 @@
     real(fp_kind), allocatable :: debit_sortie_arr(:)
     real(fp_kind), allocatable :: vol_tot_entre_arr(:)
     real(fp_kind), allocatable :: vol_tot_sorti_arr(:)
-    integer, allocatable :: infoSendRecv(:,:)
     integer, allocatable :: io_identifier(:)
     real(fp_kind), allocatable :: rtests_1d(:), rtests_2d(:,:), rtests1_1d(:), rtests1_2d(:,:)
     real(fp_kind), allocatable :: itests_1d(:), itests_2d(:,:), itests1_1d(:), itests1_2d(:,:)
