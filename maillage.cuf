@@ -772,7 +772,7 @@ subroutine lec_mail_tri_mpi
 ! ... variables locales ................................................
 !
     character(len=1) :: tarati
-    integer          :: i, n, ierr
+    integer          :: i, n, ierr, curProc
 !
 ! ... debut du traitement
 !   
@@ -784,6 +784,7 @@ subroutine lec_mail_tri_mpi
     read(lec_mesh,*) nnt
     print*,"id ", my_id, ", ", nnt, " nodes"
     allocate(coordonnees(nnt,3), manning_nd(nnt))
+    allocate(infoSendRecv(num_procs,2))
 !
     if (numerot == 1 .and. zcolumn == 0 ) then
         do i=1,nnt

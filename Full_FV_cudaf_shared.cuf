@@ -302,30 +302,31 @@ subroutine Full_FV
     call get_io_index()
 
     !!Echange des mailles fantomes pire truc mais on fera mieux
-    vdlg = vdlg_d
-    call echange_fant(vdlg)
-    vdlg_d = vdlg
-    vdlg1 = vdlg1_d
-    call echange_fant(vdlg1)
-    vdlg1_d = vdlg1
-    vdlg0 = vdlg0_d
-    call echange_fant(vdlg0)
-    vdlg0_d = vdlg0
-    vdlg01 = vdlg01_d
-    call echange_fant(vdlg01)
-    vdlg01_d = vdlg01
-    zm = zm_d
-    call echange_fant_1D(zm)
-    zm_d = zm
-    surf = surf_d
-    call echange_fant_1D(surf)
-    surf_d = surf
-    gradz = gradz_d
-    call echange_fant(gradz)
-    gradz_d = gradz
-    res1 = res1_d
-    call echange_fant(res1)
-    res1_d = res1
+!!    vdlg = vdlg_d
+!!    call echange_fant(vdlg)
+!!    vdlg_d = vdlg
+!!    vdlg1 = vdlg1_d
+!!    call echange_fant(vdlg1)
+!!    vdlg1_d = vdlg1
+!!    vdlg0 = vdlg0_d
+!!    call echange_fant(vdlg0)
+!!    vdlg0_d = vdlg0
+!!    vdlg01 = vdlg01_d
+!!    call echange_fant(vdlg01)
+!!    vdlg01_d = vdlg01
+!!    zm = zm_d
+!!    call echange_fant_1D(zm)
+!!    zm_d = zm
+!!    surf = surf_d
+!!    call echange_fant_1D(surf)
+!!    surf_d = surf
+!!    gradz = gradz_d
+!!    call echange_fant(gradz)
+!!    gradz_d = gradz
+!!    res1 = res1_d
+!!    call echange_fant(res1)
+!!    res1_d = res1
+!!    
 !=========================================================================================================
 ! *** detection des noeuds 'nodjauges' les plus proches des jauges ***
 ! *** detection of nodes 'nodjauges' closest to the gauges ***!
@@ -919,31 +920,40 @@ subroutine Full_FV
 !================================================================================================================================================================
 !
     !!Echange des mailles fantomes pire truc mais on fera mieux
-    vdlg = vdlg_d
-    call echange_fant(vdlg)
-    vdlg_d = vdlg
-    vdlg1 = vdlg1_d
-    call echange_fant(vdlg1)
-    vdlg1_d = vdlg1
-    vdlg0 = vdlg0_d
-    call echange_fant(vdlg0)
-    vdlg0_d = vdlg0
-    vdlg01 = vdlg01_d
-    call echange_fant(vdlg01)
-    vdlg01_d = vdlg01
-    zm = zm_d
-    call echange_fant_1D(zm)
-    zm_d = zm
-    surf = surf_d
-    call echange_fant_1D(surf)
-    surf_d = surf
-    gradz = gradz_d
-    call echange_fant(gradz)
-    gradz_d = gradz
-    res1 = res1_d
-    call echange_fant(res1)
-    res1_d = res1
+!!    vdlg = vdlg_d
+!!    call echange_fant(vdlg, ndln)
+!!    vdlg_d = vdlg
+!!    vdlg1 = vdlg1_d
+!!    call echange_fant(vdlg1, ndln)
+!!    vdlg1_d = vdlg1
+!!    vdlg0 = vdlg0_d
+!!    call echange_fant(vdlg0, ndln)
+!!    vdlg0_d = vdlg0
+!!    vdlg01 = vdlg01_d
+!!    call echange_fant(vdlg01, ndln)
+!!    vdlg01_d = vdlg01
+!!    zm = zm_d
+!!    call echange_fant(zm, 1)
+!!    zm_d = zm
+!!    surf = surf_d
+!!    call echange_fant(surf,1)
+!!    surf_d = surf
+!!    gradz = gradz_d
+!!    call echange_fant(gradz, ndim)
+!!    gradz_d = gradz
+!!    res1 = res1_d
+!!    call echange_fant(res1, ndln)
+!!    res1_d = res1
     
+!!  Echange sur GPU directement
+    call gpu_echange_fant(vdlg_d, ndln)
+    call gpu_echange_fant(vdlg1_d, ndln)
+    call gpu_echange_fant(vdlg0_d, ndln)
+    call gpu_echange_fant(vdlg01_d, ndln)
+    call gpu_echange_fant(zm_d, 1)
+    call gpu_echange_fant(surf_d, 1)
+    call gpu_echange_fant(gradz_d, ndim)
+    call gpu_echange_fant(res1_d, ndln)
 
     nb_iterations = nb_iterations + 1
     !!call sol_nodes(vdlg,surf,zm,sh0,she0,shu0,shv0,su0,sv0)
@@ -1154,45 +1164,46 @@ attributes(global) subroutine copy_1d(a,b,n)
 
 end subroutine copy_1d
 
-subroutine echange_fant_1D(a)
+subroutine gpu_echange_fant(a, nd)
   use precision_m
   use global
   use global_device
+  use cudafor
   use mpi
 
-  real(fp_kind), intent(inout) :: a(nelt)
+  integer, intent(in) :: nd
+  real(fp_kind), device, intent(inout) :: a(nelt,nd)
   integer                     :: stat(MPI_STATUS_SIZE)
   integer :: j
 
-  do ifant=1,nelt_fant_envoi
-    call MPI_SEND(a(elt_fant_envoi(ifant,1)),1,real_kind_mpi,elt_fant_envoi(ifant,2),elt_fant_envoi(ifant,3),MPI_COMM_WORLD,mpi_ierr)
-    !!call MPI_SEND(a(elt_fant_envoi(ifant,1),j),1,MPI_REAL,elt_fant_envoi(ifant,2),elt_fant_envoi(ifant,3),MPI_COMM_WORLD,mpi_ierr)
-  end do
-  do ifant=1,nelt_fant_recep
-    call MPI_RECV(a(elt_fant_recep(ifant,1)),1,real_kind_mpi,elt_fant_recep(ifant,2),elt_fant_recep(ifant,3),MPI_COMM_WORLD,stat,mpi_ierr)
-    !!call MPI_RECV(a(elt_fant_recep(ifant,1),j),1,MPI_REAL,elt_fant_recep(ifant,2),elt_fant_recep(ifant,3),MPI_COMM_WORLD,stat,mpi_ierr)
-  end do
-  call MPI_BARRIER(MPI_COMM_WORLD,mpi_ierr)
-  end subroutine echange_fant_1D
-
-subroutine echange_fant(a)
-  use precision_m
-  use global
-  use global_device
-  use mpi
-
-  real(fp_kind), intent(inout) :: a(nelt,ndln)
-  integer                     :: stat(MPI_STATUS_SIZE)
-  integer :: j
-
-  do j=1,ndln
+  do j=1,nd
     do ifant=1,nelt_fant_envoi
       call MPI_SEND(a(elt_fant_envoi(ifant,1),j),1,real_kind_mpi,elt_fant_envoi(ifant,2),elt_fant_envoi(ifant,3),MPI_COMM_WORLD,mpi_ierr)
-      !!call MPI_SEND(a(elt_fant_envoi(ifant,1),j),1,MPI_REAL,elt_fant_envoi(ifant,2),elt_fant_envoi(ifant,3),MPI_COMM_WORLD,mpi_ierr)
     end do
     do ifant=1,nelt_fant_recep
       call MPI_RECV(a(elt_fant_recep(ifant,1),j),1,real_kind_mpi,elt_fant_recep(ifant,2),elt_fant_recep(ifant,3),MPI_COMM_WORLD,stat,mpi_ierr)
-      !!call MPI_RECV(a(elt_fant_recep(ifant,1),j),1,MPI_REAL,elt_fant_recep(ifant,2),elt_fant_recep(ifant,3),MPI_COMM_WORLD,stat,mpi_ierr)
+    end do
+    call MPI_BARRIER(MPI_COMM_WORLD,mpi_ierr)
+  end do
+  end subroutine gpu_echange_fant 
+
+subroutine echange_fant(a, nd)
+  use precision_m
+  use global
+  use global_device
+  use mpi
+
+  integer, intent(in) :: nd
+  real(fp_kind), intent(inout) :: a(nelt,nd)
+  integer                     :: stat(MPI_STATUS_SIZE)
+  integer :: j
+
+  do j=1,nd
+    do ifant=1,nelt_fant_envoi
+      call MPI_SEND(a(elt_fant_envoi(ifant,1),j),1,real_kind_mpi,elt_fant_envoi(ifant,2),elt_fant_envoi(ifant,3),MPI_COMM_WORLD,mpi_ierr)
+    end do
+    do ifant=1,nelt_fant_recep
+      call MPI_RECV(a(elt_fant_recep(ifant,1),j),1,real_kind_mpi,elt_fant_recep(ifant,2),elt_fant_recep(ifant,3),MPI_COMM_WORLD,stat,mpi_ierr)
     end do
     call MPI_BARRIER(MPI_COMM_WORLD,mpi_ierr)
   end do

@@ -144,6 +144,7 @@
     real(fp_kind), allocatable :: debit_sortie_arr(:)
     real(fp_kind), allocatable :: vol_tot_entre_arr(:)
     real(fp_kind), allocatable :: vol_tot_sorti_arr(:)
+    integer, allocatable :: infoSendRecv(:,:)
     integer, allocatable :: io_identifier(:)
     real(fp_kind), allocatable :: rtests_1d(:), rtests_2d(:,:), rtests1_1d(:), rtests1_2d(:,:)
     real(fp_kind), allocatable :: itests_1d(:), itests_2d(:,:), itests1_1d(:), itests1_2d(:,:)
