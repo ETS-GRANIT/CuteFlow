@@ -224,7 +224,7 @@ subroutine Full_FV
     real(fp_kind) :: d2, t2, dtime2, tcm2
 
     type(dim3 )                             :: grid, tblock, grid_nodes, tblock_nodes, grid11, tblock11, grids, tblocks,block_copy, grid_copy 
-    real(fp_kind)                           :: time_start, time_stop
+    real(fp_kind)                           :: time_start, time_stop, tb1, tb2, te1, te2
     real(fp_kind)                           :: errf, errf1, errf2, errf3, errf4, errf5
     integer                                 :: ierr
     real                                    :: time_cuda
@@ -461,6 +461,7 @@ subroutine Full_FV
     write(*,*) '******************************************************************************************************************************'
     iaff = 0
     do while ( (tc - ts + 2*tol ) < tol )
+    call cpu_time(tb1)
     !!do while ( nb_iterations < 1 )
     !!do while ( nb_iterations < 2 )
         print*,"TIME : ", tc
@@ -919,41 +920,44 @@ subroutine Full_FV
             debit_sortie0 = debit_sortie
 !================================================================================================================================================================
 !
-    !!Echange des mailles fantomes pire truc mais on fera mieux
-!!    vdlg = vdlg_d
-!!    call echange_fant(vdlg, ndln)
-!!    vdlg_d = vdlg
-!!    vdlg1 = vdlg1_d
-!!    call echange_fant(vdlg1, ndln)
-!!    vdlg1_d = vdlg1
-!!    vdlg0 = vdlg0_d
-!!    call echange_fant(vdlg0, ndln)
-!!    vdlg0_d = vdlg0
-!!    vdlg01 = vdlg01_d
-!!    call echange_fant(vdlg01, ndln)
-!!    vdlg01_d = vdlg01
-!!    zm = zm_d
-!!    call echange_fant(zm, 1)
-!!    zm_d = zm
-!!    surf = surf_d
-!!    call echange_fant(surf,1)
-!!    surf_d = surf
-!!    gradz = gradz_d
-!!    call echange_fant(gradz, ndim)
-!!    gradz_d = gradz
-!!    res1 = res1_d
-!!    call echange_fant(res1, ndln)
-!!    res1_d = res1
+    call cpu_time(te1)
+
+  !!Echange des mailles fantomes pire truc mais on fera mieux
+    vdlg = vdlg_d
+    call echange_fant(vdlg, ndln)
+    vdlg_d = vdlg
+    vdlg1 = vdlg1_d
+    call echange_fant(vdlg1, ndln)
+    vdlg1_d = vdlg1
+    vdlg0 = vdlg0_d
+    call echange_fant(vdlg0, ndln)
+    vdlg0_d = vdlg0
+    vdlg01 = vdlg01_d
+    call echange_fant(vdlg01, ndln)
+    vdlg01_d = vdlg01
+    zm = zm_d
+    call echange_fant(zm, 1)
+    zm_d = zm
+    surf = surf_d
+    call echange_fant(surf,1)
+    surf_d = surf
+    gradz = gradz_d
+    call echange_fant(gradz, ndim)
+    gradz_d = gradz
+    res1 = res1_d
+    call echange_fant(res1, ndln)
+    res1_d = res1
     
-!!  Echange sur GPU directement
-    call gpu_echange_fant(vdlg_d, ndln)
-    call gpu_echange_fant(vdlg1_d, ndln)
-    call gpu_echange_fant(vdlg0_d, ndln)
-    call gpu_echange_fant(vdlg01_d, ndln)
-    call gpu_echange_fant(zm_d, 1)
-    call gpu_echange_fant(surf_d, 1)
-    call gpu_echange_fant(gradz_d, ndim)
-    call gpu_echange_fant(res1_d, ndln)
+
+!!!!  Echange sur GPU directement
+!!    call gpu_echange_fant(vdlg_d, ndln)
+!!    call gpu_echange_fant(vdlg1_d, ndln)
+!!    call gpu_echange_fant(vdlg0_d, ndln)
+!!    call gpu_echange_fant(vdlg01_d, ndln)
+!!    call gpu_echange_fant(zm_d, 1)
+!!    call gpu_echange_fant(surf_d, 1)
+!!    call gpu_echange_fant(gradz_d, ndim)
+!!    call gpu_echange_fant(res1_d, ndln)
 
 !!!!  Echange sur GPU directement bloc
 !!    call gpu_echange_fant_bloc(vdlg_d, ndln)
@@ -964,6 +968,8 @@ subroutine Full_FV
 !!    call gpu_echange_fant_bloc(surf_d, 1)
 !!    call gpu_echange_fant_bloc(gradz_d, ndim)
 !!    call gpu_echange_fant_bloc(res1_d, ndln)
+    call cpu_time(te2)
+    print*,"temps calculs ", te1-tb1, "temps echange ", te2-te1, " %temps echange ", (te2-te1)/(te2-tb1)
 
     nb_iterations = nb_iterations + 1
     !!call sol_nodes(vdlg,surf,zm,sh0,she0,shu0,shv0,su0,sv0)
