@@ -1,7 +1,0 @@
-#!/bin/bash
-
-for i in `seq 0 $1`;do
-echo $i
-cp "../mesh/out_mesh.$i.txt" "${i}_Mille_Iles_mesh_743968_elts.txt"
-done
-
