@@ -11,4 +11,4 @@ runfile : ${OBJS}
 	${CC} ${CFLAGS} ${OBJS} -o $@
 
 clean:
-	-rm -f *.o *.core *.mod *T3S outfile* core* *.vtk
+	-rm -f *.o *.core *.mod *T3S outfile* core* *.vtk *~ *boundary* *SOLUTION* *SIMULATION.txt
