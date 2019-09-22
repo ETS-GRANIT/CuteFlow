@@ -30,51 +30,51 @@ subroutine pod_snapshot(vdlg, vdlg0, vdlg1, vdlg01)
         if (start == 1) then
             write(ec_param_pod,'(3i)') nelt, nsnap+1, n_seq_base    ! Création du fichier du nombre total d'éléments pour le program Matlab - POD
             do iel = 1, nelt
-                if ( vdlg0(iel,1) > tolisec ) then
-                    scal1 = 1/vdlg0(iel,1)
-                    scal2 = vdlg01(iel,2)/vdlg0(iel,1)
-                    scal3 = vdlg01(iel,3)/vdlg0(iel,1)
+                if ( vdlg0(1,iel) > tolisec ) then
+                    scal1 = 1/vdlg0(1,iel)
+                    scal2 = vdlg01(2,iel)/vdlg0(1,iel)
+                    scal3 = vdlg01(3,iel)/vdlg0(1,iel)
                 else
                     scal1 = 0.d0
                     scal2 = 0.d0
                     scal3 = 0.d0
                 endif   
                 !               
-                write(4999,'(8f16.6)')  vdlg01(iel,1)
-                write(501,'(8f16.6)')  vdlg01(iel,1) - H_aval
-                write(502,'(8f16.6)')  vdlg01(iel,2)
-                write(503,'(8f16.6)')  vdlg01(iel,3)
-                write(504,'(8f16.6)')  vdlg0(iel,1)
+                write(4999,'(8f16.6)')  vdlg01(1,iel)
+                write(501,'(8f16.6)')  vdlg01(1,iel) - H_aval
+                write(502,'(8f16.6)')  vdlg01(2,iel)
+                write(503,'(8f16.6)')  vdlg01(3,iel)
+                write(504,'(8f16.6)')  vdlg0(1,iel)
                 write(505,'(8f16.6)')  scal2
                 write(506,'(8f16.6)')  scal3
             enddo
         else
             if ( abs( tc - tvis3d2(compt_snap) ) < 1.0E-01) then
                 do iel = 1, nelt            
-                    if ( vdlg(iel,1) > tolisec ) then
-                        scal2 = (vdlg1(iel,2)/vdlg(iel,1))
-                        scal3 = (vdlg1(iel,3)/vdlg(iel,1))
+                    if ( vdlg(1,iel) > tolisec ) then
+                        scal2 = (vdlg1(2,iel)/vdlg(1,iel))
+                        scal3 = (vdlg1(3,iel)/vdlg(1,iel))
                     else
                         scal2 = 0.d0
                         scal3 = 0.d0
                     endif                                       
-                    write(4999,'(8f16.6)')  vdlg1(iel,1)
-                    write(501,'(8f16.6)')  vdlg1(iel,1) - H_aval
-                    write(502,'(8f16.6)')  vdlg1(iel,2)
-                    write(503,'(8f16.6)')  vdlg1(iel,3)
+                    write(4999,'(8f16.6)')  vdlg1(1,iel)
+                    write(501,'(8f16.6)')  vdlg1(1,iel) - H_aval
+                    write(502,'(8f16.6)')  vdlg1(2,iel)
+                    write(503,'(8f16.6)')  vdlg1(3,iel)
                     write(504,'(8f16.6)')  vdlg (iel,1)
                     write(505,'(8f16.6)')  scal2
                     write(506,'(8f16.6)')  scal3
                     write(398,'(3f16.6)')  lamda_stock(iel,1) , lamda_stock(iel,2), lamda_stock(iel,3)
 ! ***             Stockage du terme source de friction pour le POD
-                    if ( vdlg(iel,1) <= tolisec ) then          
+                    if ( vdlg(1,iel) <= tolisec ) then          
                         coef_friction_pod = 0.D0
                     else
                         scal1 = sqrt( scal2**2 + scal3**2 )
                         if ( scal1 < tol ) then
                             coef_friction_pod = 0.D0        
                         else
-                            coef_friction_pod = scal1 / (vdlg(iel,1)**(1.d0/3.d0))
+                            coef_friction_pod = scal1 / (vdlg(1,iel)**(1.d0/3.d0))
                         endif
                     endif
                     write(555,'(f16.6)')  coef_friction_pod
@@ -212,7 +212,7 @@ subroutine debit_POD(zm,surf)
     real(fp_kind), dimension(:),  intent(in)  :: zm, surf
 !
 ! ... variables locales
-    integer               :: iel, i, j, k, nc1, nc2
+    integer               :: iel, i, j, k, nc1, nc2, ii
     real(fp_kind)               :: eta, hu, hv, h, auxx
     real(fp_kind)               :: ln, x1, x2, y1, y2, delta_debit_n, debit_base_n, nx, ny
     real(fp_kind), dimension(2) :: norm
@@ -239,7 +239,7 @@ subroutine debit_POD(zm,surf)
         hv  = 0.d0        
         do ii=1,maxdimbase
             if (ii <= nbase_eta) eta = eta + a0_eta(ii) * phi_eta_tild(i,ii)
-!           if (ii <= nbase_eta) eta = eta + a0_eta(ii) * phi_eta(i,ii)
+!           if (ii <= nbase_eta) eta = eta + a0_eta(ii) * phi_eta(ii,i)
         enddo
 !
         eta = eta + h_aval
@@ -261,7 +261,7 @@ subroutine debit_POD(zm,surf)
 !
         do k=1,maxdimbase
             if(k <= nbase_eta) MQk_eta(k) = MQk_eta(k) + phi_eta_tild(i,k) * BQi_eta(i) / surf(i)
-!           if(k <= nbase_eta) MQk_eta(k) = MQk_eta(k) + phi_eta(i,k) * BQi_eta(i) / surf(i)
+!           if(k <= nbase_eta) MQk_eta(k) = MQk_eta(k) + phi_eta(k,i) * BQi_eta(i) / surf(i)
             if(k <= nbase_hu ) MQk_hu(k)  = MQk_hu(k)  + phi_hu(i,k)  * BQi_hu(i) / surf(i)
             if(k <= nbase_hv ) MQk_hv(k)  = MQk_hv(k)  + phi_hv(i,k)  * BQi_hv(i) / surf(i)
         enddo   
@@ -301,10 +301,10 @@ subroutine matrice_POD(zm,surf)
                 if(p1 == 1) then
                     if(p <= nbase_eta .and. k <= nbase_hu)  Mpk1_hu (p,k)  = 0.d0
                     if(p <= nbase_eta .and. k <= nbase_hv)  Mpk1_hv (p,k)  = 0.d0
-                    if(p <= nbase_eta .and. k <= nbase_eta) Mpk_deta(p,k)  = 0.d0
+                    if(p <= nbase_eta .and. k <= nbase_eta) Mpk_deta(k,p)  = 0.d0
                     if(p <= nbase_hu  .and. k <= nbase_hu)  Mpk_dhu (p,k)  = 0.d0
                     if(p <= nbase_hv  .and. k <= nbase_hv)  Mpk_dhv (p,k)  = 0.d0
-                    if(p <= nbase_eta .and. k <= nbase_h)   phi_h_eta(p,k) = 0.d0
+                    if(p <= nbase_eta .and. k <= nbase_h)   phi_h_eta(k,p) = 0.d0
                     if(p <= nbase_u   .and. k <= nbase_hu)  Mpk_u (p,k)    = 0.d0
                     if(p <= nbase_v   .and. k <= nbase_hv)  Mpk_v (p,k)    = 0.d0
 !
@@ -332,11 +332,11 @@ subroutine matrice_POD(zm,surf)
                     if(p1 == 1) then
 !
                         if(k <= nbase_hu) then
-                            Bijpn1_eta(i,k) = 0.d0
+                            Bijpn1_eta(k,i) = 0.d0
                             Bi_jp_hu(i,k)   = 0.d0
                         endif
                         if(k <= nbase_hv) then
-                            Bijpn2_eta(i,k) = 0.d0                      
+                            Bijpn2_eta(k,i) = 0.d0                      
                             Bi_jp_hv(i,k)   = 0.d0
                         endif
                         if(k <= nbase_eta) then
@@ -386,8 +386,8 @@ subroutine matrice_POD(zm,surf)
 !
 !CONSTRUCTION DES MATRICES CONSTANTES POD
 !*** Deux premiers termes de l'équation de continuité : hun1, hun2
-                                if(k <= nbase_hu)  Bijpn1_eta(i,k) = Bijpn1_eta(i,k) + ln * norm(1) * 0.5 * ( phi_hu (kvoisin,k) + phi_hu (i,k))
-                                if(k <= nbase_hv)  Bijpn2_eta(i,k) = Bijpn2_eta(i,k) + ln * norm(2) * 0.5 * ( phi_hv (kvoisin,k) + phi_hv (i,k))
+                                if(k <= nbase_hu)  Bijpn1_eta(k,i) = Bijpn1_eta(k,i) + ln * norm(1) * 0.5 * ( phi_hu (kvoisin,k) + phi_hu (i,k))
+                                if(k <= nbase_hv)  Bijpn2_eta(k,i) = Bijpn2_eta(k,i) + ln * norm(2) * 0.5 * ( phi_hv (kvoisin,k) + phi_hv (i,k))
 !***                            Terme de correcetion lamda(etaj-etai)                               
                                 if(k <= nbase_eta) then
                                     if(H_AMONT .ne. H_AVAL) then
@@ -399,10 +399,10 @@ subroutine matrice_POD(zm,surf)
                                     endif
 !
 !                               Termes de gravité : hgHn1, hgHn2
-                                Bijpn3_hu(i,k)  = Bijpn3_hu(i,k) + gp * ln * norm(1) * 0.5 * ( phi_eta(kvoisin,k) + phi_eta(i,k))
-                                Bijpn3_hv(i,k)  = Bijpn3_hv(i,k) + gp * ln * norm(2) * 0.5 * ( phi_eta(kvoisin,k) + phi_eta(i,k))
+                                Bijpn3_hu(i,k)  = Bijpn3_hu(i,k) + gp * ln * norm(1) * 0.5 * ( phi_eta(k,kvoisin) + phi_eta(k,i))
+                                Bijpn3_hv(i,k)  = Bijpn3_hv(i,k) + gp * ln * norm(2) * 0.5 * ( phi_eta(k,kvoisin) + phi_eta(k,i))
                                 endif
-!*** Termes de correction : lamda(huj-hui, hvj-hvi)                             
+!*** Termes de correction : lamda( hvj-hvi,huj-hui)                             
                                 if(k <= nbase_hu) then
                                     if(H_AMONT .ne. H_AVAL) then
                                         if(uselamdapodmoymax==1) Bi_jp_hu(i,k) = Bi_jp_hu(i,k) + ln * 0.5 * ( phi_hu (kvoisin,k) - phi_hu (i,k))*podlamdamoy(i)*fact_lamda_pod*(abs(H_AMONT-H_AVAL))
@@ -443,12 +443,12 @@ subroutine matrice_POD(zm,surf)
 !                           if ( kvoisin == -2 .and. k <= nbase_eta ) then  ! *** flux sortant ***
 !!
 !!                              équation de continuité  
-!                                   if(k <= nbase_hu)  Bijpn1_eta(i,k) = Bijpn1_eta(i,k) + ln * norm(1) * phi_hu (i,k)  ! hun1
-!                                   if(k <= nbase_hv)  Bijpn2_eta(i,k) = Bijpn2_eta(i,k) + ln * norm(2) * phi_hv (i,k)  ! hun2
+!                                   if(k <= nbase_hu)  Bijpn1_eta(k,i) = Bijpn1_eta(k,i) + ln * norm(1) * phi_hu (i,k)  ! hun1
+!                                   if(k <= nbase_hv)  Bijpn2_eta(k,i) = Bijpn2_eta(k,i) + ln * norm(2) * phi_hv (i,k)  ! hun2
 !!
 !!                              termes de gravité
-!                                       Bijpn3_hu(i,k)  = Bijpn3_hu(i,k) + gp * ln * norm(1) * h_aval !(h_aval**2 - h_aval*zm(i)) !phi_eta(i,k) ! hgHn1
-!                                       Bijpn3_hv(i,k)  = Bijpn3_hv(i,k) + gp * ln * norm(2) * h_aval !(h_aval**2 - h_aval*zm(i)) !phi_eta(i,k) ! hgHn2
+!                                       Bijpn3_hu(i,k)  = Bijpn3_hu(i,k) + gp * ln * norm(1) * h_aval !(h_aval**2 - h_aval*zm(i)) !phi_eta(k,i) ! hgHn1
+!                                       Bijpn3_hv(i,k)  = Bijpn3_hv(i,k) + gp * ln * norm(2) * h_aval !(h_aval**2 - h_aval*zm(i)) !phi_eta(k,i) ! hgHn2
 !!
 !                               !*** Qté de mouvement : Termes de convection                                
 !                                   if(p <= nbase_u) then
@@ -464,23 +464,23 @@ subroutine matrice_POD(zm,surf)
 !                           endif
 !                                               
                             if ( kvoisin == -3 .and. k <= nbase_eta ) then  ! *** flux de mur ***
-                                Bijpn3_hu(i,k)      = Bijpn3_hu(i,k)      + gp * ln * norm(1) * phi_eta(i,k)
-                                Bijpn3_hv(i,k)      = Bijpn3_hv(i,k)      + gp * ln * norm(2) * phi_eta(i,k)
+                                Bijpn3_hu(i,k)      = Bijpn3_hu(i,k)      + gp * ln * norm(1) * phi_eta(k,i)
+                                Bijpn3_hv(i,k)      = Bijpn3_hv(i,k)      + gp * ln * norm(2) * phi_eta(k,i)
                             endif
 !
                         enddo   ! de do j=1,ns
 !
 !                       Matrices pour hu et hv : Équation de continuité                     
-                        if(p <= nbase_eta .and. k <= nbase_hu)  Mpk1_hu(p,k)  = Mpk1_hu(p,k)  + phi_eta_tild(i,p) * Bijpn1_eta(i,k) / surf(i)
-                        if(p <= nbase_eta .and. k <= nbase_hv)  Mpk1_hv(p,k)  = Mpk1_hv(p,k)  + phi_eta_tild(i,p) * Bijpn2_eta(i,k) / surf(i)
+                        if(p <= nbase_eta .and. k <= nbase_hu)  Mpk1_hu(p,k)  = Mpk1_hu(p,k)  + phi_eta_tild(i,p) * Bijpn1_eta(k,i) / surf(i)
+                        if(p <= nbase_eta .and. k <= nbase_hv)  Mpk1_hv(p,k)  = Mpk1_hv(p,k)  + phi_eta_tild(i,p) * Bijpn2_eta(k,i) / surf(i)
 !
 !                       Matrices pour les termes de correction                               
                             if(p <= nbase_hu  .and. k <= nbase_hu)  Mpk_dhu(p,k)  = Mpk_dhu(p,k)  + phi_hu(i,p)  * Bi_jp_hu(i,k)   / surf(i)    
                             if(p <= nbase_hv  .and. k <= nbase_hv)  Mpk_dhv(p,k)  = Mpk_dhv(p,k)  + phi_hv(i,p)  * Bi_jp_hv(i,k)   / surf(i)
-                            if(p <= nbase_eta .and. k <= nbase_eta) Mpk_deta(p,k) = Mpk_deta(p,k) + phi_eta_tild(i,p) * Bi_jp(i,k) / surf(i)
+                            if(p <= nbase_eta .and. k <= nbase_eta) Mpk_deta(k,p) = Mpk_deta(k,p) + phi_eta_tild(i,p) * Bi_jp(i,k) / surf(i)
 !                       Matrice pour le calcul de h à partir de eta
                         if (p <= nbase_eta .and. k <= nbase_h) then
-                            phi_h_eta(p,k) = phi_h_eta(p,k) +  phi_eta(i,p) * phi_h(i,k)
+                            phi_h_eta(k,p) = phi_h_eta(k,p) +  phi_eta(p,i) * phi_h(i,k)
 !                           if (p==1)   phi_h_zi(k)    = phi_h_zi(k) + phi_h(i,k)*zm(i)
                             if (p==1)   phi_h_zi(k)    = phi_h_zi(k) + phi_h(i,k)*( h_aval - zm(i))
                         endif
@@ -755,10 +755,10 @@ subroutine POD_PID_ROM_matrices(surf,zm)
             allocate(greta_lisec1(nelt,2))
 !=========================================================================================================
 !
-            allocate(phi_h(nelt,nbase_h), phi_eta(nelt,nbase_eta), phi_eta_tild(nelt,nbase_eta_tild), phi_hu(nelt,nbase_hu), phi_hv(nelt,nbase_hv), &
-                    &        phi_u(nelt,nbase_u), phi_v(nelt,nbase_v), phij_u(nelt,nbase_u), phij_v(nelt,nbase_v), phi_h_zi(nbase_h), phi_h_eta(nbase_eta,nbase_h))
+            allocate(phi_h(nelt,nbase_h), phi_eta(nbase_eta,nelt), phi_eta_tild(nelt,nbase_eta_tild), phi_hu(nelt,nbase_hu), phi_hv(nelt,nbase_hv), &
+                    &        phi_u(nelt,nbase_u), phi_v(nelt,nbase_v), phij_u(nelt,nbase_u), phij_v(nelt,nbase_v), phi_h_zi(nbase_h), phi_h_eta(nbase_h,nbase_eta))
             allocate(Bi_jp(nelt,nbase_eta),Bi_jp_hu(nelt,nbase_hu),Bi_jp_hv(nelt,nbase_hv))         
-            allocate(Bijpn1_eta(nelt,nbase_hu), Bijpn2_eta(nelt,nbase_hv))
+            allocate(Bijpn1_eta(nbase_hu,nelt), Bijpn2_eta(nbase_hv,nelt))
             allocate(Bijpn3_hu(nelt,nbase_eta), Bijpn3_hv(nelt,nbase_eta))
 !
             allocate(Cg2(nbase_hu,nbase_h,nbase_eta), Cg3(nbase_hv,nbase_h,nbase_eta), Cg2_eta_tild(nbase_hu,nbase_h), Cg3_eta_tild(nbase_hv,nbase_h))
@@ -842,7 +842,7 @@ subroutine POD_PID_ROM_matrices(surf,zm)
             do ib = 1 , nbase_eta 
                 write(2001,'(30f14.6)') (Mpk1_hu(ib,jb),jb=1,nbase_hu)
                 write(2002,'(30f14.6)') (Mpk1_hv(ib,jb),jb=1,nbase_hv)
-                write(2003,'(30f14.6)') (Mpk_deta(ib,jb),jb=1,nbase_eta)                
+                write(2003,'(30f14.6)') (Mpk_deta(jb,ib),jb=1,nbase_eta)                
             enddo
             do ib = 1 , nbase_hu 
                 write(2004,'(30f14.6)') (Mpk_dhu(ib,jb),jb=1,nbase_hu)
@@ -1195,10 +1195,10 @@ subroutine POD_ROM_matrices(surf,zm)
         allocate(greta_lisec1(nelt,2))
 !=========================================================================================================
 !
-        allocate(phi_h(nelt,nbase_h), phi_eta(nelt,nbase_eta), phi_eta_tild(nelt,nbase_eta_tild), phi_hu(nelt,nbase_hu), phi_hv(nelt,nbase_hv), &
-            &        phi_u(nelt,nbase_u), phi_v(nelt,nbase_v), phij_u(nelt,nbase_u), phij_v(nelt,nbase_v), phi_h_zi(nbase_h), phi_h_eta(nbase_eta,nbase_h))
+        allocate(phi_h(nelt,nbase_h), phi_eta(nbase_eta,nelt), phi_eta_tild(nelt,nbase_eta_tild), phi_hu(nelt,nbase_hu), phi_hv(nelt,nbase_hv), &
+            &        phi_u(nelt,nbase_u), phi_v(nelt,nbase_v), phij_u(nelt,nbase_u), phij_v(nelt,nbase_v), phi_h_zi(nbase_h), phi_h_eta(nbase_h,nbase_eta))
         allocate(Bi_jp(nelt,nbase_eta),Bi_jp_hu(nelt,nbase_hu),Bi_jp_hv(nelt,nbase_hv))         
-        allocate(Bijpn1_eta(nelt,nbase_hu), Bijpn2_eta(nelt,nbase_hv))
+        allocate(Bijpn1_eta(nbase_hu,nelt), Bijpn2_eta(nbase_hv,nelt))
         allocate(Bijpn3_hu(nelt,nbase_eta), Bijpn3_hv(nelt,nbase_eta))
 !
         allocate(Cg2(nbase_hu,nbase_h,nbase_eta), Cg3(nbase_hv,nbase_h,nbase_eta))
@@ -1268,7 +1268,7 @@ subroutine POD_ROM_matrices(surf,zm)
             do ib = 1 , nbase_eta 
                 write(2001,'(30f14.6)') (Mpk1_hu(ib,jb),jb=1,nbase_hu)
                 write(2002,'(30f14.6)') (Mpk1_hv(ib,jb),jb=1,nbase_hv)
-                write(2003,'(30f14.6)') (Mpk_deta(ib,jb),jb=1,nbase_eta)                
+                write(2003,'(30f14.6)') (Mpk_deta(jb,ib),jb=1,nbase_eta)                
             enddo
             do ib = 1 , nbase_hu 
                 write(2004,'(30f14.6)') (Mpk_dhu(ib,jb),jb=1,nbase_hu)
@@ -1369,7 +1369,7 @@ subroutine pod_source_friction(surf,zm)
         hu_FV  = 0.d0
         hv_FV  = 0.d0
         do k=1,nbase_eta
-            eta_FV = eta_FV + a0_eta(k) * phi_eta(kvol,k)
+            eta_FV = eta_FV + a0_eta(k) * phi_eta(k,kvol)
         enddo
         do k=1,nbase_hu
             hu_FV  = hu_FV  + a0_hu(k)  * phi_hu(kvol,k)

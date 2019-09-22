@@ -66,8 +66,8 @@ attributes(global) subroutine cond_initial_cudaf(zm_d, ut_d, ut1_d, visio_d)
 
             v1 = ( x1 + x2 + x3 ) / 3
             v2 = ( y1 + y2 + y3 ) / 3
-            visio_d(gi,1) = v1
-            visio_d(gi,2) = v2
+            visio_d(1,gi) = v1
+            visio_d(2,gi) = v2
 !
         else
 !
@@ -86,8 +86,8 @@ attributes(global) subroutine cond_initial_cudaf(zm_d, ut_d, ut1_d, visio_d)
 !
             v1 = ( x1 + x2 + x3 + x4 ) / 4
             v2 = ( y1 + y2 + y3 + y4 ) / 4
-            visio_d(gi,1) = v1
-            visio_d(gi,2) = v2
+            visio_d(1,gi) = v1
+            visio_d(2,gi) = v2
 
 !
         endif
@@ -97,37 +97,37 @@ attributes(global) subroutine cond_initial_cudaf(zm_d, ut_d, ut1_d, visio_d)
             if ( v1 <= xgate_d ) then
 !
                 ut_dgi1    =  h_amont_d - zmd
-                ut_d(gi,1) = ut_dgi1
+                ut_d(1,gi) = ut_dgi1
                 if ( ut_dgi1 > tolisec_d ) then
                     if(test_d ==6) then
-                        ut_d(gi,2) = u_amont_d
-                        ut_d(gi,3) = v_amont_d
+                        ut_d(2,gi) = u_amont_d
+                        ut_d(3,gi) = v_amont_d
                     else
-                        ut_d(gi,2) = ut_dgi1 * u_amont_d
-                        ut_d(gi,3) = ut_dgi1 * v_amont_d
+                        ut_d(2,gi) = ut_dgi1 * u_amont_d
+                        ut_d(3,gi) = ut_dgi1 * v_amont_d
                     endif
 !   
                 else
-                    ut_d(gi,1) = tolisec_d
-                    ut_d(gi,2) = 0.
-                    ut_d(gi,3) = 0.
+                    ut_d(1,gi) = tolisec_d
+                    ut_d(2,gi) = 0.
+                    ut_d(3,gi) = 0.
                 endif
             else
                 ut_dgi1 = h_aval_d - zmd
-                ut_d(gi,1) = ut_dgi1
+                ut_d(1,gi) = ut_dgi1
                 if ( ut_dgi1 > tolisec_d ) then
                     if(test_d ==6) then
-                        ut_d(gi,2) = u_aval_d
-                        ut_d(gi,3) = v_aval_d                                         
+                        ut_d(2,gi) = u_aval_d
+                        ut_d(3,gi) = v_aval_d                                         
                     else
-                        ut_d(gi,2) = ut_dgi1 * u_aval_d
-                        ut_d(gi,3) = ut_dgi1 * v_aval_d
+                        ut_d(2,gi) = ut_dgi1 * u_aval_d
+                        ut_d(3,gi) = ut_dgi1 * v_aval_d
                     endif
 !
                 else
-                    ut_d(gi,1) = tolisec_d
-                    ut_d(gi,2) = 0.
-                    ut_d(gi,3) = 0.
+                    ut_d(1,gi) = tolisec_d
+                    ut_d(2,gi) = 0.
+                    ut_d(3,gi) = 0.
                 endif
             endif
         endif
@@ -137,26 +137,26 @@ attributes(global) subroutine cond_initial_cudaf(zm_d, ut_d, ut1_d, visio_d)
             if ( rayvol <= rayon_d ) then
 
                 ut_dgi1 = h_amont_d - zmd
-                ut_d(gi,1) = ut_dgi1
+                ut_d(1,gi) = ut_dgi1
 
                 if ( ut_dgi1 > tolisec_d ) then
-                    ut_d(gi,2) = ut_dgi1 * u_amont_d
-                    ut_d(gi,3) = ut_dgi1 * v_amont_d
+                    ut_d(2,gi) = ut_dgi1 * u_amont_d
+                    ut_d(3,gi) = ut_dgi1 * v_amont_d
                 else
-                    ut_d(gi,1) = tolisec_d
-                    ut_d(gi,2) = 0.
-                    ut_d(gi,3) = 0.
+                    ut_d(1,gi) = tolisec_d
+                    ut_d(2,gi) = 0.
+                    ut_d(3,gi) = 0.
                 endif
             else
                 ut_dgi1 = h_aval_d - zmd
-                ut_d(gi,1) = ut_dgi1
+                ut_d(1,gi) = ut_dgi1
                 if ( ut_dgi1 > tolisec_d ) then
-                    ut_d(gi,2) = ut_dgi1 * u_aval_d
-                    ut_d(gi,3) = ut_dgi1 * v_aval_d
+                    ut_d(2,gi) = ut_dgi1 * u_aval_d
+                    ut_d(3,gi) = ut_dgi1 * v_aval_d
                 else
-                    ut_d(gi,1) = tolisec_d
-                    ut_d(gi,2) = 0.
-                    ut_d(gi,3) = 0.
+                    ut_d(1,gi) = tolisec_d
+                    ut_d(2,gi) = 0.
+                    ut_d(3,gi) = 0.
                 endif
             endif
         endif
@@ -166,13 +166,13 @@ attributes(global) subroutine cond_initial_cudaf(zm_d, ut_d, ut1_d, visio_d)
                 alpha=(1 - 0.8**4)/(1 + 0.8**4)
                 omega=sqrt(8*gp_d*h0_d)
                 rayvol = sqrt( (v1*v1 + v2*v2 ))    
-                    ut_d(gi,1)= h0_d*( sqrt(1-alpha**2)/(1-alpha) - rayvol**2*( (1-alpha**2)/(1-alpha)**2 -1) -1 )
-                    ut_d(gi,2) = 0.
-                    ut_d(gi,3) = 0.
+                    ut_d(1,gi)= h0_d*( sqrt(1-alpha**2)/(1-alpha) - rayvol**2*( (1-alpha**2)/(1-alpha)**2 -1) -1 )
+                    ut_d(2,gi) = 0.
+                    ut_d(3,gi) = 0.
 !                    alpha=0.5
-!                   ut_d(gi,1)= 1 + alpha*h0_d*(2*visio_d(gi,1)-alpha)
-!                   ut_d(gi,2) = 0.
-!                    ut_d(gi,3) = 0.
+!                   ut_d(1,gi)= 1 + alpha*h0_d*(2*visio_d(1,gi)-alpha)
+!                   ut_d(2,gi) = 0.
+!                    ut_d(3,gi) = 0.
         endif
 
 !
@@ -187,39 +187,39 @@ attributes(global) subroutine cond_initial_cudaf(zm_d, ut_d, ut1_d, visio_d)
             if ( alpha*v1 - v2 + beta >= 0.00) then        
                 
                 ut_dgi1    = h_amont_d - zmd
-                ut_d(gi,1) = ut_dgi1
+                ut_d(1,gi) = ut_dgi1
                 
                 if ( ut_dgi1 > tolisec_d ) then
-                    ut_d(gi,2) = ut_dgi1 * u_amont_d
-                    ut_d(gi,3) = ut_dgi1 * v_amont_d   
+                    ut_d(2,gi) = ut_dgi1 * u_amont_d
+                    ut_d(3,gi) = ut_dgi1 * v_amont_d   
                 else
-                    ut_d(gi,1) = tolisec_d
-                    ut_d(gi,2) = 0.00
-                    ut_d(gi,3) = 0.00
+                    ut_d(1,gi) = tolisec_d
+                    ut_d(2,gi) = 0.00
+                    ut_d(3,gi) = 0.00
                 endif
             else
                 
                 ut_dgi1 = h_aval_d - zmd
-                ut_d(gi,1) = ut_dgi1
+                ut_d(1,gi) = ut_dgi1
 
                 if ( ut_dgi1 > tolisec_d ) then
-                    ut_d(gi,2) = u_aval_d
-                    ut_d(gi,3) = v_aval_d
+                    ut_d(2,gi) = u_aval_d
+                    ut_d(3,gi) = v_aval_d
                 else
-                    ut_d(gi,1) = tolisec_d
-                    ut_d(gi,2) = 0.00
-                    ut_d(gi,3) = 0.00
+                    ut_d(1,gi) = tolisec_d
+                    ut_d(2,gi) = 0.00
+                    ut_d(3,gi) = 0.00
                 endif
             endif
         endif
 !
 
-        ut1_d(gi,1) = ut_d(gi,1) + zmd
+        ut1_d(1,gi) = ut_d(1,gi) + zmd
 
-        if(test_d == 8) ut1_d(gi,1) = max(ut_d(gi,1),zmd)  ! CAS DU BOL PARABOLIQUE (CASE OF THE PARABOLIC BOWL)
+        if(test_d == 8) ut1_d(1,gi) = max(ut_d(1,gi),zmd)  ! CAS DU BOL PARABOLIQUE (CASE OF THE PARABOLIC BOWL)
         
-        ut1_d(gi,2) = ut_d(gi,2)
-        ut1_d(gi,3) = ut_d(gi,3)
+        ut1_d(2,gi) = ut_d(2,gi)
+        ut1_d(3,gi) = ut_d(3,gi)
   
     endif
 !
@@ -270,9 +270,9 @@ subroutine cond_initial2(ut,ut1)
     open(390,file=fich_sol_init,status='old')
         read (390,*) tc_init
         do kvol=1,nelt
-            read (390,*) ut(kvol,1), ut1(kvol,1) , ut1(kvol,2) , ut1(kvol,3)
-            ut(kvol,2)=ut1(kvol,2)
-            ut(kvol,3)=ut1(kvol,3)
+            read (390,*) ut(1,kvol), ut1(1,kvol) , ut1(2,kvol) , ut1(3,kvol)
+            ut(2,kvol)=ut1(2,kvol)
+            ut(3,kvol)=ut1(3,kvol)
         enddo
     close (390) 
 

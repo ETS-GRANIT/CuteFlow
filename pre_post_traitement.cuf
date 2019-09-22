@@ -40,17 +40,17 @@ subroutine mise_a_jr_zone_seche(zm,vdlg, vdlg1)
 !
             zero    = 0.d0
             do iel=1,nelt
-                vdlg(iel,1) = vdlg1(iel,1) - zm(iel)                                
-                vdlg(iel,2) = vdlg1(iel,2)
-                vdlg(iel,3) = vdlg1(iel,3)                                          
-                if ( vdlg(iel,1) <= tolisec ) then      
-                    vdlg(iel,1)  = tolisec
-                    vdlg(iel,2)  = zero
-                    vdlg(iel,3)  = zero
-!                   vdlg1(iel,1) = tolisec + zm(iel)
-                    vdlg1(iel,1) = zm(iel)                  
-                    vdlg1(iel,2) = zero
-                    vdlg1(iel,3) = zero
+                vdlg(1,iel) = vdlg1(1,iel) - zm(iel)                                
+                vdlg(2,iel) = vdlg1(2,iel)
+                vdlg(3,iel) = vdlg1(3,iel)                                          
+                if ( vdlg(1,iel) <= tolisec ) then      
+                    vdlg(1,iel)  = tolisec
+                    vdlg(2,iel)  = zero
+                    vdlg(3,iel)  = zero
+!                   vdlg1(1,iel) = tolisec + zm(iel)
+                    vdlg1(1,iel) = zm(iel)                  
+                    vdlg1(2,iel) = zero
+                    vdlg1(3,iel) = zero
                 endif
 !
             enddo
@@ -99,20 +99,20 @@ attributes(global) subroutine mise_a_jr_zone_seche_cudaf(zm_d,vdlg_d, vdlg1_d)
     if(gi <= nelt_d) then
     !if(gi <= nelt_d-nelt_fant_recep_d) then
 
-        vdlg_dgi1 = vdlg1_d(gi,1) - zm_d(gi)
-        vdlg_d(gi,1) = vdlg_dgi1
-        vdlg_d(gi,2) = vdlg1_d(gi,2)
-        vdlg_d(gi,3) = vdlg1_d(gi,3)
+        vdlg_dgi1 = vdlg1_d(1,gi) - zm_d(gi)
+        vdlg_d(1,gi) = vdlg_dgi1
+        vdlg_d(2,gi) = vdlg1_d(2,gi)
+        vdlg_d(3,gi) = vdlg1_d(3,gi)
 
         if (vdlg_dgi1 <= tolisec_d ) then      
-            vdlg_d(gi,1)  = tolisec_d
-            vdlg_d(gi,2)  = 0.d0
-            vdlg_d(gi,3)  = 0.d0
+            vdlg_d(1,gi)  = tolisec_d
+            vdlg_d(2,gi)  = 0.d0
+            vdlg_d(3,gi)  = 0.d0
 
-    !                   vdlg1(iel,1) = tolisec + zm(iel)
-            vdlg1_d(gi,1) = zm_d(gi)                  
-            vdlg1_d(gi,2) = 0.d0
-            vdlg1_d(gi,3) = 0.d0                
+    !                   vdlg1(1,iel) = tolisec + zm(iel)
+            vdlg1_d(1,gi) = zm_d(gi)                  
+            vdlg1_d(2,gi) = 0.d0
+            vdlg1_d(3,gi) = 0.d0                
         endif
 !
     end if
@@ -182,11 +182,11 @@ real(fp_kind), dimension(:), allocatable :: surfno, zzz
             no = connectivite(kvol,i)
             surfno(no) = surfno(no) + surf(kvol)
             zzz(no) = zzz(no) + surf(kvol) * zm(kvol)
-            if ( vdlg(kvol,1) > tolisec ) then
-                solh(no)   = solh(no)  + surf(kvol) * vdlg(kvol,1)
-                soleta(no)    = soleta(no)   + surf(kvol) * ( vdlg(kvol,1) + zm(kvol) )
-                solhu(no)    = solhu(no)   + surf(kvol) * vdlg(kvol,2) 
-                solhv(no)    = solhv(no)   + surf(kvol) * vdlg(kvol,3)
+            if ( vdlg(1,kvol) > tolisec ) then
+                solh(no)   = solh(no)  + surf(kvol) * vdlg(1,kvol)
+                soleta(no)    = soleta(no)   + surf(kvol) * ( vdlg(1,kvol) + zm(kvol) )
+                solhu(no)    = solhu(no)   + surf(kvol) * vdlg(2,kvol) 
+                solhv(no)    = solhv(no)   + surf(kvol) * vdlg(3,kvol)
             else
                 soleta(no)    = soleta(no)   + surf(kvol) * ( tolisec + zm(kvol) )
             endif
@@ -399,8 +399,8 @@ subroutine stock_coupe2D(solh, soleta, solhu, solu)
 !
 !       fich_debit_coupe = genrtest //'FV-'// 'debit_' // 'coupe_' // no_coupe // valtemps // 's'// '.txt'
 !       do ie=1,nelt
-!           coupe_y = coupe_a(j) * visio(ie,1) + coupe_b(j)
-!           if ( abs( visio(ie,2) - coupe_y ) <= distcote/densite_coupe ) then
+!           coupe_y = coupe_a(j) * visio(1,ie) + coupe_b(j)
+!           if ( abs( visio(2,ie) - coupe_y ) <= distcote/densite_coupe ) then
 !               ie_coupe_transv = ie_coupe_trans + 1                            
 !           elts_coupes_transv(ie_coupe_transv,j) = ie
 !
@@ -769,26 +769,26 @@ subroutine res_elem_selct(icel,bathy,solution)
 !
 ! ... debut du traitement
 
-        if (icel==elts(1))  write(701,'(5f16.6)')   tc, solution(icel,1), solution(icel,1) + bathy(icel), solution(icel,2), solution(icel,3)
-        if (icel==elts(2))  write(702,'(5f16.6)')   tc, solution(icel,1), solution(icel,1) + bathy(icel), solution(icel,2), solution(icel,3)
-        if (icel==elts(3))  write(703,'(5f16.6)')   tc, solution(icel,1), solution(icel,1) + bathy(icel), solution(icel,2), solution(icel,3)
-        if (icel==elts(4))  write(704,'(5f16.6)')   tc, solution(icel,1), solution(icel,1) + bathy(icel), solution(icel,2), solution(icel,3)
-        if (icel==elts(5))  write(705,'(5f16.6)')   tc, solution(icel,1), solution(icel,1) + bathy(icel), solution(icel,2), solution(icel,3)
-        if (icel==elts(6))  write(706,'(5f16.6)')   tc, solution(icel,1), solution(icel,1) + bathy(icel), solution(icel,2), solution(icel,3)
-        if (icel==elts(7))  write(707,'(5f16.6)')   tc, solution(icel,1), solution(icel,1) + bathy(icel), solution(icel,2), solution(icel,3)
-        if (icel==elts(8))  write(708,'(5f16.6)')   tc, solution(icel,1), solution(icel,1) + bathy(icel), solution(icel,2), solution(icel,3)
-        if (icel==elts(9))  write(709,'(5f16.6)')   tc, solution(icel,1), solution(icel,1) + bathy(icel), solution(icel,2), solution(icel,3)
-        if (icel==elts(10)) write(710,'(5f16.6)')   tc, solution(icel,1), solution(icel,1) + bathy(icel), solution(icel,2), solution(icel,3)
-        if (icel==elts(11)) write(711,'(5f16.6)')   tc, solution(icel,1), solution(icel,1) + bathy(icel), solution(icel,2), solution(icel,3)
-        if (icel==elts(12)) write(712,'(5f16.6)')   tc, solution(icel,1), solution(icel,1) + bathy(icel), solution(icel,2), solution(icel,3)
-        if (icel==elts(13)) write(713,'(5f16.6)')   tc, solution(icel,1), solution(icel,1) + bathy(icel), solution(icel,2), solution(icel,3)
-        if (icel==elts(14)) write(714,'(5f16.6)')   tc, solution(icel,1), solution(icel,1) + bathy(icel), solution(icel,2), solution(icel,3)
-        if (icel==elts(15)) write(715,'(5f16.6)')   tc, solution(icel,1), solution(icel,1) + bathy(icel), solution(icel,2), solution(icel,3)
-        if (icel==elts(16)) write(716,'(5f16.6)')   tc, solution(icel,1), solution(icel,1) + bathy(icel), solution(icel,2), solution(icel,3)
-        if (icel==elts(17)) write(717,'(5f16.6)')   tc, solution(icel,1), solution(icel,1) + bathy(icel), solution(icel,2), solution(icel,3)
-        if (icel==elts(18)) write(718,'(5f16.6)')   tc, solution(icel,1), solution(icel,1) + bathy(icel), solution(icel,2), solution(icel,3)
-        if (icel==elts(19)) write(719,'(5f16.6)')   tc, solution(icel,1), solution(icel,1) + bathy(icel), solution(icel,2), solution(icel,3)
-        if (icel==elts(20)) write(720,'(5f16.6)')   tc, solution(icel,1), solution(icel,1) + bathy(icel), solution(icel,2), solution(icel,3)
+        if (icel==elts(1))  write(701,'(5f16.6)')   tc, solution(1,icel), solution(1,icel) + bathy(icel), solution(2,icel), solution(3,icel)
+        if (icel==elts(2))  write(702,'(5f16.6)')   tc, solution(1,icel), solution(1,icel) + bathy(icel), solution(2,icel), solution(3,icel)
+        if (icel==elts(3))  write(703,'(5f16.6)')   tc, solution(1,icel), solution(1,icel) + bathy(icel), solution(2,icel), solution(3,icel)
+        if (icel==elts(4))  write(704,'(5f16.6)')   tc, solution(1,icel), solution(1,icel) + bathy(icel), solution(2,icel), solution(3,icel)
+        if (icel==elts(5))  write(705,'(5f16.6)')   tc, solution(1,icel), solution(1,icel) + bathy(icel), solution(2,icel), solution(3,icel)
+        if (icel==elts(6))  write(706,'(5f16.6)')   tc, solution(1,icel), solution(1,icel) + bathy(icel), solution(2,icel), solution(3,icel)
+        if (icel==elts(7))  write(707,'(5f16.6)')   tc, solution(1,icel), solution(1,icel) + bathy(icel), solution(2,icel), solution(3,icel)
+        if (icel==elts(8))  write(708,'(5f16.6)')   tc, solution(1,icel), solution(1,icel) + bathy(icel), solution(2,icel), solution(3,icel)
+        if (icel==elts(9))  write(709,'(5f16.6)')   tc, solution(1,icel), solution(1,icel) + bathy(icel), solution(2,icel), solution(3,icel)
+        if (icel==elts(10)) write(710,'(5f16.6)')   tc, solution(1,icel), solution(1,icel) + bathy(icel), solution(2,icel), solution(3,icel)
+        if (icel==elts(11)) write(711,'(5f16.6)')   tc, solution(1,icel), solution(1,icel) + bathy(icel), solution(2,icel), solution(3,icel)
+        if (icel==elts(12)) write(712,'(5f16.6)')   tc, solution(1,icel), solution(1,icel) + bathy(icel), solution(2,icel), solution(3,icel)
+        if (icel==elts(13)) write(713,'(5f16.6)')   tc, solution(1,icel), solution(1,icel) + bathy(icel), solution(2,icel), solution(3,icel)
+        if (icel==elts(14)) write(714,'(5f16.6)')   tc, solution(1,icel), solution(1,icel) + bathy(icel), solution(2,icel), solution(3,icel)
+        if (icel==elts(15)) write(715,'(5f16.6)')   tc, solution(1,icel), solution(1,icel) + bathy(icel), solution(2,icel), solution(3,icel)
+        if (icel==elts(16)) write(716,'(5f16.6)')   tc, solution(1,icel), solution(1,icel) + bathy(icel), solution(2,icel), solution(3,icel)
+        if (icel==elts(17)) write(717,'(5f16.6)')   tc, solution(1,icel), solution(1,icel) + bathy(icel), solution(2,icel), solution(3,icel)
+        if (icel==elts(18)) write(718,'(5f16.6)')   tc, solution(1,icel), solution(1,icel) + bathy(icel), solution(2,icel), solution(3,icel)
+        if (icel==elts(19)) write(719,'(5f16.6)')   tc, solution(1,icel), solution(1,icel) + bathy(icel), solution(2,icel), solution(3,icel)
+        if (icel==elts(20)) write(720,'(5f16.6)')   tc, solution(1,icel), solution(1,icel) + bathy(icel), solution(2,icel), solution(3,icel)
 
 end subroutine res_elem_selct
 !
@@ -850,11 +850,11 @@ subroutine res_elem_selct_ligne(icel,bathy,solution)
         read(721,*) ncel 
 !        
         do r = 1,ncel
-!           if (icel==elts(r))  write(ec_sol2d,'(i,6f16.6)')    icel, 0.0, bathy(icel), solution(icel,1), solution(icel,1) + bathy(icel), solution(icel,2), solution(icel,3)
+!           if (icel==elts(r))  write(ec_sol2d,'(i,6f16.6)')    icel, 0.0, bathy(icel), solution(1,icel), solution(1,icel) + bathy(icel), solution(2,icel), solution(3,icel)
             read(721,*) x , y
             if (abs(x-xg) <= tolerance .and. abs(y-yg) <= tolerance) then
                 if (xg > x0) then
-                    write(ec_sol2d,'(i,6f16.6)')    icel, xg , bathy(icel), solution(icel,1), solution(icel,1) + bathy(icel), solution(icel,2), solution(icel,3)
+                    write(ec_sol2d,'(i,6f16.6)')    icel, xg , bathy(icel), solution(1,icel), solution(1,icel) + bathy(icel), solution(2,icel), solution(3,icel)
                     x0=xg
                 endif
             endif
@@ -898,7 +898,7 @@ subroutine entree_sortie_domaine
 !
 ! ... variables locales ................................................
 !
-    integer               :: i, nc1, nc2, ne
+    integer               :: i, nc1, nc2, ne, j
     real(fp_kind)               :: x1, x2, y1, y2, ln
     real(fp_kind), dimension(2) :: norm
 !

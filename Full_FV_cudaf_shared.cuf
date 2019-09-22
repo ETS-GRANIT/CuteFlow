@@ -75,7 +75,7 @@ subroutine Full_FV
             integer, value :: niter, iter
         end subroutine copy_2d_1
 
-        attributes(global) subroutine copy_into_res_d(niter_d, nelt_d)
+        attributes(global) subroutine copy_into_res_d(niter_d,nelt_d)
             use precision_m
             use main_prog_variables
             integer, intent(in) :: niter_d, nelt_d
@@ -205,7 +205,6 @@ subroutine Full_FV
 !
 !*** Variables locales ***
 !   
-    integer                     :: mpi_ierr
     integer                     :: stat(MPI_STATUS_SIZE)
     character (10) :: aaa, bbb, no_coupe
     integer :: i, ii, j, p, kk, ss, iel, nd, dl, niter, iter, n, c, nt, n0, som, som1, som2, som3, n_it, nitf, ifant, iaff
@@ -276,11 +275,11 @@ subroutine Full_FV
 !   open(unit=499,file='COUPE.txt',status="unknown")
        
     ! allocate(greta_lisec(nelt,2))
-    ! allocate(vdlg_init(nelt,ndln))
+    ! allocate(vdlg_init(ndln,nelt))
 
-    allocate(res1(nelt, ndln))
-    allocate(resc_d(nelt, ndln),res_d(nelt, ndln), res1_d(nelt, ndln))
-    allocate(sourcfric_d(nelt,ndln))
+    allocate(res1( ndln,nelt))
+    allocate(resc_d( ndln,nelt),res_d( ndln,nelt), res1_d( ndln,nelt))
+    allocate(sourcfric_d(ndln,nelt))
     !!allocate(io_identifier(nelt), io_identifier_d(nelt), debit_entree_arr(ndi+2), debit_entree_arr_d(ndi+2), debit_sortie_arr(ndo+2))
     !!allocate(debit_sortie_arr_d(ndo), vol_tot_entre_arr_d(ndi+2), vol_tot_entre_arr(ndi+2), vol_tot_sorti_arr_d(ndo+2), vol_tot_sorti_arr(ndo+2))
     allocate(io_identifier(nelt), io_identifier_d(nelt))
@@ -378,11 +377,11 @@ subroutine Full_FV
     elseif ( timedisc == 'second' ) then    ! *** Second ordre ***
         niter = 2
         niter_d = niter
-        allocate(res2_d(nelt, ndln))
+        allocate(res2_d( ndln,nelt))
     elseif ( timedisc == 'runge' ) then ! *** Runge-kutta ***
         niter = 4
         niter_d = niter
-        allocate(res2_d(nelt, ndln), res3_d(nelt, ndln), res4_d(nelt, ndln) )
+        allocate(res2_d( ndln,nelt), res3_d( ndln,nelt), res4_d( ndln,nelt) )
     else
         write(*,*) 'choix de timedisc non valide'
     endif
@@ -461,10 +460,10 @@ subroutine Full_FV
     write(*,*) '******************************************************************************************************************************'
     iaff = 0
     do while ( (tc - ts + 2*tol ) < tol )
-    call cpu_time(tb1)
     !!do while ( nb_iterations < 1 )
-    !!do while ( nb_iterations < 2 )
-        print*,"TIME : ", tc
+    !!do while ( nb_iterations < 5 )
+        call cpu_time(tb1)
+        !!print*,"TIME : ", tc
 
         debit_entree  = 0.d0
         debit_sortie  = 0.d0
@@ -487,7 +486,7 @@ subroutine Full_FV
 !==================================================================================================
 !
 ! *** début de la boucle sur les iterations du schema temporel ***
-        print*,"niter = ", niter
+        !!print*,"niter = ", niter
 !
         do iter=1,niter
 !
@@ -569,7 +568,7 @@ subroutine Full_FV
             call cuda_glerror('ierr<-update_un_voisin_sec <-- Full_FV_cudaf_shared.cuf',1)
 
             if(ns == 3) then 
-                print*, "NS = 3 CHANGEMENT OK"
+                !!print*, "NS = 3 CHANGEMENT OK"
                 call cotes_cudaf3<<<grids, tblocks>>>(surf_d,zm_d,gradz_d,vdlg_d)
             elseif(ns == 4) then 
                 call cotes_cudaf4<<<grids, tblocks>>>(surf_d,zm_d,gradz_d,vdlg_d)
@@ -633,7 +632,7 @@ subroutine Full_FV
                 if ( abs( tc - tvis3d2(cptvis3d) ) < 1.0E-01) then 
                     vdlg = vdlg_d
                     call cuda_glerror('ierr<- (D->H) meme transfer to vdlg <-- Full_FV_cudaf_shared.cuf',1)
-                    write(405,*) vdlg(iel,1)                                             
+                    write(405,*) vdlg(1,iel)                                             
                 endif                   
             endif
 !
@@ -666,8 +665,8 @@ subroutine Full_FV
           debit_sortie = debit_sortie + debit_vector(i) 
         end do
 
-        print*,"echange des debits ok"
-        print*,debit_sortie, debit_entree
+        !!print*,"echange des debits ok"
+        !!print*,debit_sortie, debit_entree
 
 !
         !!call copy_into_res_d<<<grid_copy, block_copy>>>(niter_d, nelt_d-nelt_fant_recep_d)
@@ -694,30 +693,30 @@ subroutine Full_FV
             dt = minval(dt_arr)
             !!Echange pas de temps entre les procs mpi
             dt_vector(my_id) =  dt
-            print*,"avant gather dt ", dt, dt_vector(my_id)
+            !!print*,"avant gather dt ", dt, dt_vector(my_id)
             call MPI_BARRIER(MPI_COMM_WORLD,mpi_ierr)
             call MPI_ALLGATHER(dt_vector(my_id),1,real_kind_mpi,dt_vector,1,real_kind_mpi,MPI_COMM_WORLD, mpi_ierr)
             call MPI_BARRIER(MPI_COMM_WORLD,mpi_ierr)
             !!Choix du dt dans le vecteur
             do i=0,num_procs-1
-              print*,"id ", i, " dt ", dt_vector(i)
+              !!print*,"id ", i, " dt ", dt_vector(i)
               if(dt_vector(i)<dt) then !!Normalement il faut prendre <
                 dt = dt_vector(i)
               end if
             enddo
             !!dt = 0.1*dt !! a enlever test
             dt_d = dt
-            print*,"après gather dt ", dt
+            !!print*,"après gather dt ", dt
         endif
         call cuda_glerror('ierr<-cflcond_cudaf (2) <-- Full_FV_cudaf_shared.cuf',1)
             
 ! *** visualisation de la solution ***
 !
 !             do iel=1, nelt
-!                 if(visual==1) visio(iel,3) = vdlg(iel,1) ! * visualiser la profondeur *
-!                 if(visual==2) visio(iel,3) = vdlg(iel,1)+zm(iel) ! * visualiser la surface *
-!                 if(visual==3) visio(iel,3) = vdlg(iel,2)/vdlg(iel,1) ! * visualiser la vitesse *
-!                 if(visual==4) visio(iel,3) = vdlg(iel,3)/vdlg(iel,1) ! * visualiser la vitesse *
+!                 if(visual==1) visio(3,iel) = vdlg(1,iel) ! * visualiser la profondeur *
+!                 if(visual==2) visio(3,iel) = vdlg(1,iel)+zm(iel) ! * visualiser la surface *
+!                 if(visual==3) visio(3,iel) = vdlg(2,iel)/vdlg(1,iel) ! * visualiser la vitesse *
+!                 if(visual==4) visio(3,iel) = vdlg(3,iel)/vdlg(1,iel) ! * visualiser la vitesse *
 !             enddo
 ! !
 ! !
@@ -874,7 +873,7 @@ subroutine Full_FV
 
                 write(ec_sol_elt_t,*) tc                        
                 do iel=1,nelt
-                    write(ec_sol_elt_t,'(4f16.6)') vdlg(iel,1), vdlg1(iel,1), vdlg1(iel,2), vdlg1(iel,3)
+                    write(ec_sol_elt_t,'(4f16.6)') vdlg(1,iel), vdlg1(1,iel), vdlg1(2,iel), vdlg1(3,iel)
                 enddo
                 write(ec_sol_nd_t,*) tc
                 do nd=1,nnt
@@ -922,31 +921,31 @@ subroutine Full_FV
 !
     call cpu_time(te1)
 
-  !!Echange des mailles fantomes pire truc mais on fera mieux
-    vdlg = vdlg_d
-    call echange_fant(vdlg, ndln)
-    vdlg_d = vdlg
-    vdlg1 = vdlg1_d
-    call echange_fant(vdlg1, ndln)
-    vdlg1_d = vdlg1
-    vdlg0 = vdlg0_d
-    call echange_fant(vdlg0, ndln)
-    vdlg0_d = vdlg0
-    vdlg01 = vdlg01_d
-    call echange_fant(vdlg01, ndln)
-    vdlg01_d = vdlg01
-    zm = zm_d
-    call echange_fant(zm, 1)
-    zm_d = zm
-    surf = surf_d
-    call echange_fant(surf,1)
-    surf_d = surf
-    gradz = gradz_d
-    call echange_fant(gradz, ndim)
-    gradz_d = gradz
-    res1 = res1_d
-    call echange_fant(res1, ndln)
-    res1_d = res1
+!!  !!Echange des mailles fantomes pire truc mais on fera mieux
+!!    vdlg = vdlg_d
+!!    call echange_fant(vdlg, ndln)
+!!    vdlg_d = vdlg
+!!    vdlg1 = vdlg1_d
+!!    call echange_fant(vdlg1, ndln)
+!!    vdlg1_d = vdlg1
+!!    vdlg0 = vdlg0_d
+!!    call echange_fant(vdlg0, ndln)
+!!    vdlg0_d = vdlg0
+!!    vdlg01 = vdlg01_d
+!!    call echange_fant(vdlg01, ndln)
+!!    vdlg01_d = vdlg01
+!!    zm = zm_d
+!!    call echange_fant(zm, 1)
+!!    zm_d = zm
+!!    surf = surf_d
+!!    call echange_fant(surf,1)
+!!    surf_d = surf
+!!    gradz = gradz_d
+!!    call echange_fant(gradz, ndim)
+!!    gradz_d = gradz
+!!    res1 = res1_d
+!!    call echange_fant(res1, ndln)
+!!    res1_d = res1
     
 
 !!!!  Echange sur GPU directement
@@ -959,17 +958,19 @@ subroutine Full_FV
 !!    call gpu_echange_fant(gradz_d, ndim)
 !!    call gpu_echange_fant(res1_d, ndln)
 
-!!!!  Echange sur GPU directement bloc
-!!    call gpu_echange_fant_bloc(vdlg_d, ndln)
-!!    call gpu_echange_fant_bloc(vdlg1_d, ndln)
-!!    call gpu_echange_fant_bloc(vdlg0_d, ndln)
-!!    call gpu_echange_fant_bloc(vdlg01_d, ndln)
-!!    call gpu_echange_fant_bloc(zm_d, 1)
-!!    call gpu_echange_fant_bloc(surf_d, 1)
-!!    call gpu_echange_fant_bloc(gradz_d, ndim)
-!!    call gpu_echange_fant_bloc(res1_d, ndln)
+!!  Echange sur GPU directement bloc
+    call gpu_echange_fant_bloc(vdlg_d, ndln)
+    call gpu_echange_fant_bloc(vdlg1_d, ndln)
+    call gpu_echange_fant_bloc(vdlg0_d, ndln)
+    call gpu_echange_fant_bloc(vdlg01_d, ndln)
+    call gpu_echange_fant_bloc(zm_d, 1)
+    call gpu_echange_fant_bloc(surf_d, 1)
+    call gpu_echange_fant_bloc(gradz_d, ndim)
+    call gpu_echange_fant_bloc(res1_d, ndln)
     call cpu_time(te2)
-    print*,"temps calculs ", te1-tb1, "temps echange ", te2-te1, " %temps echange ", (te2-te1)/(te2-tb1)
+    if ( mod(nt,freqaffich)==0 ) then
+      print*,"temps calculs ", te1-tb1, "temps echange ", te2-te1, " %temps echange ", (te2-te1)/(te2-tb1)
+    end if
 
     nb_iterations = nb_iterations + 1
     !!call sol_nodes(vdlg,surf,zm,sh0,she0,shu0,shv0,su0,sv0)
@@ -1023,7 +1024,7 @@ subroutine Full_FV
 !               STORAGE OF FINAL SOLUTIONS IN ALL NODES OF THE DOMAIN (For restarting)
             write(ec_sol_elt_final,*) tc                        
             do i=1,nelt
-                write(ec_sol_elt_final,'(4f16.6)') vdlg(i,1), vdlg1(i,1), vdlg1(i,2), vdlg1(i,3)
+                write(ec_sol_elt_final,'(4f16.6)') vdlg(1,i), vdlg1(1,i), vdlg1(2,i), vdlg1(3,i)
             enddo
 !
         endif  ! de if (multi_simul ==1)
@@ -1036,7 +1037,7 @@ subroutine Full_FV
                 do i=1,nnt
                     if ( sqrt( ( xjauges(1) - coordonnees(i,1) )**2 + ( yjauges(1) - coordonnees(i,2) )**2 ) < distcote ) nodjauge=i
                 enddo
-                write(3000,'(6f8.3)') debitglob, H_AMONT, H_AVAL, manning, vdlg(nodjauge,1), vdlg1(nodjauge,1)
+                write(3000,'(6f8.3)') debitglob, H_AMONT, H_AVAL, manning, vdlg(1,nodjauge), vdlg1(1,nodjauge)
             else
 !
 !-----------------------------------------------------------------------------------------------------------------
@@ -1069,7 +1070,6 @@ subroutine Full_FV
     deallocate(resc_d,res_d, res1_d)
     deallocate(sourcfric_d)
     !!deallocate(io_identifier, io_identifier_d, debit_entree_arr, debit_entree_arr_d, debit_sortie_arr)
-    !!deallocate(debit_sortie_arr_d, vol_tot_entre_arr_d, vol_tot_entre_arr, vol_tot_sorti_arr_d, vol_tot_sorti_arr)
     if(ndi>0) then
       deallocate(debit_entree_arr, debit_entree_arr_d,vol_tot_entre_arr_d, vol_tot_entre_arr)
     endif
@@ -1095,7 +1095,7 @@ attributes(global) subroutine copy_2d(a,b,n)
     gi = (blockIdx%x - 1)*blockDim%x + ti
 
     if(gi <= n) then
-        a(gi,:) = b(gi,:)
+        a(:,gi) = b(:,gi)
     endif
 
 end subroutine copy_2d
@@ -1113,27 +1113,27 @@ attributes(global) subroutine copy_2d_1(vdlg1_d, vdlg01_d, resj_d, niter, iter, 
     ti = threadIdx%x
     gi = (blockIdx%x - 1)*blockDim%x + ti
 
-    !!if(gi <= nelt_d) then
-    if(gi <= nelt_fant_recep_d) then
+    if(gi <= nelt_d) then
+    !!if(gi <= nelt_fant_recep_d) then
 
         if(niter == 2 .and. iter == 2) then 
             
-            vdlg1_d(gi,:) = vdlg01_d(gi,:) + dt_d * resj_d(gi,:)
+            vdlg1_d(:,gi) = vdlg01_d(:,gi) + dt_d * resj_d(:,gi)
         
         elseif(niter == 4 .and. (iter == 2 .or. iter == 3)) then 
 
-            vdlg1_d(gi,:) = vdlg01_d(gi,:) + dt_d * resj_d(gi,:)/2
+            vdlg1_d(:,gi) = vdlg01_d(:,gi) + dt_d * resj_d(:,gi)/2
 
         elseif(niter == 4 .and. iter == 4) then 
 
-            vdlg1_d(gi,:) = vdlg01_d(gi,:) + dt_d * resj_d(gi,:)
+            vdlg1_d(:,gi) = vdlg01_d(:,gi) + dt_d * resj_d(:,gi)
 
         endif
     endif
 
 end subroutine copy_2d_1
 
-attributes(global) subroutine copy_into_res_d(niter_d, nelt_d)
+attributes(global) subroutine copy_into_res_d(niter_d,nelt_d)
     use precision_m
     use main_prog_variables
     integer, intent(in) :: niter_d, nelt_d
@@ -1147,15 +1147,15 @@ attributes(global) subroutine copy_into_res_d(niter_d, nelt_d)
     !!if (gi <= nelt_d-nelt_fant_recep_d) then
         if ( niter_d == 1 ) then          ! *** Euler ***
     !
-            res_d(gi,:) = res1_d(gi,:)
+            res_d(:,gi) = res1_d(:,gi)
     !
         elseif ( niter_d == 2 ) then      ! *** Second order ***
     !
-            res_d(gi,:) = (res1_d(gi,:) + res2_d(gi,:) ) / 2
+            res_d(:,gi) = (res1_d(:,gi) + res2_d(:,gi) ) / 2
     !
         elseif ( niter_d == 4 ) then      ! *** Runge-kutta ***
     !
-            res_d(gi,:) = (res1_d(gi,:) + 2 * res2_d(gi,:) + 2 * res3_d(gi,:) + res4_d(gi,:)) / 6
+            res_d(:,gi) = (res1_d(:,gi) + 2 * res2_d(:,gi) + 2 * res3_d(:,gi) + res4_d(:,gi)) / 6
     !
         endif
     endif
@@ -1187,15 +1187,15 @@ subroutine gpu_echange_fant_bloc(a, nd)
   use mpi
 
   integer, intent(in) :: nd
-  real(fp_kind), device, intent(inout) :: a(nelt,nd)
+  real(fp_kind), device, intent(inout) :: a(nd,nelt)
   integer                     :: stat(MPI_STATUS_SIZE)
   integer :: j
 
   do j=1,nelt_fant_envoi_bloc
-    call MPI_SEND(a(elt_fant_envoi_bloc(j,1),1),nd*elt_fant_envoi_bloc(j,2),real_kind_mpi,elt_fant_envoi_bloc(j,3),0,MPI_COMM_WORLD,mpi_ierr)
+    call MPI_SEND(a(1,elt_fant_envoi_bloc(j,1)),nd*elt_fant_envoi_bloc(j,2),real_kind_mpi,elt_fant_envoi_bloc(j,3),0,MPI_COMM_WORLD,mpi_ierr)
   end do
   do j=1,nelt_fant_recep_bloc
-    call MPI_RECV(a(elt_fant_recep_bloc(j,1),1),nd*elt_fant_recep_bloc(j,2),real_kind_mpi,elt_fant_recep_bloc(j,3),0,MPI_COMM_WORLD,stat,mpi_ierr)
+    call MPI_RECV(a(1,elt_fant_recep_bloc(j,1)),nd*elt_fant_recep_bloc(j,2),real_kind_mpi,elt_fant_recep_bloc(j,3),0,MPI_COMM_WORLD,stat,mpi_ierr)
   end do
   call MPI_BARRIER(MPI_COMM_WORLD,mpi_ierr)
 end subroutine gpu_echange_fant_bloc
@@ -1208,16 +1208,16 @@ subroutine gpu_echange_fant(a, nd)
   use mpi
 
   integer, intent(in) :: nd
-  real(fp_kind), device, intent(inout) :: a(nelt,nd)
+  real(fp_kind), device, intent(inout) :: a(nd,nelt)
   integer                     :: stat(MPI_STATUS_SIZE)
-  integer :: j
+  integer :: j, ifant
 
   do j=1,nd
     do ifant=1,nelt_fant_envoi
-      call MPI_SEND(a(elt_fant_envoi(ifant,1),j),1,real_kind_mpi,elt_fant_envoi(ifant,2),elt_fant_envoi(ifant,3),MPI_COMM_WORLD,mpi_ierr)
+      call MPI_SEND(a(j,elt_fant_envoi(ifant,1)),1,real_kind_mpi,elt_fant_envoi(ifant,2),elt_fant_envoi(ifant,3),MPI_COMM_WORLD,mpi_ierr)
     end do
     do ifant=1,nelt_fant_recep
-      call MPI_RECV(a(elt_fant_recep(ifant,1),j),1,real_kind_mpi,elt_fant_recep(ifant,2),elt_fant_recep(ifant,3),MPI_COMM_WORLD,stat,mpi_ierr)
+      call MPI_RECV(a(j,elt_fant_recep(ifant,1)),1,real_kind_mpi,elt_fant_recep(ifant,2),elt_fant_recep(ifant,3),MPI_COMM_WORLD,stat,mpi_ierr)
     end do
     call MPI_BARRIER(MPI_COMM_WORLD,mpi_ierr)
   end do
@@ -1230,16 +1230,16 @@ subroutine echange_fant(a, nd)
   use mpi
 
   integer, intent(in) :: nd
-  real(fp_kind), intent(inout) :: a(nelt,nd)
+  real(fp_kind), intent(inout) :: a(nd,nelt)
   integer                     :: stat(MPI_STATUS_SIZE)
-  integer :: j
+  integer :: j, ifant
 
   do j=1,nd
     do ifant=1,nelt_fant_envoi
-      call MPI_SEND(a(elt_fant_envoi(ifant,1),j),1,real_kind_mpi,elt_fant_envoi(ifant,2),elt_fant_envoi(ifant,3),MPI_COMM_WORLD,mpi_ierr)
+      call MPI_SEND(a(j,elt_fant_envoi(ifant,1)),1,real_kind_mpi,elt_fant_envoi(ifant,2),elt_fant_envoi(ifant,3),MPI_COMM_WORLD,mpi_ierr)
     end do
     do ifant=1,nelt_fant_recep
-      call MPI_RECV(a(elt_fant_recep(ifant,1),j),1,real_kind_mpi,elt_fant_recep(ifant,2),elt_fant_recep(ifant,3),MPI_COMM_WORLD,stat,mpi_ierr)
+      call MPI_RECV(a(j,elt_fant_recep(ifant,1)),1,real_kind_mpi,elt_fant_recep(ifant,2),elt_fant_recep(ifant,3),MPI_COMM_WORLD,stat,mpi_ierr)
     end do
     call MPI_BARRIER(MPI_COMM_WORLD,mpi_ierr)
   end do
@@ -1268,15 +1268,15 @@ attributes(global) subroutine calcul_residue_ele_cudaf(surf_d, resj_d)
 !
             if ( fric == 1 .or. fric == 2 ) then
 
-                resini = ( sourcfric_d(gi,:) - resc_d(gi,:) ) / surf_d(gi)
-                resj_d(gi,1) = sum(afm1_d(gi,1:3)*resini)
-                resj_d(gi,2) = sum(afm1_d(gi,4:6)*resini)
-                resj_d(gi,3) = sum(afm1_d(gi,7:9)*resini)
+                resini = ( sourcfric_d(:,gi) - resc_d(:,gi) ) / surf_d(gi)
+                resj_d(1,gi) = sum(afm1_d(gi,1:3)*resini)
+                resj_d(2,gi) = sum(afm1_d(gi,4:6)*resini)
+                resj_d(3,gi) = sum(afm1_d(gi,7:9)*resini)
             else
-                resj_d(gi,:) = (sourcfric_d(gi,:) - resc_d(gi,:)) / surf_d(gi)
+                resj_d(:,gi) = (sourcfric_d(:,gi) - resc_d(:,gi)) / surf_d(gi)
             endif
         else 
-            resj_d(gi,:) = - resc_d(gi,:) / surf_d(gi)
+            resj_d(:,gi) = - resc_d(:,gi) / surf_d(gi)
         endif
     endif
     
@@ -1300,11 +1300,11 @@ attributes(global) subroutine init_vdlg(vdlg_d, vdlg1_d,  zm_d)
     if(gi <= nelt_d) then
     !!if(gi <= nelt_d-nelt_fant_recep_d) then
 
-        vdlgtmp = vdlg1_d(gi,1) - zm_d(gi)
-        vdlg_d(gi,1) = vdlgtmp
-        if ( vdlgtmp <= tolisec_d )   vdlg_d(gi,1) = tolisec_d           
-        vdlg_d(gi,2) = vdlg1_d(gi,2)
-        vdlg_d(gi,3) = vdlg1_d(gi,3)
+        vdlgtmp = vdlg1_d(1,gi) - zm_d(gi)
+        vdlg_d(1,gi) = vdlgtmp
+        if ( vdlgtmp <= tolisec_d )   vdlg_d(1,gi) = tolisec_d           
+        vdlg_d(2,gi) = vdlg1_d(2,gi)
+        vdlg_d(3,gi) = vdlg1_d(3,gi)
     
     endif
 
@@ -1326,11 +1326,11 @@ attributes(global) subroutine update_un_voisin_sec()
 
     !!if(gi <= nelt_d) then
     if(gi <= nelt_d-nelt_fant_recep_d) then
-        v1 = vdlg_d(gi,1)
+        v1 = vdlg_d(1,gi)
         output = 'n'        
         do i=1,ns_d
             kvoisin = boundary_d(gi,i)
-            if( kvoisin > 0 .and. (vdlg_d(kvoisin,1) <= tolisec_d  .or.   v1 <= tolisec_d) )   output = 'y' 
+            if( kvoisin > 0 .and. (vdlg_d(1,kvoisin) <= tolisec_d  .or.   v1 <= tolisec_d) )   output = 'y' 
         enddo
         un_voisin_sec1_d(gi) = output
 

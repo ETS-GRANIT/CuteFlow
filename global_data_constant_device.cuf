@@ -60,7 +60,7 @@
     ! real(fp_kind), dimension(100) :: xjauges , yjauges
     ! real(fp_kind) :: fact_lamda_pod, fact_h_pod, fact_lamda_pod_tild
     ! integer :: pod, pid, shot, nsnap, n_video, base_unique, uselamdapodmoymax, nonlin, video, dim, k_base
-    ! integer, constant:: multi_simul_d, monte_carlo_d
+    integer, constant:: multi_simul_d, monte_carlo_d
 
 !
 ! ******************* input pour l'analyse stochastique ***************************
@@ -79,8 +79,8 @@
     ! character (200):: SOLFILEJ_ETA, SOLFILEJ_H, SOLFILEJ_U, SOLFILEJ_V, sol_dom_ts, fich_debit_coupe, file_BC, file_Q_coupes 
 !
     integer, constant:: w_d, idim_d, ndim_d, ndln_d     
-    ! integer, constant:: departchrono_d
-    ! integer, constant:: podftfull_d, convec_d
+    integer, constant:: departchrono_d
+    integer, constant:: podftfull_d, convec_d
     real, constant   :: tolisec2_d, tolhfriction_d
 !
     ! character (20):: base_h_num, base_eta_num, base_eta_tild_num, base_hu_num, base_hv_num, base_u_num, base_v_num, lamda_moy_num, lamda_max_num, h_pod_num, fric_pod_num

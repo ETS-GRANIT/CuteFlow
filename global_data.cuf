@@ -12,7 +12,7 @@
 ! ======================================================================
 !
 ! ***************** variables mpi ***************
-    integer :: my_id, num_procs
+    integer :: my_id, num_procs, mpi_ierr
 !
 ! ***************** noms des fichiers de donnees ***************
 

@@ -187,7 +187,6 @@ subroutine lect_const_mail
     type(cudaEvent)             :: startEvent , stopEvent
     real(fp_kind)               :: start_cpu, stop_cpu, errf1, errf2, errf3
     real                        :: time_cuda
-    integer                     :: mpi_ierr
     real(fp_kind), dimension(0:num_procs-1) :: cotemin_vector
     call MPI_TYPE_CREATE_F90_REAL(fp_kind, MPI_UNDEFINED, real_kind_mpi, mpi_ierr)
 !
@@ -1533,7 +1532,9 @@ subroutine boundary_kind_cudaf
 
 
     allocate(boundary_temp(nelt, ns))
+    print*,"dindon1"
     boundary_temp = boundary_d
+    print*,"dindon2"
 
     ! ndi = 64
     ! ndo = 85
@@ -2014,11 +2015,11 @@ attributes(global) subroutine surfzmgradz_cudaf(p_d,z0_d,surf_d,zm_d,gradz_d,gra
     !       zm(kvol) = ( z1 + z2 + z3 ) / 3                         ! arithmetique
             zm_d(gi) = ( d1*z1 + d2*z2 + d3*z3 ) / ( d1 + d2 + d3 ) ! planimetrique
     !
-            gradz_d(gi,1) = ( (y2-y3)*z1 + (y3-y1)*z2 + (y1-y2)*z3 ) / surf_area / 2.00
-            gradz_d(gi,2) = ( (x3-x2)*z1 + (x1-x3)*z2 + (x2-x1)*z3 ) / surf_area / 2.00
+            gradz_d(1,gi) = ( (y2-y3)*z1 + (y3-y1)*z2 + (y1-y2)*z3 ) / surf_area / 2.00
+            gradz_d(2,gi) = ( (x3-x2)*z1 + (x1-x3)*z2 + (x2-x1)*z3 ) / surf_area / 2.00
     !
-            gradz2_d(gi,1) = ( (y2-y3)*z1**2 + (y3-y1)*z2**2 + (y1-y2)*z3**2 ) / surf_area / 2.00
-            gradz2_d(gi,2) = ( (x3-x2)*z1**2 + (x1-x3)*z2**2 + (x2-x1)*z3**2 ) / surf_area / 2.00
+            gradz2_d(1,gi) = ( (y2-y3)*z1**2 + (y3-y1)*z2**2 + (y1-y2)*z3**2 ) / surf_area / 2.00
+            gradz2_d(2,gi) = ( (x3-x2)*z1**2 + (x1-x3)*z2**2 + (x2-x1)*z3**2 ) / surf_area / 2.00
     !
     !
         else                            ! *** cas quadrilateral ***
@@ -2152,8 +2153,8 @@ attributes(global) subroutine surfzmgradz_cudaf(p_d,z0_d,surf_d,zm_d,gradz_d,gra
             gz1 = gz1 + aaa / 2 ! + aaa * ddd / 2
             gz2 = gz2 + bbb / 2 ! + bbb * ddd / 2
             ! gradient de z sur le quadrilatere
-            gradz_d(gi,1) = gz1 / surf_area
-            gradz_d(gi,2) = gz2 / surf_area
+            gradz_d(1,gi) = gz1 / surf_area
+            gradz_d(2,gi) = gz2 / surf_area
     ! gradz2_d
             ! *** triangle ( 1 g 4 )
             ! ddd = y1 * (x4 - xg) + y4 * (xg - x1) + yg * (x1 - x4) *** simplification ***
@@ -2180,8 +2181,8 @@ attributes(global) subroutine surfzmgradz_cudaf(p_d,z0_d,surf_d,zm_d,gradz_d,gra
             gz1 = gz1 + aaa / 2 ! + aaa * ddd / 2
             gz2 = gz2 + bbb / 2 ! + bbb * ddd / 2
             ! gradient de z sur le quadrilatere
-            gradz2_d(gi,1) = gz1 / surf_area
-            gradz2_d(gi,2) = gz2 / surf_area
+            gradz2_d(1,gi) = gz1 / surf_area
+            gradz2_d(2,gi) = gz2 / surf_area
     
         endif
 

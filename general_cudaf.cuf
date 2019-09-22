@@ -214,7 +214,7 @@ subroutine stock_coupe2D(solh, soleta, solhu, solu)
 ! *** déclaration des variables ***
 !
     integer                                 :: i, ii, j, p, kk, ss, ie, iel, nt, n_MC, i_MC
-    integer                                 :: status, l, ie_coupe_transv, ierr, mpi_ierr, dev
+    integer                                 :: status, l, ie_coupe_transv, ierr, dev
     real(fp_kind)                           :: d2, t2, dtime2, tcm2, d, t, zero, time_start, time_stop, maxheight
     real(fp_kind)                           :: errf, errf1, errf2, errf3, errf4, errf5
     real                                    :: time_cuda
@@ -294,19 +294,19 @@ subroutine stock_coupe2D(solh, soleta, solhu, solu)
 ! ==================================================================================
 ! *** allocation des matrices et vecteurs ***
 !
-    allocate( visio(nelt,ndim+1), visio_d(nelt, ndim+1) )
+    allocate( visio(ndim+1,nelt), visio_d( ndim+1,nelt) )
 
-    allocate( surf(nelt), zm(nelt), gradz(nelt,ndim), gradz2(nelt,ndim) )
-    allocate( surf_d(nelt), zm_d(nelt), gradz_d(nelt,ndim), gradz2_d(nelt,ndim) )
+    allocate( surf(nelt), zm(nelt), gradz(ndim,nelt), gradz2(ndim,nelt) )
+    allocate( surf_d(nelt), zm_d(nelt), gradz_d(ndim,nelt), gradz2_d(ndim,nelt) )
 !
-    allocate( vdlg(nelt,ndln), vdlg0(nelt,ndln), vdlg1(nelt,ndln), vdlg01(nelt,ndln), tempvdlg(nelt, ndln))
-    allocate( vdlg_d(nelt,ndln), vdlg0_d(nelt,ndln), vdlg1_d(nelt,ndln), vdlg01_d(nelt,ndln))
+    allocate( vdlg(ndln,nelt), vdlg0(ndln,nelt), vdlg1(ndln,nelt), vdlg01(ndln,nelt), tempvdlg( ndln,nelt))
+    allocate( vdlg_d(ndln,nelt), vdlg0_d(ndln,nelt), vdlg1_d(ndln,nelt), vdlg01_d(ndln,nelt))
     
     allocate( she0(nnt), sh0(nnt), shu0(nnt), shv0(nnt), su0(nnt), sv0(nnt) )
     ! allocate( she0_d(nnt), sh0_d(nnt), shu0_d(nnt), shv0_d(nnt), su0_d(nnt), sv0_d(nnt))
 !
     ! allocate(vdle(ndln),vdle0(ndln))
-    ! allocate(res(nelt,ndln),res1(nelt,ndln),res2(nelt,ndln),res3(nelt,ndln),res4(nelt,ndln), ij_wet_dry(nelt,3), ij_dry_wet(nelt,3), i_dry_wet(nelt))
+    ! allocate(res(ndln,nelt),res1(ndln,nelt),res2(ndln,nelt),res3(ndln,nelt),res4(ndln,nelt), ij_wet_dry(nelt,3), ij_dry_wet(nelt,3), i_dry_wet(nelt))
 !
     ! allocate( she1(nnt),sh1(nnt),su1(nnt),sv1(nnt) )
 !
@@ -316,7 +316,7 @@ subroutine stock_coupe2D(solh, soleta, solhu, solu)
 
     allocate( elts_coupes_transv(nelt, nbrcoupes), nds_coupes(nbrcoupes,nnt), nbr_nds_coupes(nbrcoupes) )
 
-    ! allocate(vdlgres(nelt,ndln), vdlg_init(nelt,ndln),vdlg_moy_snap(nelt,ndln), vdlgpod(nelt,ndln), delta_sol(nelt,ndln))
+    ! allocate(vdlgres(ndln,nelt), vdlg_init(ndln,nelt),vdlg_moy_snap(ndln,nelt), vdlgpod(ndln,nelt), delta_sol(nelt,ndln))
 
     call cuda_glerror('ierr <- device memory allocation <-- general_cudaf.cuf',1)
 
@@ -728,8 +728,10 @@ subroutine stock_coupe2D(solh, soleta, solhu, solu)
     deallocate(manning_nelt, manning_nd)
     deallocate(elts_coupes_transv)
     deallocate(manning_nelt_d, manning_nd_d)
-    deallocate(elt_fant_envoi,elt_fant_recep)
-    deallocate(elt_fant_envoi_bloc,elt_fant_recep_bloc)
+    if(nelt_fant_envoi>1) then
+      deallocate(elt_fant_envoi,elt_fant_recep)
+      deallocate(elt_fant_envoi_bloc,elt_fant_recep_bloc)
+    end if
 
 !
 !   if (test ==7 .and. ncel > 0) then 

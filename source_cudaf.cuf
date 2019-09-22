@@ -60,10 +60,10 @@ attributes(global) subroutine source_cudaf(vdlg_d,surf_d,zm_d,gradz_d)
 
     !!if (gi <= nelt_d) then
     if (gi <= nelt_d-nelt_fant_recep_d) then
-        sourcfric_d(gi,:) = 0.d0
-        q1 = vdlg_d(gi,1)
-        q2 = vdlg_d(gi,2)
-        q3 = vdlg_d(gi,3)
+        sourcfric_d(:,gi) = 0.d0
+        q1 = vdlg_d(1,gi)
+        q2 = vdlg_d(2,gi)
+        q3 = vdlg_d(3,gi)
         area = surf_d(gi)
         normQ   = sqrt( q2**2 + q3**2 )
         manning = manning_nelt_d(gi)
@@ -81,8 +81,8 @@ attributes(global) subroutine source_cudaf(vdlg_d,surf_d,zm_d,gradz_d)
            if (  q1 <= tolisec_d ) then
 	!		if (  q1 <= tol_d ) then              
     !
-                sourcfric_d(gi, 2) = 0.d0
-                sourcfric_d(gi, 3) = 0.d0
+                sourcfric_d( 2,gi) = 0.d0
+                sourcfric_d( 3,gi) = 0.d0
             else                                                
                 vitu = q2 / q1
                 vitv = q3 / q1
@@ -95,11 +95,11 @@ attributes(global) subroutine source_cudaf(vdlg_d,surf_d,zm_d,gradz_d)
                 endif
                 
                 ! tempq = real(q1**(-1.d0/3.d0))
-                ! sourcfric_d(gi, 2) = - gp_d * manning*manning * vitu * normvit * area*tempq
-                ! sourcfric_d(gi, 3) = - gp_d * manning*manning * vitv * normvit * area*tempq
+                ! sourcfric_d( 2,gi) = - gp_d * manning*manning * vitu * normvit * area*tempq
+                ! sourcfric_d( 3,gi) = - gp_d * manning*manning * vitv * normvit * area*tempq
             
-                sourcfric_d(gi, 2) = - gp_d * manning*manning * vitu * normvit * area*q1**(-1.d0/3.d0)
-                sourcfric_d(gi, 3) = - gp_d * manning*manning * vitv * normvit * area*q1**(-1.d0/3.d0)
+                sourcfric_d( 2,gi) = - gp_d * manning*manning * vitu * normvit * area*q1**(-1.d0/3.d0)
+                sourcfric_d( 3,gi) = - gp_d * manning*manning * vitv * normvit * area*q1**(-1.d0/3.d0)
             endif
     !
     !       ++++++++++++++  IMPLICITATION  +++++++++++++++

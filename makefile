@@ -1,4 +1,5 @@
-CFLAGS = -Mcuda=cc60 -O3
+CFLAGS = -Mcuda=cc60 -O3 
+#CFLAGS = -Mcuda=cc60 -O0 -g -Mfptrap=zero,overflow,underflow -Mbounds -Mdclchk -Mchkptr -Mchkstk -Meh_frame
 CC = mpif90 
 
 OBJS = mpiDeviceUtil.cuf precision.cuf global_data.cuf global_data_constant_device.cuf data_transfer.cuf  m_param.cuf main_prog_variables.cuf \

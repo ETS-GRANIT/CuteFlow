@@ -217,10 +217,10 @@ subroutine POD_PID_ROM(vdlg,vdlg0,vdlg1,vdlg01,sh0,she0,shu0,shv0,su0,sv0,surf,z
 !               allocate(greta_lisec1(nelt,2))
 !=========================================================================================================
 !
-                allocate(phi_h(nelt,nbase_h), phi_eta(nelt,nbase_eta), phi_eta_tild(nelt,nbase_eta_tild), phi_hu(nelt,nbase_hu), phi_hv(nelt,nbase_hv), &
-                    &        phi_u(nelt,nbase_u), phi_v(nelt,nbase_v), phij_u(nelt,nbase_u), phij_v(nelt,nbase_v), phi_h_zi(nbase_h), phi_h_eta(nbase_eta,nbase_h))
+                allocate(phi_h(nelt,nbase_h), phi_eta(nbase_eta,nelt), phi_eta_tild(nelt,nbase_eta_tild), phi_hu(nelt,nbase_hu), phi_hv(nelt,nbase_hv), &
+                    &        phi_u(nelt,nbase_u), phi_v(nelt,nbase_v), phij_u(nelt,nbase_u), phij_v(nelt,nbase_v), phi_h_zi(nbase_h), phi_h_eta(nbase_h,nbase_eta))
                 allocate(Bi_jp(nelt,nbase_eta),Bi_jp_hu(nelt,nbase_hu),Bi_jp_hv(nelt,nbase_hv))         
-                allocate(Bijpn1_eta(nelt,nbase_hu), Bijpn2_eta(nelt,nbase_hv))
+                allocate(Bijpn1_eta(nbase_hu,nelt), Bijpn2_eta(nbase_hv,nelt))
                 allocate(Bijpn3_hu(nelt,nbase_eta), Bijpn3_hv(nelt,nbase_eta))
 !
                 allocate(Cg2(nbase_hu,nbase_h,nbase_eta), Cg3(nbase_hv,nbase_h,nbase_eta), Cg2_eta_tild(nbase_hu,nbase_h), Cg3_eta_tild(nbase_hv,nbase_h))
@@ -347,10 +347,10 @@ subroutine POD_PID_ROM(vdlg,vdlg0,vdlg1,vdlg01,sh0,she0,shu0,shv0,su0,sv0,surf,z
         ! 
                 do ii=1,maxdimbase          
                     do iel=1,nelt
-                        if(ii <= nbase_eta)                a0_eta(ii) = a0_eta(ii) + (vdlg01(iel,1)-h_aval) * phi_eta_tild(iel,ii)
-!                       if(ii <= nbase_eta)                a0_eta(ii) = a0_eta(ii) + (vdlg01(iel,1)-h_aval) * phi_eta(iel,ii)
-                        if(ii <= nbase_hu)                 a0_hu(ii)  = a0_hu(ii)  + vdlg01(iel,2) * phi_hu(iel,ii)
-                        if(ii <= nbase_hv .and. dim==2) a0_hv(ii)  = a0_hv(ii)  + vdlg01(iel,3) * phi_hv(iel,ii)
+                        if(ii <= nbase_eta)                a0_eta(ii) = a0_eta(ii) + (vdlg01(1,iel)-h_aval) * phi_eta_tild(iel,ii)
+!                       if(ii <= nbase_eta)                a0_eta(ii) = a0_eta(ii) + (vdlg01(1,iel)-h_aval) * phi_eta(ii,iel)
+                        if(ii <= nbase_hu)                 a0_hu(ii)  = a0_hu(ii)  + vdlg01(2,iel) * phi_hu(iel,ii)
+                        if(ii <= nbase_hv .and. dim==2) a0_hv(ii)  = a0_hv(ii)  + vdlg01(3,iel) * phi_hv(iel,ii)
                         if(ii <= nbase_h)                  a_h(ii) = a_h(ii)
                     enddo                   
                 enddo
@@ -371,9 +371,9 @@ subroutine POD_PID_ROM(vdlg,vdlg0,vdlg1,vdlg01,sh0,she0,shu0,shv0,su0,sv0,surf,z
 !
 !***************************************************************************************************************************
 !****************   Vérificaton de la solution initiale par la base  ********************************************************
-!               call prod_Mpk_vect(nelt,nbase_eta, phi_eta, a0_eta, vdlg01(:,1))
-!               call prod_Mpk_vect(nelt,nbase_eta, phi_hu,  a0_hu,  vdlg01(:,2))
-!               call prod_Mpk_vect(nelt,nbase_eta, phi_hv,  a0_hv,  vdlg01(:,3)         
+!               call prod_Mpk_vect(nelt,nbase_eta, phi_eta, a0_eta, vdlg01(1,:))
+!               call prod_Mpk_vect(nelt,nbase_eta, phi_hu,  a0_hu,  vdlg01(2,:))
+!               call prod_Mpk_vect(nelt,nbase_eta, phi_hv,  a0_hv,  vdlg01(3,:)         
 !***************************************************************************************
 !
 !*******************    FIN INITIALISATION des a    **************************************************************************************
@@ -399,7 +399,7 @@ subroutine POD_PID_ROM(vdlg,vdlg0,vdlg1,vdlg01,sh0,she0,shu0,shv0,su0,sv0,surf,z
             do ib = 1 , nbase_eta
                 read(2001,'(30f14.6)') (Mpk1_hu(ib,jb),jb=1,nbase_hu)
                 read(2002,'(30f14.6)') (Mpk1_hv(ib,jb),jb=1,nbase_hv)
-                read(2003,'(30f14.6)') (Mpk_deta(ib,jb),jb=1,nbase_eta)             
+                read(2003,'(30f14.6)') (Mpk_deta(jb,ib),jb=1,nbase_eta)             
             enddo
 !
             do ib = 1 , nbase_hu 
@@ -580,17 +580,17 @@ subroutine POD_PID_ROM(vdlg,vdlg0,vdlg1,vdlg01,sh0,she0,shu0,shv0,su0,sv0,surf,z
     !               enddo
     !
                         do iel=1,nelt
-                            vdlg1(iel,1) = 0.d0
-                            vdlg1(iel,2) = 0.d0
-                            vdlg1(iel,3) = 0.d0
+                            vdlg1(1,iel) = 0.d0
+                            vdlg1(2,iel) = 0.d0
+                            vdlg1(3,iel) = 0.d0
                             do ii=1,maxdimbase
-                                if (ii <= nbase_eta) vdlg1(iel,1) = vdlg1(iel,1) + a_eta(ii) * phi_eta_tild(iel,ii)
-!                               if (ii <= nbase_eta) vdlg1(iel,1) = vdlg1(iel,1) + a_eta(ii) * phi_eta(iel,ii)
-                                if (ii <= nbase_hu)  vdlg1(iel,2) = vdlg1(iel,2) + a_hu(ii)  * phi_hu(iel,ii)
-                                if (ii <= nbase_hv)  vdlg1(iel,3) = vdlg1(iel,3) + a_hv(ii)  * phi_hv(iel,ii)
+                                if (ii <= nbase_eta) vdlg1(1,iel) = vdlg1(1,iel) + a_eta(ii) * phi_eta_tild(iel,ii)
+!                               if (ii <= nbase_eta) vdlg1(1,iel) = vdlg1(1,iel) + a_eta(ii) * phi_eta(ii,iel)
+                                if (ii <= nbase_hu)  vdlg1(2,iel) = vdlg1(2,iel) + a_hu(ii)  * phi_hu(iel,ii)
+                                if (ii <= nbase_hv)  vdlg1(3,iel) = vdlg1(3,iel) + a_hv(ii)  * phi_hv(iel,ii)
                             enddo
 
-                            vdlg1(iel,1) = vdlg1(iel,1) + h_aval
+                            vdlg1(1,iel) = vdlg1(1,iel) + h_aval
     
                         enddo
     
@@ -633,7 +633,7 @@ subroutine POD_PID_ROM(vdlg,vdlg0,vdlg1,vdlg01,sh0,she0,shu0,shv0,su0,sv0,surf,z
     !                       solfile2d = 'SOL_Dom_POD' // valtemps // 's'// '.txt'
     !                       open(1005,file=solfile2d,status="unknown")
     !                           do i=1,nelt
-    !                               write(1005,'(i,3f16.6)') i, vdlg(i,1), vdlg1(i,1), vdlg(i,2)
+    !                               write(1005,'(i,3f16.6)') i, vdlg(1,i), vdlg1(1,i), vdlg(2,i)
     !                           enddo
     !                       close(1005)
     !                    endif 
@@ -663,17 +663,17 @@ subroutine POD_PID_ROM(vdlg,vdlg0,vdlg1,vdlg01,sh0,she0,shu0,shv0,su0,sv0,surf,z
             if ( abs( tc - tvisjauge(cptvisjauge) ) <= tolaffiche) then
                     if ( nbrjauges > 0 .and. nodjauges(1) >  0) then
                         do iel=1,nelt
-                            vdlg1(iel,1) = 0.d0
-                            vdlg1(iel,2) = 0.d0
-                            vdlg1(iel,3) = 0.d0
+                            vdlg1(1,iel) = 0.d0
+                            vdlg1(2,iel) = 0.d0
+                            vdlg1(3,iel) = 0.d0
                             do ii=1,maxdimbase
-                                if (ii <= nbase_eta) vdlg1(iel,1) = vdlg1(iel,1) + a_eta(ii) * phi_eta_tild(iel,ii)
-!                               if (ii <= nbase_eta) vdlg1(iel,1) = vdlg1(iel,1) + a_eta(ii) * phi_eta(iel,ii)
-                                if (ii <= nbase_hu)  vdlg1(iel,2) = vdlg1(iel,2) + a_hu(ii)  * phi_hu(iel,ii)
-                                if (ii <= nbase_hv)  vdlg1(iel,3) = vdlg1(iel,3) + a_hv(ii)  * phi_hv(iel,ii)
+                                if (ii <= nbase_eta) vdlg1(1,iel) = vdlg1(1,iel) + a_eta(ii) * phi_eta_tild(iel,ii)
+!                               if (ii <= nbase_eta) vdlg1(1,iel) = vdlg1(1,iel) + a_eta(ii) * phi_eta(ii,iel)
+                                if (ii <= nbase_hu)  vdlg1(2,iel) = vdlg1(2,iel) + a_hu(ii)  * phi_hu(iel,ii)
+                                if (ii <= nbase_hv)  vdlg1(3,iel) = vdlg1(3,iel) + a_hv(ii)  * phi_hv(iel,ii)
                             enddo
 
-                            vdlg1(iel,1) = vdlg1(iel,1) + h_aval
+                            vdlg1(1,iel) = vdlg1(1,iel) + h_aval
     
                         enddo
     
@@ -697,17 +697,17 @@ subroutine POD_PID_ROM(vdlg,vdlg0,vdlg1,vdlg01,sh0,she0,shu0,shv0,su0,sv0,surf,z
     !
                     if ( abs( tc - tvis3d2(cptvis3d) ) <= tolaffiche) then
                             do iel=1,nelt
-                                vdlg1(iel,1) = 0.d0
-                                vdlg1(iel,2) = 0.d0
-                                vdlg1(iel,3) = 0.d0
+                                vdlg1(1,iel) = 0.d0
+                                vdlg1(2,iel) = 0.d0
+                                vdlg1(3,iel) = 0.d0
                                 do ii=1,maxdimbase
-                                    if (ii <= nbase_eta) vdlg1(iel,1) = vdlg1(iel,1) + a_eta(ii) * phi_eta_tild(iel,ii)
-!                                   if (ii <= nbase_eta) vdlg1(iel,1) = vdlg1(iel,1) + a_eta(ii) * phi_eta(iel,ii)
-                                    if (ii <= nbase_hu)  vdlg1(iel,2) = vdlg1(iel,2) + a_hu(ii)  * phi_hu(iel,ii)
-                                    if (ii <= nbase_hv)  vdlg1(iel,3) = vdlg1(iel,3) + a_hv(ii)  * phi_hv(iel,ii)
+                                    if (ii <= nbase_eta) vdlg1(1,iel) = vdlg1(1,iel) + a_eta(ii) * phi_eta_tild(iel,ii)
+!                                   if (ii <= nbase_eta) vdlg1(1,iel) = vdlg1(1,iel) + a_eta(ii) * phi_eta(ii,iel)
+                                    if (ii <= nbase_hu)  vdlg1(2,iel) = vdlg1(2,iel) + a_hu(ii)  * phi_hu(iel,ii)
+                                    if (ii <= nbase_hv)  vdlg1(3,iel) = vdlg1(3,iel) + a_hv(ii)  * phi_hv(iel,ii)
                                 enddo
 
-                                vdlg1(iel,1) = vdlg1(iel,1) + h_aval
+                                vdlg1(1,iel) = vdlg1(1,iel) + h_aval
 
                             enddo
                             call mise_a_jr_zone_seche(zm,vdlg, vdlg1)
@@ -730,7 +730,7 @@ subroutine POD_PID_ROM(vdlg,vdlg0,vdlg1,vdlg01,sh0,she0,shu0,shv0,su0,sv0,surf,z
     !
                        if(soldomaine==1) then
                             do i=1,nelt
-                                write(1006,'(5f16.6)') tc, vdlg(i,1), vdlg1(i,1), vdlg(i,2), vdlg(i,3)
+                                write(1006,'(5f16.6)') tc, vdlg(1,i), vdlg1(1,i), vdlg(2,i), vdlg(3,i)
                             enddo
                        endif 
     !
@@ -869,16 +869,16 @@ subroutine POD_PID_ROM(vdlg,vdlg0,vdlg1,vdlg01,sh0,she0,shu0,shv0,su0,sv0,surf,z
 ! ========================= CALCUL DE LA SOLUTION FINALE ======================================================
 !
         do iel=1,nelt
-            vdlg1(iel,1) = 0.d0
-            vdlg1(iel,2) = 0.d0
-            vdlg1(iel,3) = 0.d0
+            vdlg1(1,iel) = 0.d0
+            vdlg1(2,iel) = 0.d0
+            vdlg1(3,iel) = 0.d0
             do ii=1,maxdimbase
-                if (ii <= nbase_eta) vdlg1(iel,1) = vdlg1(iel,1) + a_eta(ii) * phi_eta_tild(iel,ii)
-!               if (ii <= nbase_eta) vdlg1(iel,1) = vdlg1(iel,1) + a_eta(ii) * phi_eta(iel,ii)
-                if (ii <= nbase_hu)  vdlg1(iel,2) = vdlg1(iel,2) + a_hu(ii)  * phi_hu(iel,ii)
-                if (ii <= nbase_hv)  vdlg1(iel,3) = vdlg1(iel,3) + a_hv(ii)  * phi_hv(iel,ii)
+                if (ii <= nbase_eta) vdlg1(1,iel) = vdlg1(1,iel) + a_eta(ii) * phi_eta_tild(iel,ii)
+!               if (ii <= nbase_eta) vdlg1(1,iel) = vdlg1(1,iel) + a_eta(ii) * phi_eta(ii,iel)
+                if (ii <= nbase_hu)  vdlg1(2,iel) = vdlg1(2,iel) + a_hu(ii)  * phi_hu(iel,ii)
+                if (ii <= nbase_hv)  vdlg1(3,iel) = vdlg1(3,iel) + a_hv(ii)  * phi_hv(iel,ii)
             enddo
-            vdlg1(iel,1) = vdlg1(iel,1) + h_aval
+            vdlg1(1,iel) = vdlg1(1,iel) + h_aval
         enddo
 !
         call mise_a_jr_zone_seche(zm,vdlg, vdlg1)
@@ -893,8 +893,8 @@ subroutine POD_PID_ROM(vdlg,vdlg0,vdlg1,vdlg01,sh0,she0,shu0,shv0,su0,sv0,surf,z
                 do i=1,nnt
                     if ( sqrt( ( xjauges(1) - coordonnees(i,1) )**2 + ( yjauges(1) - coordonnees(i,2) )**2 ) < distcote ) nodjauge=i
                 enddo
-!               write(3000,'(8f8.3)') debitglob, H_AMONT, H_AVAL, manning, vdlg(elts(1),1), vdlg1(elts(1),1), vdlg1(elts(1),2), vdlg1(elts(1),3)
-                write(3000,'(6f8.3)') debitglob, H_AMONT, H_AVAL, manning, vdlg(nodjauge,1), vdlg1(nodjauge,1)
+!               write(3000,'(8f8.3)') debitglob, H_AMONT, H_AVAL, manning, vdlg(1,elts(1)), vdlg1(1,elts(1)), vdlg1(2,elts(1)), vdlg1(3,elts(1))
+                write(3000,'(6f8.3)') debitglob, H_AMONT, H_AVAL, manning, vdlg(1,nodjauge), vdlg1(1,nodjauge)
 ! ----------------------------------------------------------------------------------------------------------------------------------------------
             else
 !
