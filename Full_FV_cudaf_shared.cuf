@@ -963,11 +963,12 @@ subroutine Full_FV
     call gpu_echange_fant_bloc(vdlg1_d, ndln)
     call gpu_echange_fant_bloc(vdlg0_d, ndln)
     call gpu_echange_fant_bloc(vdlg01_d, ndln)
-    call gpu_echange_fant_bloc(zm_d, 1)
-    call gpu_echange_fant_bloc(surf_d, 1)
+    call gpu_echange_fant_bloc_1D(zm_d)
+    call gpu_echange_fant_bloc_1D(surf_d)
     call gpu_echange_fant_bloc(gradz_d, ndim)
     call gpu_echange_fant_bloc(res1_d, ndln)
     call cpu_time(te2)
+
     if ( mod(nt,freqaffich)==0 ) then
       print*,"temps calculs ", te1-tb1, "temps echange ", te2-te1, " %temps echange ", (te2-te1)/(te2-tb1)
     end if
@@ -1180,6 +1181,25 @@ attributes(global) subroutine copy_1d(a,b,n)
 
 end subroutine copy_1d
 
+subroutine gpu_echange_fant_bloc_1D(a)
+  use precision_m
+  use global
+  use global_device
+  use mpi
+
+  real(fp_kind), device, intent(inout) :: a(nelt)
+  integer                     :: stat(MPI_STATUS_SIZE)
+  integer :: j
+
+  do j=1,nelt_fant_envoi_bloc
+    call MPI_SEND(a(elt_fant_envoi_bloc(j,1)),elt_fant_envoi_bloc(j,2),real_kind_mpi,elt_fant_envoi_bloc(j,3),0,MPI_COMM_WORLD,mpi_ierr)
+  end do
+  do j=1,nelt_fant_recep_bloc
+    call MPI_RECV(a(elt_fant_recep_bloc(j,1)),elt_fant_recep_bloc(j,2),real_kind_mpi,elt_fant_recep_bloc(j,3),0,MPI_COMM_WORLD,stat,mpi_ierr)
+  end do
+  call MPI_BARRIER(MPI_COMM_WORLD,mpi_ierr)
+end subroutine gpu_echange_fant_bloc_1D
+
 subroutine gpu_echange_fant_bloc(a, nd)
   use precision_m
   use global
@@ -1190,12 +1210,17 @@ subroutine gpu_echange_fant_bloc(a, nd)
   real(fp_kind), device, intent(inout) :: a(nd,nelt)
   integer                     :: stat(MPI_STATUS_SIZE)
   integer :: j
+  integer :: jloc
 
   do j=1,nelt_fant_envoi_bloc
+    !jloc = elt_fant_envoi_bloc(j,1)-(nelt-nelt_fant_recep-nelt_fant_envoi)
     call MPI_SEND(a(1,elt_fant_envoi_bloc(j,1)),nd*elt_fant_envoi_bloc(j,2),real_kind_mpi,elt_fant_envoi_bloc(j,3),0,MPI_COMM_WORLD,mpi_ierr)
+    !call MPI_SEND(a(1,elt_fant_envoi_bloc(j,1)),nd*elt_fant_envoi_bloc(j,2),real_kind_mpi,elt_fant_envoi_bloc(j,3),elt_fant_envoi(jloc,3),MPI_COMM_WORLD,mpi_ierr)
   end do
   do j=1,nelt_fant_recep_bloc
+    !jloc = elt_fant_recep_bloc(j,1)-(nelt-nelt_fant_envoi)
     call MPI_RECV(a(1,elt_fant_recep_bloc(j,1)),nd*elt_fant_recep_bloc(j,2),real_kind_mpi,elt_fant_recep_bloc(j,3),0,MPI_COMM_WORLD,stat,mpi_ierr)
+    !call MPI_RECV(a(1,elt_fant_recep_bloc(j,1)),nd*elt_fant_recep_bloc(j,2),real_kind_mpi,elt_fant_recep_bloc(j,3),elt_fant_envoi(jloc,3),MPI_COMM_WORLD,stat,mpi_ierr)
   end do
   call MPI_BARRIER(MPI_COMM_WORLD,mpi_ierr)
 end subroutine gpu_echange_fant_bloc
