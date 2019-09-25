@@ -300,32 +300,6 @@ subroutine Full_FV
 
     call get_io_index()
 
-    !!Echange des mailles fantomes pire truc mais on fera mieux
-!!    vdlg = vdlg_d
-!!    call echange_fant(vdlg)
-!!    vdlg_d = vdlg
-!!    vdlg1 = vdlg1_d
-!!    call echange_fant(vdlg1)
-!!    vdlg1_d = vdlg1
-!!    vdlg0 = vdlg0_d
-!!    call echange_fant(vdlg0)
-!!    vdlg0_d = vdlg0
-!!    vdlg01 = vdlg01_d
-!!    call echange_fant(vdlg01)
-!!    vdlg01_d = vdlg01
-!!    zm = zm_d
-!!    call echange_fant_1D(zm)
-!!    zm_d = zm
-!!    surf = surf_d
-!!    call echange_fant_1D(surf)
-!!    surf_d = surf
-!!    gradz = gradz_d
-!!    call echange_fant(gradz)
-!!    gradz_d = gradz
-!!    res1 = res1_d
-!!    call echange_fant(res1)
-!!    res1_d = res1
-!!    
 !=========================================================================================================
 ! *** detection des noeuds 'nodjauges' les plus proches des jauges ***
 ! *** detection of nodes 'nodjauges' closest to the gauges ***!
@@ -568,7 +542,6 @@ subroutine Full_FV
             call cuda_glerror('ierr<-update_un_voisin_sec <-- Full_FV_cudaf_shared.cuf',1)
 
             if(ns == 3) then 
-                !!print*, "NS = 3 CHANGEMENT OK"
                 call cotes_cudaf3<<<grids, tblocks>>>(surf_d,zm_d,gradz_d,vdlg_d)
             elseif(ns == 4) then 
                 call cotes_cudaf4<<<grids, tblocks>>>(surf_d,zm_d,gradz_d,vdlg_d)
@@ -921,43 +894,6 @@ subroutine Full_FV
 !
     call cpu_time(te1)
 
-!!  !!Echange des mailles fantomes pire truc mais on fera mieux
-!!    vdlg = vdlg_d
-!!    call echange_fant(vdlg, ndln)
-!!    vdlg_d = vdlg
-!!    vdlg1 = vdlg1_d
-!!    call echange_fant(vdlg1, ndln)
-!!    vdlg1_d = vdlg1
-!!    vdlg0 = vdlg0_d
-!!    call echange_fant(vdlg0, ndln)
-!!    vdlg0_d = vdlg0
-!!    vdlg01 = vdlg01_d
-!!    call echange_fant(vdlg01, ndln)
-!!    vdlg01_d = vdlg01
-!!    zm = zm_d
-!!    call echange_fant(zm, 1)
-!!    zm_d = zm
-!!    surf = surf_d
-!!    call echange_fant(surf,1)
-!!    surf_d = surf
-!!    gradz = gradz_d
-!!    call echange_fant(gradz, ndim)
-!!    gradz_d = gradz
-!!    res1 = res1_d
-!!    call echange_fant(res1, ndln)
-!!    res1_d = res1
-    
-
-!!!!  Echange sur GPU directement
-!!    call gpu_echange_fant(vdlg_d, ndln)
-!!    call gpu_echange_fant(vdlg1_d, ndln)
-!!    call gpu_echange_fant(vdlg0_d, ndln)
-!!    call gpu_echange_fant(vdlg01_d, ndln)
-!!    call gpu_echange_fant(zm_d, 1)
-!!    call gpu_echange_fant(surf_d, 1)
-!!    call gpu_echange_fant(gradz_d, ndim)
-!!    call gpu_echange_fant(res1_d, ndln)
-
 !!  Echange sur GPU directement bloc
     call gpu_echange_fant_bloc(vdlg_d, ndln)
     call gpu_echange_fant_bloc(vdlg1_d, ndln)
@@ -1190,6 +1126,7 @@ subroutine gpu_echange_fant_bloc_1D(a)
   real(fp_kind), device, intent(inout) :: a(nelt)
   integer                     :: stat(MPI_STATUS_SIZE)
   integer :: j
+  integer :: jloc
 
   do j=1,nelt_fant_envoi_bloc
     call MPI_SEND(a(elt_fant_envoi_bloc(j,1)),elt_fant_envoi_bloc(j,2),real_kind_mpi,elt_fant_envoi_bloc(j,3),0,MPI_COMM_WORLD,mpi_ierr)
@@ -1214,6 +1151,7 @@ subroutine gpu_echange_fant_bloc(a, nd)
 
   do j=1,nelt_fant_envoi_bloc
     !jloc = elt_fant_envoi_bloc(j,1)-(nelt-nelt_fant_recep-nelt_fant_envoi)
+
     call MPI_SEND(a(1,elt_fant_envoi_bloc(j,1)),nd*elt_fant_envoi_bloc(j,2),real_kind_mpi,elt_fant_envoi_bloc(j,3),0,MPI_COMM_WORLD,mpi_ierr)
     !call MPI_SEND(a(1,elt_fant_envoi_bloc(j,1)),nd*elt_fant_envoi_bloc(j,2),real_kind_mpi,elt_fant_envoi_bloc(j,3),elt_fant_envoi(jloc,3),MPI_COMM_WORLD,mpi_ierr)
   end do

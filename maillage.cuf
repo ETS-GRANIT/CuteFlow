@@ -887,17 +887,6 @@ subroutine lec_mail_tri_mpi
         enddo
     endif
 !
-! == table des mailles fantomes à receptionner par bloc
-    read(lec_mesh,*) tarati
-    read(lec_mesh,*) nelt_fant_recep_bloc
-    print*,"id ", my_id, ", ", nelt_fant_recep_bloc, " bloc fantomes a receptionner"
-    if (nelt_fant_recep_bloc>0) then
-        allocate(elt_fant_recep_bloc(nelt_fant_recep_bloc,3))
-        do i=1,nelt_fant_recep_bloc
-            read(lec_mesh,*) elt_fant_recep_bloc(i, 1), elt_fant_recep_bloc(i, 2), elt_fant_recep_bloc(i, 3)
-            print*, elt_fant_recep_bloc(i, 1), elt_fant_recep_bloc(i, 2), elt_fant_recep_bloc(i, 3)
-        enddo
-    endif
 !
 ! == table des mailles fantomes à envoyer par bloc
     read(lec_mesh,*) tarati
@@ -911,6 +900,17 @@ subroutine lec_mail_tri_mpi
         enddo
     endif
 !
+! == table des mailles fantomes à receptionner par bloc
+    read(lec_mesh,*) tarati
+    read(lec_mesh,*) nelt_fant_recep_bloc
+    print*,"id ", my_id, ", ", nelt_fant_recep_bloc, " bloc fantomes a receptionner"
+    if (nelt_fant_recep_bloc>0) then
+        allocate(elt_fant_recep_bloc(nelt_fant_recep_bloc,3))
+        do i=1,nelt_fant_recep_bloc
+            read(lec_mesh,*) elt_fant_recep_bloc(i, 1), elt_fant_recep_bloc(i, 2), elt_fant_recep_bloc(i, 3)
+            print*, elt_fant_recep_bloc(i, 1), elt_fant_recep_bloc(i, 2), elt_fant_recep_bloc(i, 3)
+        enddo
+    endif
     close(lec_mesh)
 
 ! == device memory allocation :
