@@ -895,7 +895,7 @@ subroutine Full_FV
     call cpu_time(te1)
 
 !!  Echange sur GPU directement bloc
-    print*,"Avant échange mémoire"
+    !!print*,"Avant échange mémoire"
 
     call gpu_echange_fant_bloc(vdlg_d, ndln)
     call gpu_echange_fant_bloc(vdlg1_d, ndln)
@@ -932,7 +932,7 @@ subroutine Full_FV
 !!    call echange_fant(res1,3)
 !!    res1_d = res1
 
-    print*,"Après échange mémoire"
+    !!print*,"Après échange mémoire"
     call cpu_time(te2)
 
     if ( mod(nt,freqaffich)==0 ) then
@@ -1187,16 +1187,29 @@ subroutine gpu_echange_fant_bloc(a, nd)
   integer :: j
   integer :: jloc
   integer :: id
+  integer :: p
 
+  call MPI_BARRIER(MPI_COMM_WORLD,mpi_ierr)
   do id=0,num_procs-1
+    !!print*, id, my_id
     if(my_id==id) then
       do j=1,nelt_fant_envoi_bloc
-        call MPI_SEND(a(1,elt_fant_envoi_bloc(j,1)),nd*elt_fant_envoi_bloc(j,2),real_kind_mpi,elt_fant_envoi_bloc(j,3),0,MPI_COMM_WORLD,mpi_ierr)
+        !!print*,"Envoi du bloc ", j, " a ", elt_fant_envoi_bloc(j,3), " de taille ", elt_fant_envoi_bloc(j,2)
+        do p=1,elt_fant_envoi_bloc(j,2) 
+          !!print*,"Envoie de la maille ",p
+          call MPI_SEND(a(1,elt_fant_envoi_bloc(j,1)+p-1),nd,real_kind_mpi,elt_fant_envoi_bloc(j,3),0,MPI_COMM_WORLD,mpi_ierr)
+          !!call MPI_SEND(a(1,elt_fant_envoi_bloc(j,1)),nd*elt_fant_envoi_bloc(j,2),real_kind_mpi,elt_fant_envoi_bloc(j,3),0,MPI_COMM_WORLD,mpi_ierr)
+        end do
       end do
     else
       do j=1,nelt_fant_recep_bloc
         if(elt_fant_recep_bloc(j,3)==id) then
-          call MPI_RECV(a(1,elt_fant_recep_bloc(j,1)),nd*elt_fant_recep_bloc(j,2),real_kind_mpi,elt_fant_recep_bloc(j,3),0,MPI_COMM_WORLD,stat,mpi_ierr)
+          !!print*,"Recep du bloc ", j, " depuis ", elt_fant_recep_bloc(j,3), " de taille ", elt_fant_recep_bloc(j,2)
+          do p=1,elt_fant_recep_bloc(j,2) 
+           !!print*,"Reception de la maille ",p
+            call MPI_RECV(a(1,elt_fant_recep_bloc(j,1)+p-1),nd,real_kind_mpi,elt_fant_recep_bloc(j,3),0,MPI_COMM_WORLD,stat,mpi_ierr)
+            !!call MPI_RECV(a(1,elt_fant_recep_bloc(j,1)),nd*elt_fant_recep_bloc(j,2),real_kind_mpi,elt_fant_recep_bloc(j,3),0,MPI_COMM_WORLD,stat,mpi_ierr)
+          end do
         end if
       end do
     end if
