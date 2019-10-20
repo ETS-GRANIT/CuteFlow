@@ -409,6 +409,17 @@ subroutine Full_FV
         call  cflcond_cudaf<<<grid, tblock>>>(vdlg0_d, deltatmin_d)
         dt_arr = deltatmin_d
         dt  = minval(dt_arr)
+        dt_vector(my_id) =  dt
+        call MPI_BARRIER(MPI_COMM_WORLD,mpi_ierr)
+        call MPI_ALLGATHER(dt_vector(my_id),1,real_kind_mpi,dt_vector,1,real_kind_mpi,MPI_COMM_WORLD, mpi_ierr)
+        call MPI_BARRIER(MPI_COMM_WORLD,mpi_ierr)
+        !!Choix du dt dans le vecteur
+        do i=0,num_procs-1
+          !!print*,"id ", i, " dt ", dt_vector(i)
+          if(dt_vector(i)<dt) then
+            dt = dt_vector(i)
+          end if
+        enddo
         dt_d = dt
     endif
     call cuda_glerror('ierr<-cflcond_cudaf (1) <-- Full_FV_cudaf_shared.cuf',1)
@@ -435,7 +446,7 @@ subroutine Full_FV
     iaff = 0
     do while ( (tc - ts + 2*tol ) < tol )
     !!do while ( nb_iterations < 1 )
-    !!do while ( nb_iterations < 5 )
+    !!do while ( nb_iterations < 100 )
         call cpu_time(tb1)
         !!print*,"TIME : ", tc
 
@@ -666,20 +677,17 @@ subroutine Full_FV
             dt = minval(dt_arr)
             !!Echange pas de temps entre les procs mpi
             dt_vector(my_id) =  dt
-            !!print*,"avant gather dt ", dt, dt_vector(my_id)
             call MPI_BARRIER(MPI_COMM_WORLD,mpi_ierr)
             call MPI_ALLGATHER(dt_vector(my_id),1,real_kind_mpi,dt_vector,1,real_kind_mpi,MPI_COMM_WORLD, mpi_ierr)
             call MPI_BARRIER(MPI_COMM_WORLD,mpi_ierr)
             !!Choix du dt dans le vecteur
             do i=0,num_procs-1
               !!print*,"id ", i, " dt ", dt_vector(i)
-              if(dt_vector(i)<dt) then !!Normalement il faut prendre <
+              if(dt_vector(i)<dt) then
                 dt = dt_vector(i)
               end if
             enddo
-            !!dt = 0.1*dt !! a enlever test
             dt_d = dt
-            !!print*,"après gather dt ", dt
         endif
         call cuda_glerror('ierr<-cflcond_cudaf (2) <-- Full_FV_cudaf_shared.cuf',1)
             
@@ -937,6 +945,7 @@ subroutine Full_FV
 
     if ( mod(nt,freqaffich)==0 ) then
       print*,"temps calculs ", te1-tb1, "temps echange ", te2-te1, " %temps echange ", (te2-te1)/(te2-tb1)
+      print*,"dt = ", dt
     end if
 
     nb_iterations = nb_iterations + 1
@@ -1188,6 +1197,7 @@ subroutine gpu_echange_fant_bloc(a, nd)
   integer :: jloc
   integer :: id
   integer :: p
+  integer :: nsbloc, nreste
 
   call MPI_BARRIER(MPI_COMM_WORLD,mpi_ierr)
   do id=0,num_procs-1
@@ -1195,21 +1205,32 @@ subroutine gpu_echange_fant_bloc(a, nd)
     if(my_id==id) then
       do j=1,nelt_fant_envoi_bloc
         !!print*,"Envoi du bloc ", j, " a ", elt_fant_envoi_bloc(j,3), " de taille ", elt_fant_envoi_bloc(j,2)
-        do p=1,elt_fant_envoi_bloc(j,2) 
-          !!print*,"Envoie de la maille ",p
-          call MPI_SEND(a(1,elt_fant_envoi_bloc(j,1)+p-1),nd,real_kind_mpi,elt_fant_envoi_bloc(j,3),0,MPI_COMM_WORLD,mpi_ierr)
+        !!do p=1,elt_fant_envoi_bloc(j,2) 
+        !!  !!print*,"Envoie de la maille ",p
+        !!  call MPI_SEND(a(1,elt_fant_envoi_bloc(j,1)+p-1),nd,real_kind_mpi,elt_fant_envoi_bloc(j,3),0,MPI_COMM_WORLD,mpi_ierr)
+        !!end do
+        nsbloc = nd*elt_fant_envoi_bloc(j,2)/768 + 1
+        nreste = nd*elt_fant_envoi_bloc(j,2)-(nsbloc-1)*768
+        do p=0,nsbloc-2
           !!call MPI_SEND(a(1,elt_fant_envoi_bloc(j,1)),nd*elt_fant_envoi_bloc(j,2),real_kind_mpi,elt_fant_envoi_bloc(j,3),0,MPI_COMM_WORLD,mpi_ierr)
+          call MPI_SEND(a(1,elt_fant_envoi_bloc(j,1)+p*768/nd),768,real_kind_mpi,elt_fant_envoi_bloc(j,3),p,MPI_COMM_WORLD,mpi_ierr)
         end do
+        call MPI_SEND(a(1,elt_fant_envoi_bloc(j,1)+(nsbloc-1)*768/nd),nreste,real_kind_mpi,elt_fant_envoi_bloc(j,3),nsbloc-1,MPI_COMM_WORLD,mpi_ierr)
       end do
     else
       do j=1,nelt_fant_recep_bloc
         if(elt_fant_recep_bloc(j,3)==id) then
+          nsbloc = nd*elt_fant_recep_bloc(j,2)/768 + 1
+          nreste = nd*elt_fant_recep_bloc(j,2)-(nsbloc-1)*768
           !!print*,"Recep du bloc ", j, " depuis ", elt_fant_recep_bloc(j,3), " de taille ", elt_fant_recep_bloc(j,2)
-          do p=1,elt_fant_recep_bloc(j,2) 
-           !!print*,"Reception de la maille ",p
-            call MPI_RECV(a(1,elt_fant_recep_bloc(j,1)+p-1),nd,real_kind_mpi,elt_fant_recep_bloc(j,3),0,MPI_COMM_WORLD,stat,mpi_ierr)
-            !!call MPI_RECV(a(1,elt_fant_recep_bloc(j,1)),nd*elt_fant_recep_bloc(j,2),real_kind_mpi,elt_fant_recep_bloc(j,3),0,MPI_COMM_WORLD,stat,mpi_ierr)
+          !! do p=1,elt_fant_recep_bloc(j,2) 
+          !!  !!print*,"Reception de la maille ",p
+          !!   call MPI_RECV(a(1,elt_fant_recep_bloc(j,1)+p-1),nd,real_kind_mpi,elt_fant_recep_bloc(j,3),0,MPI_COMM_WORLD,stat,mpi_ierr)
+          !! end do
+          do p=0,nsbloc-2
+            call MPI_RECV(a(1,elt_fant_recep_bloc(j,1)+p*768/nd),768,real_kind_mpi,elt_fant_recep_bloc(j,3),p,MPI_COMM_WORLD,stat,mpi_ierr)
           end do
+          call MPI_RECV(a(1,elt_fant_recep_bloc(j,1)+(nsbloc-1)*768/nd),nreste,real_kind_mpi,elt_fant_recep_bloc(j,3),nsbloc-1,MPI_COMM_WORLD,stat,mpi_ierr)
         end if
       end do
     end if
