@@ -465,11 +465,13 @@ subroutine lec_donnees
     read(lu_ter,nml=datafield)
     close(lu_ter)
 !
-    write (prefix, "(I2,A1)") my_id, "_"
-    prefix = trim(prefix)//trim(fichmai)
-    open(lu_mail,file=trim(prefix),form='formatted',status='old')
+    open(lu_mail,file=fichmai,form='formatted',status='old')
     read(lu_mail,nml=datamesh)
     close(lu_mail)
+
+    !On rajoute le préfixe devant le nom du fichier de maillage
+    write (prefix, "(I2,A1)") my_id, "_"
+    meshfile = trim(prefix)//trim(meshfile)
 !
     open(lu_init,file=fichini,form='formatted',status='old')
     read(lu_init,nml=datainit)
