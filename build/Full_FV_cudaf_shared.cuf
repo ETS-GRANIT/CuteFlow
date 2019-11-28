@@ -364,7 +364,7 @@ subroutine Full_FV
  
  !!Ajout sauvegarde solution initiale a enlever
  vdlg = vdlg_d
- call bluekenue_export (she0, sh0, shu0, shv0)
+ !!call bluekenue_export (she0, sh0, shu0, shv0)
  call paraview_export (she0, sh0, shu0, shv0, 0)
 !
 !*****************************************************************************************************
@@ -991,7 +991,7 @@ subroutine Full_FV
 !     =========================  Enrefistrement de la solution finale pour post-traitement avec Bluekenue       ============================
 
             vdlg = vdlg_d
-            call bluekenue_export (she0, sh0, shu0, shv0)
+            !!call bluekenue_export (she0, sh0, shu0, shv0)
             call paraview_export (she0, sh0, shu0, shv0, iaff)
 !
 !***********************************************************************************************************************************************

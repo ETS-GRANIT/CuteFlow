@@ -1533,9 +1533,7 @@ subroutine boundary_kind_cudaf
 
 
     allocate(boundary_temp(nelt, ns))
-    print*,"dindon1"
     boundary_temp = boundary_d
-    print*,"dindon2"
 
     ! ndi = 64
     ! ndo = 85
