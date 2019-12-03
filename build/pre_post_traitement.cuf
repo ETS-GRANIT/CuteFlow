@@ -1120,7 +1120,8 @@ subroutine paraview_export(solh, soleta, solhu, solhv, ci)
 !
             !write(valtemps,'(f12.3)') tc 
             write(valtemps,'(I20)') ci
-            solfile_para = trim(valtemps)//'_FV-Paraview_'//trim(adjustl(trim(genrtest)))//adjustl(trim('.vtk'))
+            !solfile_para = trim(valtemps)//'_FV-Paraview_'//trim(adjustl(trim(genrtest)))//adjustl(trim('.vtk'))
+            solfile_para = trim(adjustl(trim(genrtest)))//'_FV-Paraview_'//trim(adjustl(trim(valtemps)))//adjustl(trim('.vtk'))
 !
             open(unit=ec_Paraview,file=solfile_para,status="unknown")
 !

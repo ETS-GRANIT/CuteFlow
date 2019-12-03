@@ -4,7 +4,7 @@
             H_sortie=29.3505,
             tbase=0.0 , divbase=3 , TS=20.0 , dt=0.01 , PAS_DT=2 , CFL=0.4 , 
             tol_reg_perm=1.0E-7, tol=1.0E-04 , tolisec=5.E-05 , tolratio=1.0E-04, tolaffiche=1.e-01, GRD=2 , 
-            VISUAL=2, freqvisual=10, freqaffich=2000, freqjauges=10, instjauges=40,  
+            VISUAL=2, freqvisual=100000, freqaffich=100000, freqjauges=10, instjauges=40,  
             nbrjauges=0 , 
             xjauges = 272494.31, 274767.53, 279066.02,          
             yjauges = 5042222.41, 5046515.26, 5050380.38,  

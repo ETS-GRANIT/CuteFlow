@@ -909,8 +909,10 @@ subroutine Full_FV
     call gpu_echange_fant_bloc(vdlg1_d, ndln)
     call gpu_echange_fant_bloc(vdlg0_d, ndln)
     call gpu_echange_fant_bloc(vdlg01_d, ndln)
-    call gpu_echange_fant_bloc_1D(zm_d)
-    call gpu_echange_fant_bloc_1D(surf_d)
+    !!call gpu_echange_fant_bloc_1D(zm_d)
+    call gpu_echange_fant_bloc(zm_d,1)
+    !!call gpu_echange_fant_bloc_1D(surf_d)
+    call gpu_echange_fant_bloc(surf_d,1)
     call gpu_echange_fant_bloc(gradz_d, ndim)
     call gpu_echange_fant_bloc(res1_d, ndln)
     
