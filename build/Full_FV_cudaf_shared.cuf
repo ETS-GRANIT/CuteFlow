@@ -634,20 +634,22 @@ subroutine Full_FV
         call MPI_BARRIER(MPI_COMM_WORLD,mpi_ierr)
         !! il faut échanger les debit d'entre et sortie du domaine
         !! en prennant en compte le fait que plusieurs parties peuvent se partager l'entre/sortie
-        debit_vector(my_id) = debit_entree
-        call MPI_ALLGATHER(debit_vector(my_id),1,real_kind_mpi,debit_vector,1,real_kind_mpi,MPI_COMM_WORLD, mpi_ierr)
-        debit_entree = 0
-        do i=0,num_procs-1
-          debit_entree = debit_entree + debit_vector(i) 
-        end do
+        call MPI_ALLREDUCE(MPI_IN_PLACE,debit_entree,1,real_kind_mpi,MPI_SUM,MPI_COMM_WORLD, mpi_ierr)
+        !debit_vector(my_id) = debit_entree
+        !call MPI_ALLGATHER(debit_vector(my_id),1,real_kind_mpi,debit_vector,1,real_kind_mpi,MPI_COMM_WORLD, mpi_ierr)
+        !debit_entree = 0
+        !do i=0,num_procs-1
+        !  debit_entree = debit_entree + debit_vector(i) 
+        !end do
 
-        call MPI_BARRIER(MPI_COMM_WORLD,mpi_ierr)
-        debit_vector(my_id) = debit_sortie
-        call MPI_ALLGATHER(debit_vector(my_id),1,real_kind_mpi,debit_vector,1,real_kind_mpi,MPI_COMM_WORLD, mpi_ierr)
-        debit_sortie = 0
-        do i=0,num_procs-1
-          debit_sortie = debit_sortie + debit_vector(i) 
-        end do
+        call MPI_ALLREDUCE(MPI_IN_PLACE,debit_sortie,1,real_kind_mpi,MPI_SUM,MPI_COMM_WORLD, mpi_ierr)
+        !call MPI_BARRIER(MPI_COMM_WORLD,mpi_ierr)
+        !debit_vector(my_id) = debit_sortie
+        !call MPI_ALLGATHER(debit_vector(my_id),1,real_kind_mpi,debit_vector,1,real_kind_mpi,MPI_COMM_WORLD, mpi_ierr)
+        !debit_sortie = 0
+        !do i=0,num_procs-1
+        !  debit_sortie = debit_sortie + debit_vector(i) 
+        !end do
 
         !!print*,"echange des debits ok"
         !!print*,debit_sortie, debit_entree
@@ -675,19 +677,7 @@ subroutine Full_FV
             call cflcond_cudaf<<<grid, tblock>>>(vdlg_d,deltatmin_d)
             dt_arr = deltatmin_d
             dt = minval(dt_arr)
-            !!Echange pas de temps entre les procs mpi
-            !dt_vector(my_id) =  dt
-            !call MPI_ALLREDUCE(dt,dt,1,real_kind_mpi,MPI_MIN,MPI_COMM_WORLD, mpi_ierr)
             call MPI_ALLREDUCE(MPI_IN_PLACE,dt,1,real_kind_mpi,MPI_MIN,MPI_COMM_WORLD, mpi_ierr)
-            !call MPI_BARRIER(MPI_COMM_WORLD,mpi_ierr)
-            !call MPI_ALLGATHER(dt_vector(my_id),1,real_kind_mpi,dt_vector,1,real_kind_mpi,MPI_COMM_WORLD, mpi_ierr)
-            !call MPI_BARRIER(MPI_COMM_WORLD,mpi_ierr)
-            !!Choix du dt dans le vecteur
-            !do i=0,num_procs-1
-            !  if(dt_vector(i)<dt) then
-            !    dt = dt_vector(i)
-            !  end if
-            !enddo
             dt_d = dt
         endif
         call cuda_glerror('ierr<-cflcond_cudaf (2) <-- Full_FV_cudaf_shared.cuf',1)
