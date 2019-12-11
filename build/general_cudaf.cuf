@@ -334,31 +334,24 @@ subroutine stock_coupe2D(solh, soleta, solhu, solu)
 !   Construction of visualization vectors in post-processing
 
     if (video == 1) then
-        do ii = 1,n_video
-            if (genrtest=='bol') then 
-                tvideo(ii) = ii*(2*3.1416/sqrt(8*gp*h0))/100
-            else
-                tvideo(ii) = ii*ts/n_video
-                
-            endif
-        enddo
+      do ii = 1,n_video
+        tvideo(ii) = ii*ts/n_video
+      enddo
     endif
-!   --------------------------------------------------------------------------------
+
     if (soldomaine == 1) then
         do ii = 1,n_soldom
             tvisdom(ii)= ii*ts/n_soldom
         enddo
     endif 
-!   --------------------------------------------------------------------------------
+
     if (nbrjauges > 0) then
         do ii = 1,instjauges
             tvisjauge(ii) = ii*ts/instjauges
         enddo
     endif
     
-
 !*************************************************************************************
-!
     
     if (multi_simul ==0) then
 !
