@@ -9,7 +9,7 @@ module global_device
 
   !! Terrain data variables 
   integer, constant                  :: pente_d, friction_d
-  real(fp_kind), constant            :: lcx_d, lcy_d, valxpente_d, bathyx0_d, 
+  real(fp_kind), constant            :: lcx_d, lcy_d, valxpente_d, bathyx0_d
   real(fp_kind), constant            :: step_d, xstep_d, gp_d, manning_d, z_min_correction_d
 
   !! Mesh data variables
