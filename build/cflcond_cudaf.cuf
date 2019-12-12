@@ -1,75 +1,37 @@
 attributes(global) subroutine cflcond_cudaf(solut_d, deltatmin_d)
-!
-! ======================================================================
-!
-!     cfl_dcond = calcul du pas de temps suivant la cfl_d
-!     cfl_dcond = calculation of the time step following the cfl_d
-!
-!     auteur : Youssef Loukili  GRANIT ETSMTL
-!
-!     version : 1.0  ;  May 12 2003
-! ======================================================================
-!
-!     parametres =
-!       vect            :
-!       timestep        :
-!
-! ======================================================================
-    use precision_m
-    use global_device
-    ! use cublas
-    ! use cublas_device   
+  ! ======================================================================
+  !     cfl_dcond = calculation of the time step following the cfl_d
+  !     auteur : Youssef Loukili  GRANIT ETSMTL
+  !     version : 1.0  ;  May 12 2003
 
-    implicit none
+  use precision_m
+  use global_device
 
-! *** bloc interface ***
-!
+  implicit none
 
-! ... variables passees en parametre ...................................
-!
-    real(fp_kind), dimension(:,:), intent(in)     :: solut_d
-    real(fp_kind), intent(inout)                  :: deltatmin_d(:)
+  real(fp_kind), dimension(:,:), intent(in)     :: solut_d
+  real(fp_kind), intent(inout)                  :: deltatmin_d(:)
 
-!... variables locales ................................................
-!
-    integer                     :: i, j
-    real(fp_kind)               :: hauteur, vitessu, vitessv, normvites, vitessmax, min_vmax
-    real(fp_kind)               :: dt1
-    integer                     :: ti,gi
+  integer                     :: i, j
+  real(fp_kind)               :: hauteur, vitessu, vitessv, normvites, vitessmax, min_vmax
+  real(fp_kind)               :: dt1
+  integer                     :: ti,gi
 
-    ti = threadIdx%x
-    gi = (blockIdx%x - 1)*blockDim%x + ti
-!   
-!... debut du traitement
+  ti = threadIdx%x
+  gi = (blockIdx%x - 1)*blockDim%x + ti
 
-    dt1 = 1000000.00
-    min_vmax  = 0.01D0
+  dt1 = 1000000.00
+  min_vmax  = 0.01D0
 
-    !!if(gi <= nelt_d) then
-    if(gi <= nelt_d-nelt_fant_recep_d) then
-!       
-        deltatmin_d(gi) = dt1
-        hauteur = solut_d(1,gi)
-
-
-        if ( hauteur > tolisec_d ) then
-
-            vitessu = solut_d(2,gi) / hauteur
-            vitessv = solut_d(3,gi) / hauteur
-            normvites = sqrt(vitessu**2 + vitessv**2)
-
-            vitessmax = max( min_vmax, (normvites + sqrt(gp_d * abs(hauteur))))
-
-            deltatmin_d(gi) = min( cfl_d * cotemin_d/vitessmax, dt1)
-        endif
-        
-    endif   
-!
-
-!
-! ... fin du traitement ................................................
-!
+  if(gi <= nelt_d-nelt_fant_recep_d) then
+    deltatmin_d(gi) = dt1
+    hauteur = solut_d(1,gi)
+    if ( hauteur > tolisec_d ) then
+      vitessu = solut_d(2,gi) / hauteur
+      vitessv = solut_d(3,gi) / hauteur
+      normvites = sqrt(vitessu**2 + vitessv**2)
+      vitessmax = max( min_vmax, (normvites + sqrt(gp_d * abs(hauteur))))
+      deltatmin_d(gi) = min( cfl_d * cotemin_d/vitessmax, dt1)
+    endif
+  endif   
 end subroutine cflcond_cudaf
-
-
-

@@ -1,1222 +1,723 @@
 attributes(global) subroutine cotes_cudaf3(surf_d, zm_d,gradz_d,vdlg_d)
-!
-! ======================================================================
-!
-!     cotes = calcul du flux à l'interface des cotes de kvol
-!
-!     auteur : Youssef Loukili  GRANIT ETSMTL
-!
-!     version : 1.0  ;  May 12 2003
-! ======================================================================
-!
-!     parametres =
-!       ns          :
-!       kvol        :
-!       vdlg        :
-!       cotemin     :
-!       cotemax     :
-!       resc        :
-!       sourc_cont  :
-!
-! ======================================================================
-    use precision_m
-    use global_device
-    implicit none
+  ! ======================================================================
+  !     cotes = calcul du flux à l'interface des cotes de kvol
+  !     auteur : Youssef Loukili  GRANIT ETSMTL
+  !     version : 1.0  ;  May 12 2003
+  ! ======================================================================
 
-    
+  use precision_m
+  use global_device
+  implicit none
 
-! *** bloc interface ***
-! to be made device functions
-    interface
-!
-        ! subroutine lax_method(kvol,kvoisin,norm,hl,ul,vl,hr,ur,vr,flux)
-        !     use global
-        !     use m_param
-        !     integer, intent(in)                   :: kvol, kvoisin, ns
-        !     real(fp_kind), intent(in)                   :: hl, ul, vl, hr, ur, vr
-        !     real(fp_kind), dimension(2), intent(in)     :: norm
-        !     real(fp_kind), dimension(3), intent(inout)  :: flux
-        ! end subroutine lax_method
-!
-        
-        attributes(device) subroutine solver_Riemann_cudaf(kvol,kvoisin,surf,norm,vdlg,hl,ul,vl,hr,ur,vr,zml,zmr,model,flux,ln,pp)
-            
-            use global_device
-            implicit none
-            integer, intent(in)                   :: kvol, kvoisin, model
-            integer, intent(inout)                :: pp
-            real(fp_kind), intent(in)                   :: hl, ul, vl, hr, ur, vr, zml, zmr, ln
-            real(fp_kind), dimension(2), intent(in)     :: norm
-            real(fp_kind), dimension(3), intent(inout)  :: flux
-            real(fp_kind), dimension(:), intent(in)     :: surf
-            real(fp_kind), dimension(:,:), intent(in)   :: vdlg
-        end subroutine solver_Riemann_cudaf
-!
-    end interface
-! 
-! ... variables passees en parametre ...................................
-!
-    ! real(fp_kind), intent(inout)                 :: debit_sorti_d, debit_entre_d
-    real(fp_kind), dimension(:), intent(in)      :: surf_d, zm_d
-    real(fp_kind), dimension(:,:), intent(in)    :: gradz_d  ! remove it if not used
-    real(fp_kind), dimension(:,:), intent(in)    :: vdlg_d
-    ! real(fp_kind), dimension(:,:), intent(out)   ::  resc_d
+  interface
 
+    attributes(device) subroutine solver_Riemann_cudaf(kvol,kvoisin,surf,norm,vdlg,hl,ul,vl,hr,ur,vr,zml,zmr,model,flux,ln,pp)
 
-    ! local variables  !remove variables which are not in use, they eat up registers and leads to less no. of concurrent blocks per SM
-    integer               :: i, nc1, nc2, kvoisin, dl,pp, hybrid, model
-    real(fp_kind)               :: x1, x2, y1, y2, ln 
-    real(fp_kind)               :: hautl,vitul,vitvl,hautr,vitur,vitvr,zml,zmr,hul, hvl, hur, hvr
-    real(fp_kind)               :: zero, debitnorm
-    real(fp_kind), dimension(2) :: norm
-    real(fp_kind), dimension(3) :: flux
-    integer                     :: ti,gi, tj, gj
-    real                        :: cond
-    real(fp_kind), shared       :: s1(64,3)
+      use global_device
 
-    ! real(fp_kind), dimension(2) :: dhcarre, fpod
-    ! integer               :: iv, ii, jj, jvoisin, p, nb, xface, yface, aux  
-    ! real(fp_kind)               :: hlamda, ulamda, celer 
-    ! real(fp_kind), dimension(3) :: flux_eta
+      implicit none
 
-    ti = threadIdx%x
-    gi = (blockIdx%x - 1)*blockDim%x + ti
-    tj = threadIdx%y
-    gj=  (blockIdx%y - 1)*blockDim%y + tj
+      integer, intent(in)                   :: kvol, kvoisin, model
+      integer, intent(inout)                :: pp
+      real(fp_kind), intent(in)                   :: hl, ul, vl, hr, ur, vr, zml, zmr, ln
+      real(fp_kind), dimension(2), intent(in)     :: norm
+      real(fp_kind), dimension(3), intent(inout)  :: flux
+      real(fp_kind), dimension(:), intent(in)     :: surf
+      real(fp_kind), dimension(:,:), intent(in)   :: vdlg
+    end subroutine solver_Riemann_cudaf
 
-    
+  end interface
 
-    ! if(gi == 100) then
-    !     write(*,*) 'inside cotes -6'
-    ! endif
-    ! write(*,*) 'gi = ', gi
-!
-! ... debut du traitement
-!
-    zero = 0.d0
-    ! resc = 0.d0
-    ! sourdhcarre = 0.d0      !remove if not used
-    ! sourceta=0.d0           !remove if not used
-    ! aux =0.d0               
-    ! p=0                     !remove if not used
-    ! pp=0                    !for pod purposes 
+  real(fp_kind), dimension(:), intent(in)      :: surf_d, zm_d
+  real(fp_kind), dimension(:,:), intent(in)    :: gradz_d  ! remove it if not used
+  real(fp_kind), dimension(:,:), intent(in)    :: vdlg_d
 
+  integer               :: i, nc1, nc2, kvoisin, dl,pp, hybrid, model
+  real(fp_kind)               :: x1, x2, y1, y2, ln 
+  real(fp_kind)               :: hautl,vitul,vitvl,hautr,vitur,vitvr,zml,zmr,hul, hvl, hur, hvr
+  real(fp_kind)               :: zero, debitnorm
+  real(fp_kind), dimension(2) :: norm
+  real(fp_kind), dimension(3) :: flux
+  integer                     :: ti,gi, tj, gj
+  real                        :: cond
+  real(fp_kind), shared       :: s1(64,3)
 
-    hybrid = 0
+  ti = threadIdx%x
+  gi = (blockIdx%x - 1)*blockDim%x + ti
+  tj = threadIdx%y
+  gj=  (blockIdx%y - 1)*blockDim%y + tj
 
-!
-!   Reperage d'une cellule voisine seche ===============================
-!   Retrieve a neighboring cell dry ===============================
+  zero = 0.d0
+  hybrid = 0
 
-! do it outside and see if un_voisin_sec is being used here    
+  !   Retrieve a neighboring cell dry ===============================
+  ! do it outside and see if un_voisin_sec is being used here    
 
-!   ==================================================================== 
-!
-    ! write(*,*) 'inside cotes -5'
-    ! write(*,*) 'nelt_d = ', nelt_d
+  if(gi <= nelt_d-nelt_fant_recep_d) then
+    nc1 = tj
+    cond = merge(1,0, nc1 == ns_d)
+    nc2 = int((nc1 - ns_d + 1)*cond + (nc1 + 1)*(1-cond))
 
-    !if(gi <= nelt_d) then
-    if(gi <= nelt_d-nelt_fant_recep_d) then
-!
-        nc1 = tj
-        cond = merge(1,0, nc1 == ns_d)
-        nc2 = int((nc1 - ns_d + 1)*cond + (nc1 + 1)*(1-cond))
-        
-        ! call syncthreads()
-! *** calcul du vecteur normal à ce coté ***
-!      
+    x1 = coo_table_elemwise_d(gi, 3*nc1-2)
+    y1 = coo_table_elemwise_d(gi, 3*nc1-1)
 
+    x2 = coo_table_elemwise_d(gi, 3*nc2-2)
+    y2 = coo_table_elemwise_d(gi, 3*nc2-1) 
 
-        x1 = coo_table_elemwise_d(gi, 3*nc1-2)
-        y1 = coo_table_elemwise_d(gi, 3*nc1-1)
-        
-        x2 = coo_table_elemwise_d(gi, 3*nc2-2)
-        y2 = coo_table_elemwise_d(gi, 3*nc2-1) 
-        
-        ln = sqrt( (x2 - x1)**2 + (y2 - y1)**2 )
+    ln = sqrt( (x2 - x1)**2 + (y2 - y1)**2 )
 
-        norm(1) = ( y2 - y1 ) / ln
-        norm(2) = ( x1 - x2 ) / ln
-!
-! *** initialisation du flux ***
-!   
-        flux     = 0.d0
-        ! dhcarre  = 0.d0     !remove if not used
-        ! flux_eta = 0.d0
-!
-! *** kvoisin est l'élément voisin au volume kvol sur le coté i ***
-!       
-        kvoisin = boundary_d(gi,nc1)
-!
-! *** composantes normale et tangentielle de la vitesse pour l'élément kvol ***
-!
+    norm(1) = ( y2 - y1 ) / ln
+    norm(2) = ( x1 - x2 ) / ln
 
-        if(nc1 == 1) then 
-            s1(ti,1) = vdlg_d(1,gi)
-            s1(ti,2) = zm_d(gi)
+    ! *** initialisation du flux ***
+    flux     = 0.d0
+    kvoisin = boundary_d(gi,nc1)
+
+    if(nc1 == 1) then 
+      s1(ti,1) = vdlg_d(1,gi)
+      s1(ti,2) = zm_d(gi)
+    endif
+
+    call syncthreads()
+
+    hautl  = s1(ti,1)
+    zml    = s1(ti,2)
+
+    call syncthreads()
+
+    if ( hautl> tolisec_d ) then
+      if(nc1 == 1) then 
+        s1(ti,1) = vdlg_d(2,gi)
+        s1(ti,2) = vdlg_d(3,gi)
+      endif
+
+      call syncthreads()
+
+      hul    = s1(ti,1)
+      hvl    = s1(ti,2)
+
+      vitul = (hul * norm(1) + hvl * norm(2) ) / hautl
+      vitvl = (hvl * norm(1) - hul * norm(2) ) / hautl
+    else
+      hautl = tolisec_d
+      vitul = 0.d0
+      vitvl = 0.d0
+    endif
+
+    ! *** application des conditions aux limites si kvol est frontier ***
+    if ( kvoisin == -1 ) then ! *** flux entrant ***
+      if ( inlet_d == 1 ) then       ! inlet_d = 1 == Entree transmissive
+        if (test_d==5) hautl = 1 + 0.75*cos(2*3.14159265358979*tc_d/3600)
+        if ( hautl > tolisec_d ) then
+          flux(1) = hautl * vitul
+          flux(2) = norm(1) * ( hautl * vitul**2 + gp_d * hautl*(hautl+zml) ) - norm(2) * hautl * vitul * vitvl
+          flux(3) = norm(2) * ( hautl * vitul**2 + gp_d * hautl*(hautl+zml) ) + norm(1) * hautl * vitul * vitvl
         endif
 
-        call syncthreads()
-
-        hautl  = s1(ti,1)
-        zml    = s1(ti,2)
-
-        call syncthreads()
-
-        if ( hautl> tolisec_d ) then
-            if(nc1 == 1) then 
-                s1(ti,1) = vdlg_d(2,gi)
-                s1(ti,2) = vdlg_d(3,gi)
-            endif
-
-            call syncthreads()
-
-            hul    = s1(ti,1)
-            hvl    = s1(ti,2)
-
-            vitul = (hul * norm(1) + hvl * norm(2) ) / hautl
-            vitvl = (hvl * norm(1) - hul * norm(2) ) / hautl
+      elseif ( inlet_d == 2 ) then   ! inlet_d = 2 = Entree avec debit
+        if ( hautl > tolisec_d ) then
+          if (test_d ==7) then 
+            debitnorm = -debitglob_d / long_d 
+          else                        
+            debitnorm = -debitglob_d / long_d
+          endif
+          flux(1) = debitnorm
+          flux(2) = norm(1) * ( debitnorm**2/hautl  + gp_d * hautl*(hautl+zml) )
+          flux(3) = norm(2) * ( debitnorm**2/hautl  + gp_d * hautl*(hautl+zml) )
+          debit_entree_arr_d(io_identifier_d(gi)) = (-debitnorm)*ln    
         else
-            hautl = tolisec_d
-            vitul = 0.d0
-            vitvl = 0.d0
+          hautl = tolisec_d             
+          flux(1) = 0.d0
+          flux(2) = norm(1) * gp_d * hautl*(hautl+zml)
+          flux(3) = norm(2) * gp_d * hautl*(hautl+zml)
         endif
-! *** application des conditions aux limites si kvol est frontier ***
-!
-!****************************************************************************
-!       call syncthreads()
-        if ( kvoisin == -1 ) then ! *** flux entrant ***
-!       
-            if ( inlet_d == 1 ) then       ! inlet_d = 1 == Entree transmissive
-!
-                if (test_d==5) hautl = 1 + 0.75*cos(2*3.14159265358979*tc_d/3600)
-!
-                if ( hautl > tolisec_d ) then
-!
-                    flux(1) = hautl * vitul
-!                   debit_entree_d = debit_entree_d - vitul*hautl*ln
-                    flux(2) = norm(1) * ( hautl * vitul**2 + gp_d * hautl*(hautl+zml) ) - norm(2) * hautl * vitul * vitvl
-                    flux(3) = norm(2) * ( hautl * vitul**2 + gp_d * hautl*(hautl+zml) ) + norm(1) * hautl * vitul * vitvl
-!               else
-!                   hautl = tolisec_d             
-!                   flux(1) = 0.d0
-!                   flux(2) = norm(1) * gp_d * hautl*(hautl+zml)
-!                   flux(3) = norm(2) * gp_d * hautl*(hautl+zml)
-                endif
-!
-            elseif ( inlet_d == 2 ) then   ! inlet_d = 2 = Entree avec debit
-!              
-                if ( hautl > tolisec_d ) then
-!                       
-                    if (test_d ==7) then 
-!                       debitnorm = (-debitglob + 900*sin(2*3.14159265358979*tc_d/3600)) / long
-                        debitnorm = -debitglob_d / long_d 
-                    else                        
-                        debitnorm = -debitglob_d / long_d
-                    endif
-!
-                    flux(1) = debitnorm
-                    flux(2) = norm(1) * ( debitnorm**2/hautl  + gp_d * hautl*(hautl+zml) )
-                    flux(3) = norm(2) * ( debitnorm**2/hautl  + gp_d * hautl*(hautl+zml) )
-!
-                    debit_entree_arr_d(io_identifier_d(gi)) = (-debitnorm)*ln    
-                    ! debit_entree_d = debit_entree_d + (-debitnorm)*ln
-!                   if (vitul<0.0) debit_entree_d = debit_entree_d + vitul*hautl*ln
-                    ! vol_tot_entre_d = vol_tot_entre_d - debitnorm*ln
-                else
-                    hautl = tolisec_d             
-                    flux(1) = 0.d0
-                    flux(2) = norm(1) * gp_d * hautl*(hautl+zml)
-                    flux(3) = norm(2) * gp_d * hautl*(hautl+zml)
-                endif
-            else
-!
-                write(*,*) 'donnee inlet_d non convenable'
-!
-            endif
-!
-        endif
-!****************************************************************************
-        if ( kvoisin == -2 ) then ! *** flux sortant ***
-!
-			if ( vitul > 0.d0 .and. vitul/sqrt(gp_d*hautl) < 1.d0 ) then
-!
-				hautl = h_sortie_d - zml
-!
-                if ( hautl > tolisec_d ) then
-					flux(1) = hautl * vitul
-                    flux(2) = norm(1) * ( hautl * vitul**2 + gp_d * hautl*(hautl+zml) ) - norm(2) * hautl * vitul * vitvl
-                    flux(3) = norm(2) * ( hautl * vitul**2 + gp_d * hautl*(hautl+zml) ) + norm(1) * hautl * vitul * vitvl
-                else
-                    flux(1) = 0.d0
-                    flux(2) = norm(1) * gp_d * hautl*(hautl+zml)
-                    flux(3) = norm(2) * gp_d * hautl*(hautl+zml)
-                endif
-!           
-            else
-                flux(1) = 0.d0
-                flux(2) = norm(1) * gp_d * hautl*(hautl+zml)
-                flux(3) = norm(2) * gp_d * hautl*(hautl+zml)
-    
-            endif
+      else
+        write(*,*) 'donnee inlet_d non convenable'
+      endif
+    endif
 
-            if ( vitul > 0.d0)  then 
-                debit_sortie_arr_d(io_identifier_d(gi))  = flux(1)*ln
-            else
-                debit_sortie_arr_d(io_identifier_d(gi))  = 0.d0
-            endif
-!
+    if ( kvoisin == -2 ) then ! *** flux sortant ***
+      if ( vitul > 0.d0 .and. vitul/sqrt(gp_d*hautl) < 1.d0 ) then
+        hautl = h_sortie_d - zml
+        if ( hautl > tolisec_d ) then
+          flux(1) = hautl * vitul
+          flux(2) = norm(1) * ( hautl * vitul**2 + gp_d * hautl*(hautl+zml) ) - norm(2) * hautl * vitul * vitvl
+          flux(3) = norm(2) * ( hautl * vitul**2 + gp_d * hautl*(hautl+zml) ) + norm(1) * hautl * vitul * vitvl
+        else
+          flux(1) = 0.d0
+          flux(2) = norm(1) * gp_d * hautl*(hautl+zml)
+          flux(3) = norm(2) * gp_d * hautl*(hautl+zml)
         endif
-!*******************************************************************************************************************
-        if ( kvoisin == -3 ) then  ! *** flux de mur ***
-!
-            if (hautl > tolisec_d) then
-!
-               flux(1) = 0.d0
-               flux(2) = norm(1) * gp_d * hautl*(hautl+zml)
-               flux(3) = norm(2) * gp_d * hautl*(hautl+zml)
-!
-!                zmr   =  zml
-!				hautr =  hautl
-!				vitur = -vitul
-!				vitvr = -vitvl
-!				call solver_Riemann_cudaf(gi,kvoisin,surf_d,norm,vdlg_d,hautl,vitul,vitvl,hautr,vitur,vitvr,zml,zmr,hybrid,flux,ln,pp)
-!
-!	           flux(1) = 0.d0
-!               flux(2) = norm(1)*(hautl*vitul**2 + gp_d * hautl*(hautl+zml)) + norm(2)*(hautl*vitul*vitvl) + sqrt(gp_d*hautl)*hautl*vitul
-!               flux(3) = norm(2)*(hautl*vitvl**2 + gp_d * hautl*(hautl+zml)) + norm(1)*(hautl*vitul*vitvl) + sqrt(gp_d*hautl)*hautl*vitvl
-!
-            else
-                flux(1) = 0.d0
-                flux(2) = 0.d0
-                flux(3) = 0.d0
-            endif  
-!   
-        endif
-!*******************************************************************************************************************                        
-!       
-        if  ( kvoisin > 0. ) then   ! *** kvol fait frontiere avec kvoisin ***
-!
-            hautr = vdlg_d(1,kvoisin)  !this is inefficient global memory access, put vdlg_d in shared? possible?
-            zmr = zm_d(kvoisin)        !this is also inefficient global memory access
+      else
+        flux(1) = 0.d0
+        flux(2) = norm(1) * gp_d * hautl*(hautl+zml)
+        flux(3) = norm(2) * gp_d * hautl*(hautl+zml)
+      endif
 
-            if ( hautr > tolisec_d ) then
-                hur    = vdlg_d(2,kvoisin)  ! this is very  inefficient global memory access, can be done may be by shared memory
-                hvr    = vdlg_d(3,kvoisin)  ! this is very  inefficient global memory access, can be done may be by shared memory
+      if ( vitul > 0.d0)  then 
+        debit_sortie_arr_d(io_identifier_d(gi))  = flux(1)*ln
+      else
+        debit_sortie_arr_d(io_identifier_d(gi))  = 0.d0
+      endif
+    endif
 
-                vitur = ( hur * norm(1) + hvr * norm(2) ) / hautr
-                vitvr = ( hvr * norm(1) - hur * norm(2) ) / hautr
-                ! if(gi == 500) write(*,*) 'vitur = ', vitur,'vitvr = ', vitvr
-            else
-                hautr = tolisec_d
-                vitur = 0.d0
-                vitvr = 0.d0
-                hybrid = 0
-            endif
-!
+    if ( kvoisin == -3 ) then  ! *** flux de mur ***
+      if (hautl > tolisec_d) then
+        flux(1) = 0.d0
+        flux(2) = norm(1) * gp_d * hautl*(hautl+zml)
+        flux(3) = norm(2) * gp_d * hautl*(hautl+zml)
+      else
+        flux(1) = 0.d0
+        flux(2) = 0.d0
+        flux(3) = 0.d0
+      endif
+    endif
+
+    if  ( kvoisin > 0. ) then   ! *** kvol fait frontiere avec kvoisin ***
+      hautr = vdlg_d(1,kvoisin)  !this is inefficient global memory access, put vdlg_d in shared? possible?
+      zmr = zm_d(kvoisin)        !this is also inefficient global memory access
+
+      if ( hautr > tolisec_d ) then
+        hur    = vdlg_d(2,kvoisin)  ! this is very  inefficient global memory access, can be done may be by shared memory
+        hvr    = vdlg_d(3,kvoisin)  ! this is very  inefficient global memory access, can be done may be by shared memory
+
+        vitur = ( hur * norm(1) + hvr * norm(2) ) / hautr
+        vitvr = ( hvr * norm(1) - hur * norm(2) ) / hautr
+      else
+        hautr = tolisec_d
+        vitur = 0.d0
+        vitvr = 0.d0
+        hybrid = 0
+      endif
+
+      call solver_Riemann_cudaf(gi,kvoisin,surf_d,norm,vdlg_d,hautl,vitul,vitvl,hautr,vitur,vitvr,zml,zmr,hybrid,flux,ln,pp)
+
+      ! *** WET and DRY
+      ! *** Prolongement du niveau d'eau sur le sec pour éviter la création d'un gradient
+      if (hautr <= tolisec_d .and. hautl > tolisec_d) then
+        if( zmr > hautl+zml ) then
+          !Transitoire : Cellule calculée mouillée - Cellule voisine sèche ***
+          if ( vitul > sqrt(2*gp_d*(zmr-zml) ) ) then
+            zmr = zml+hautl  
             call solver_Riemann_cudaf(gi,kvoisin,surf_d,norm,vdlg_d,hautl,vitul,vitvl,hautr,vitur,vitvr,zml,zmr,hybrid,flux,ln,pp)
-            
-! *** WET and DRY
-! *** Prolongement du niveau d'eau sur le sec pour éviter la création d'un gradient
-!           
-            if (hautr <= tolisec_d .and. hautl > tolisec_d) then
-!
-                if( zmr > hautl+zml ) then
-!
-!               Transitoire : Cellule calculée mouillée - Cellule voisine sèche ***
-                    if ( vitul > sqrt(2*gp_d*(zmr-zml) ) ) then
-                        zmr = zml+hautl  
-                        call solver_Riemann_cudaf(gi,kvoisin,surf_d,norm,vdlg_d,hautl,vitul,vitvl,hautr,vitur,vitvr,zml,zmr,hybrid,flux,ln,pp)
-                    else
-                        flux(1) = 0.d0
-                        flux(2) = norm(1) * gp_d * hautl*(hautl+zml)
-                        flux(3) = norm(2) * gp_d * hautl*(hautl+zml)
-                    endif
+          else
+            flux(1) = 0.d0
+            flux(2) = norm(1) * gp_d * hautl*(hautl+zml)
+            flux(3) = norm(2) * gp_d * hautl*(hautl+zml)
+          endif
+        endif   ! de if( zmr > hautl+zml ) then
 
-                    ! if(gi == 24) write(*,*) 'flux = ',flux(1),',', flux(2),',', flux(3)
-!               **************************************************************************************************************************
-!
-!               C-Property : Cellule calculée mouillée - Cellule voisine sèche ******
-!                   if ( abs (vitul) < tolisec_d .and. abs (vitur) < tolisec_d ) then
-!                       zmr = zml+hautl  
-!!                      zm_redef(kvoisin) = zmr
-!!
-!                       call lax_method_eta(kvol,kvoisin,norm,vdlg,hautl,vitul,vitvl,hautr,vitur,vitvr,zml,zmr,0,flux,&
-!                                      & Bijpn1,Bijpn2,Bijp,Blamdaij,Blamdaijn1,Blamdaijn2,ln,pp)
-!                   endif
-!               **************************************************************************************************************************                  
-!                   
-                endif   ! de if( zmr > hautl+zml ) then
-!
-!
-            elseif( hautl <= tolisec_d .and. hautr > tolisec_d ) then  ! de if (hautr <= tolisec_d .and. hautl > tolisec_d) then
-!   
-                if( zml >= hautr+zmr ) then 
-!
-!               Transitoire : Cellule calculée sèche  - Cellule voisine mouillée 
-                    if ( -vitur > sqrt(2*gp_d*(zml-zmr) ) .and. vitur < 0) then
-                        zml   = zmr+hautr
-                        call solver_Riemann_cudaf(gi,kvoisin,surf_d,norm,vdlg_d,hautl,vitul,vitvl,hautr,vitur,vitvr,zml,zmr,hybrid,flux,ln,pp)
-                    else
-                        flux(1) = 0.d0
-                        flux(2) = 0.d0
-                        flux(3) = 0.d0
-                    endif
-                    ! if(gi == 24) write(*,*) 'flux = ',flux(1),',', flux(2),',', flux(3)
-!               **************************************************************************************************************************
-!               C-Property : Cellule calculée sèche  - Cellule voisine mouillée ***
-!                   if ( abs (vitul) < tolisec_d .and. abs (vitur) < tolisec_d ) then
-!                       flux(1) = 0.d0
-!                       flux(2) = 0.d0
-!                       flux(3) = 0.d0
-!                   endif                                                                                               
-!               **************************************************************************************************************************                      
-!   
-                endif ! de if( zml >= hautr+zmr ) then
-!
-!                           
-            endif   ! (hautr <= tolisec_d .and. hautl > tolisec_d) then
-!
-! ************************************************************************************************************************************************
-!
-! Cas de deux éléments voisins secs **********************************************
-            if (test_d /=1) then  ! Necessaire dans la cas de la prairie
-                if (hautl <= tolisec_d .and. hautr <= tolisec_d) then
-                    flux(1) = 0.d0
-                    flux(2) = 0.d0
-                    flux(3) = 0.d0
-                endif
-            endif
-!
-! Sommation des flux d'interface
-!
-    ! flux_interface = flux_interface + flux*ln
-!
-        endif ! de ( kvoisin > 0. )
-! 
-        s1(ti, tj)   = flux(1) * ln
-        call syncthreads()
-        
-        if(tj == 1)  resc_d(1,gi) = s1(ti, 1) + s1(ti, 2) + s1(ti, 3)
-        call syncthreads()
-        
-        s1(ti, tj)   = flux(2) * ln
-        call syncthreads()
-        
-        if(tj == 1)  resc_d(2,gi) = s1(ti, 1) + s1(ti, 2) + s1(ti, 3)
-        call syncthreads()
+      elseif( hautl <= tolisec_d .and. hautr > tolisec_d ) then  ! de if (hautr <= tolisec_d .and. hautl > tolisec_d) then
+        if( zml >= hautr+zmr ) then 
+          !Transitoire : Cellule calculée sèche  - Cellule voisine mouillée 
+          if ( -vitur > sqrt(2*gp_d*(zml-zmr) ) .and. vitur < 0) then
+            zml   = zmr+hautr
+            call solver_Riemann_cudaf(gi,kvoisin,surf_d,norm,vdlg_d,hautl,vitul,vitvl,hautr,vitur,vitvr,zml,zmr,hybrid,flux,ln,pp)
+          else
+            flux(1) = 0.d0
+            flux(2) = 0.d0
+            flux(3) = 0.d0
+          endif
+        endif ! de if( zml >= hautr+zmr ) then
+      endif   ! (hautr <= tolisec_d .and. hautl > tolisec_d) then
 
-        s1(ti, tj)   = flux(3) * ln
-        call syncthreads()
-        
-        if(tj == 1)  resc_d(3,gi) = s1(ti, 1) + s1(ti, 2) + s1(ti, 3)
+      ! Cas de deux éléments voisins secs
+      if (test_d /=1) then  ! Necessaire dans la cas de la prairie
+        if (hautl <= tolisec_d .and. hautr <= tolisec_d) then
+          flux(1) = 0.d0
+          flux(2) = 0.d0
+          flux(3) = 0.d0
+        endif
+      endif
+      ! Sommation des flux d'interface
+      ! flux_interface = flux_interface + flux*ln
+    endif ! de ( kvoisin > 0. )
 
-!
-        ! if (pod==0 .and. shot==1) lamda_stock(kvol,i) = lamda_d
-        
-        ! if (pod==1) podlamdafull(kvol) = podlamdafull(kvol) + lamda_d
-!check here
-    endif ! Fin de if(gi<nelt_d) 
-!
-   ! if (pod==1) podlamdafull(kvol) = podlamdafull(kvol)/pp
-! ... fin du traitement ................................................
-!
+    s1(ti, tj)   = flux(1) * ln
+    call syncthreads()
+
+    if(tj == 1)  resc_d(1,gi) = s1(ti, 1) + s1(ti, 2) + s1(ti, 3)
+    call syncthreads()
+
+    s1(ti, tj)   = flux(2) * ln
+    call syncthreads()
+
+    if(tj == 1)  resc_d(2,gi) = s1(ti, 1) + s1(ti, 2) + s1(ti, 3)
+    call syncthreads()
+
+    s1(ti, tj)   = flux(3) * ln
+    call syncthreads()
+
+    if(tj == 1)  resc_d(3,gi) = s1(ti, 1) + s1(ti, 2) + s1(ti, 3)
+
+  endif ! Fin de if(gi<nelt_d) 
 end subroutine cotes_cudaf3
 
 attributes(global) subroutine cotes_cudaf4(surf_d, zm_d,gradz_d,vdlg_d)
-!
-! ======================================================================
-!
-!     cotes = calcul du flux à l'interface des cotes de kvol
-!
-!     auteur : Youssef Loukili  GRANIT ETSMTL
-!
-!     version : 1.0  ;  May 12 2003
-! ======================================================================
-!
-!     parametres =
-!       ns          :
-!       kvol        :
-!       vdlg        :
-!       cotemin     :
-!       cotemax     :
-!       resc        :
-!       sourc_cont  :
-!
-! ======================================================================
-    use precision_m
-    use global_device
-    implicit none
+  ! ======================================================================
+  !     cotes = calcul du flux à l'interface des cotes de kvol
+  !     auteur : Youssef Loukili  GRANIT ETSMTL
+  !     version : 1.0  ;  May 12 2003
+  ! ======================================================================
 
-    
+  use precision_m
+  use global_device
+  implicit none
 
-! *** bloc interface ***
-! to be made device functions
-    interface
-!
-        ! subroutine lax_method(kvol,kvoisin,norm,hl,ul,vl,hr,ur,vr,flux)
-        !     use global
-        !     use m_param
-        !     integer, intent(in)                   :: kvol, kvoisin, ns
-        !     real(fp_kind), intent(in)                   :: hl, ul, vl, hr, ur, vr
-        !     real(fp_kind), dimension(2), intent(in)     :: norm
-        !     real(fp_kind), dimension(3), intent(inout)  :: flux
-        ! end subroutine lax_method
-!
-        
-        attributes(device) subroutine solver_Riemann_cudaf(kvol,kvoisin,surf,norm,vdlg,hl,ul,vl,hr,ur,vr,zml,zmr,model,flux,ln,pp)
-            
-            use global_device
-            implicit none
-            integer, intent(in)                   :: kvol, kvoisin, model
-            integer, intent(inout)                :: pp
-            real(fp_kind), intent(in)                   :: hl, ul, vl, hr, ur, vr, zml, zmr, ln
-            real(fp_kind), dimension(2), intent(in)     :: norm
-            real(fp_kind), dimension(3), intent(inout)  :: flux
-            real(fp_kind), dimension(:), intent(in)     :: surf
-            real(fp_kind), dimension(:,:), intent(in)   :: vdlg
-        end subroutine solver_Riemann_cudaf
-!
-    end interface
-! 
-! ... variables passees en parametre ...................................
-!
-    ! real(fp_kind), intent(inout)                 :: debit_sorti_d, debit_entre_d
-    real(fp_kind), dimension(:), intent(in)      :: surf_d, zm_d
-    real(fp_kind), dimension(:,:), intent(in)    :: gradz_d  ! remove it if not used
-    real(fp_kind), dimension(:,:), intent(in)    :: vdlg_d
-    ! real(fp_kind), dimension(:,:), intent(out)   ::  resc_d
+  interface
 
+    attributes(device) subroutine solver_Riemann_cudaf(kvol,kvoisin,surf,norm,vdlg,hl,ul,vl,hr,ur,vr,zml,zmr,model,flux,ln,pp)
 
-    ! local variables  !remove variables which are not in use, they eat up registers and leads to less no. of concurrent blocks per SM
-    integer               :: i, nc1, nc2, kvoisin, dl,pp, hybrid, model
-    real(fp_kind)               :: x1, x2, y1, y2, ln 
-    real(fp_kind)               :: hautl,vitul,vitvl,hautr,vitur,vitvr,zml,zmr,hul, hvl, hur, hvr
-    real(fp_kind)               :: zero, debitnorm
-    real(fp_kind), dimension(2) :: norm
-    real(fp_kind), dimension(3) :: flux
-    integer                     :: ti,gi, tj, gj
-    real                        :: cond
-    real(fp_kind), shared       :: s1(64,4)
+      use global_device
 
-    ! real(fp_kind), dimension(2) :: dhcarre, fpod
-    ! integer               :: iv, ii, jj, jvoisin, p, nb, xface, yface, aux  
-    ! real(fp_kind)               :: hlamda, ulamda, celer 
-    ! real(fp_kind), dimension(3) :: flux_eta
+      implicit none
 
-    ti = threadIdx%x
-    gi = (blockIdx%x - 1)*blockDim%x + ti
-    tj = threadIdx%y
-    gj=  (blockIdx%y - 1)*blockDim%y + tj
+      integer, intent(in)                   :: kvol, kvoisin, model
+      integer, intent(inout)                :: pp
+      real(fp_kind), intent(in)                   :: hl, ul, vl, hr, ur, vr, zml, zmr, ln
+      real(fp_kind), dimension(2), intent(in)     :: norm
+      real(fp_kind), dimension(3), intent(inout)  :: flux
+      real(fp_kind), dimension(:), intent(in)     :: surf
+      real(fp_kind), dimension(:,:), intent(in)   :: vdlg
+    end subroutine solver_Riemann_cudaf
 
-    
+  end interface
 
-    ! if(gi == 100) then
-    !     write(*,*) 'inside cotes -6'
-    ! endif
-    ! write(*,*) 'gi = ', gi
-!
-! ... debut du traitement
-!
-    zero = 0.d0
-    ! resc = 0.d0
-    ! sourdhcarre = 0.d0      !remove if not used
-    ! sourceta=0.d0           !remove if not used
-    ! aux =0.d0               
-    ! p=0                     !remove if not used
-    ! pp=0                    !for pod purposes 
+  real(fp_kind), dimension(:), intent(in)      :: surf_d, zm_d
+  real(fp_kind), dimension(:,:), intent(in)    :: gradz_d  ! remove it if not used
+  real(fp_kind), dimension(:,:), intent(in)    :: vdlg_d
 
+  ! local variables  !remove variables which are not in use, they eat up registers and leads to less no. of concurrent blocks per SM
+  integer               :: i, nc1, nc2, kvoisin, dl,pp, hybrid, model
+  real(fp_kind)               :: x1, x2, y1, y2, ln 
+  real(fp_kind)               :: hautl,vitul,vitvl,hautr,vitur,vitvr,zml,zmr,hul, hvl, hur, hvr
+  real(fp_kind)               :: zero, debitnorm
+  real(fp_kind), dimension(2) :: norm
+  real(fp_kind), dimension(3) :: flux
+  integer                     :: ti,gi, tj, gj
+  real                        :: cond
+  real(fp_kind), shared       :: s1(64,4)
 
-    hybrid = 0
+  ti = threadIdx%x
+  gi = (blockIdx%x - 1)*blockDim%x + ti
+  tj = threadIdx%y
+  gj=  (blockIdx%y - 1)*blockDim%y + tj
 
-!
-!   Reperage d'une cellule voisine seche ===============================
-!   Retrieve a neighboring cell dry ===============================
+  zero = 0.d0
+  hybrid = 0
 
-! do it outside and see if un_voisin_sec is being used here    
+  if(gi <= nelt_d-nelt_fant_recep_d) then
+    nc1 = tj
+    cond = merge(1,0, nc1 == ns_d)
+    nc2 = int((nc1 - ns_d + 1)*cond + (nc1 + 1)*(1-cond))
 
-!   ==================================================================== 
-!
-    ! write(*,*) 'inside cotes -5'
-    ! write(*,*) 'nelt_d = ', nelt_d
+    x1 = coo_table_elemwise_d(gi, 3*nc1-2)
+    y1 = coo_table_elemwise_d(gi, 3*nc1-1)
 
-    !!if(gi <= nelt_d) then
-    if(gi <= nelt_d-nelt_fant_recep_d) then
-!
-        nc1 = tj
-        cond = merge(1,0, nc1 == ns_d)
-        nc2 = int((nc1 - ns_d + 1)*cond + (nc1 + 1)*(1-cond))
-        
-        ! call syncthreads()
-! *** calcul du vecteur normal à ce coté ***
-!      
+    x2 = coo_table_elemwise_d(gi, 3*nc2-2)
+    y2 = coo_table_elemwise_d(gi, 3*nc2-1) 
 
+    ln = sqrt( (x2 - x1)**2 + (y2 - y1)**2 )
 
-        x1 = coo_table_elemwise_d(gi, 3*nc1-2)
-        y1 = coo_table_elemwise_d(gi, 3*nc1-1)
-        
-        x2 = coo_table_elemwise_d(gi, 3*nc2-2)
-        y2 = coo_table_elemwise_d(gi, 3*nc2-1) 
-        
-        ln = sqrt( (x2 - x1)**2 + (y2 - y1)**2 )
+    norm(1) = ( y2 - y1 ) / ln
+    norm(2) = ( x1 - x2 ) / ln
 
-        norm(1) = ( y2 - y1 ) / ln
-        norm(2) = ( x1 - x2 ) / ln
-!
-! *** initialisation du flux ***
-!   
-        flux     = 0.d0
-        ! dhcarre  = 0.d0     !remove if not used
-        ! flux_eta = 0.d0
-!
-! *** kvoisin est l'élément voisin au volume kvol sur le coté i ***
-!       
-        kvoisin = boundary_d(gi,nc1)
-!
-! *** composantes normale et tangentielle de la vitesse pour l'élément kvol ***
-!
+    flux     = 0.d0
+    kvoisin = boundary_d(gi,nc1)
 
-        if(nc1 == 1) then 
-            s1(ti,1) = vdlg_d(1,gi)
-            s1(ti,2) = zm_d(gi)
+    if(nc1 == 1) then 
+      s1(ti,1) = vdlg_d(1,gi)
+      s1(ti,2) = zm_d(gi)
+    endif
+
+    call syncthreads()
+
+    hautl  = s1(ti,1)
+    zml    = s1(ti,2)
+
+    call syncthreads()
+
+    if ( hautl> tolisec_d ) then
+      if(nc1 == 1) then 
+        s1(ti,1) = vdlg_d(2,gi)
+        s1(ti,2) = vdlg_d(3,gi)
+      endif
+
+      call syncthreads()
+
+      hul    = s1(ti,1)
+      hvl    = s1(ti,2)
+
+      vitul = (hul * norm(1) + hvl * norm(2) ) / hautl
+      vitvl = (hvl * norm(1) - hul * norm(2) ) / hautl
+    else
+      hautl = tolisec_d
+      vitul = 0.d0
+      vitvl = 0.d0
+    endif
+
+    ! *** application des conditions aux limites si kvol est frontier ***
+    if ( kvoisin == -1 ) then ! *** flux entrant ***
+      if ( inlet_d == 1 ) then       ! inlet_d = 1 == Entree transmissive
+        if (test_d==5) hautl = 1 + 0.75*cos(2*3.14159265358979*tc_d/3600)
+        if ( hautl > tolisec_d ) then
+          flux(1) = hautl * vitul
+          flux(2) = norm(1) * ( hautl * vitul**2 + gp_d * hautl*(hautl+zml) ) - norm(2) * hautl * vitul * vitvl
+          flux(3) = norm(2) * ( hautl * vitul**2 + gp_d * hautl*(hautl+zml) ) + norm(1) * hautl * vitul * vitvl
         endif
-
-        call syncthreads()
-
-        hautl  = s1(ti,1)
-        zml    = s1(ti,2)
-
-        call syncthreads()
-
-        if ( hautl> tolisec_d ) then
-            if(nc1 == 1) then 
-                s1(ti,1) = vdlg_d(2,gi)
-                s1(ti,2) = vdlg_d(3,gi)
-            endif
-
-            call syncthreads()
-
-            hul    = s1(ti,1)
-            hvl    = s1(ti,2)
-
-            vitul = (hul * norm(1) + hvl * norm(2) ) / hautl
-            vitvl = (hvl * norm(1) - hul * norm(2) ) / hautl
+      elseif ( inlet_d == 2 ) then   ! inlet_d = 2 = Entree avec debit
+        if ( hautl > tolisec_d ) then
+          if (test_d ==7) then 
+            debitnorm = -debitglob_d / long_d 
+          else                        
+            debitnorm = -debitglob_d / long_d
+          endif
+          flux(1) = debitnorm
+          flux(2) = norm(1) * ( debitnorm**2/hautl  + gp_d * hautl*(hautl+zml) )
+          flux(3) = norm(2) * ( debitnorm**2/hautl  + gp_d * hautl*(hautl+zml) )
+          debit_entree_arr_d(io_identifier_d(gi)) = (-debitnorm)*ln    
         else
-            hautl = tolisec_d
-            vitul = 0.d0
-            vitvl = 0.d0
+          hautl = tolisec_d             
+          flux(1) = 0.d0
+          flux(2) = norm(1) * gp_d * hautl*(hautl+zml)
+          flux(3) = norm(2) * gp_d * hautl*(hautl+zml)
         endif
-! *** application des conditions aux limites si kvol est frontier ***
-!
-!****************************************************************************
-!       call syncthreads()
-        if ( kvoisin == -1 ) then ! *** flux entrant ***
-!       
-            if ( inlet_d == 1 ) then       ! inlet_d = 1 == Entree transmissive
-!
-                if (test_d==5) hautl = 1 + 0.75*cos(2*3.14159265358979*tc_d/3600)
-!
-                if ( hautl > tolisec_d ) then
-!
-                    flux(1) = hautl * vitul
-!                   debit_entree_d = debit_entree_d - vitul*hautl*ln
-                    flux(2) = norm(1) * ( hautl * vitul**2 + gp_d * hautl*(hautl+zml) ) - norm(2) * hautl * vitul * vitvl
-                    flux(3) = norm(2) * ( hautl * vitul**2 + gp_d * hautl*(hautl+zml) ) + norm(1) * hautl * vitul * vitvl
-!               else
-!                   hautl = tolisec_d             
-!                   flux(1) = 0.d0
-!                   flux(2) = norm(1) * gp_d * hautl*(hautl+zml)
-!                   flux(3) = norm(2) * gp_d * hautl*(hautl+zml)
-                endif
-!
-            elseif ( inlet_d == 2 ) then   ! inlet_d = 2 = Entree avec debit
-!              
-                if ( hautl > tolisec_d ) then
-!                       
-                    if (test_d ==7) then 
-!                       debitnorm = (-debitglob + 900*sin(2*3.14159265358979*tc_d/3600)) / long
-                        debitnorm = -debitglob_d / long_d 
-                    else                        
-                        debitnorm = -debitglob_d / long_d
-                    endif
-!
-                    flux(1) = debitnorm
-                    flux(2) = norm(1) * ( debitnorm**2/hautl  + gp_d * hautl*(hautl+zml) )
-                    flux(3) = norm(2) * ( debitnorm**2/hautl  + gp_d * hautl*(hautl+zml) )
-!
-                    debit_entree_arr_d(io_identifier_d(gi)) = (-debitnorm)*ln    
-                    ! debit_entree_d = debit_entree_d + (-debitnorm)*ln
-!                   if (vitul<0.0) debit_entree_d = debit_entree_d + vitul*hautl*ln
-                    ! vol_tot_entre_d = vol_tot_entre_d - debitnorm*ln
-                else
-                    hautl = tolisec_d             
-                    flux(1) = 0.d0
-                    flux(2) = norm(1) * gp_d * hautl*(hautl+zml)
-                    flux(3) = norm(2) * gp_d * hautl*(hautl+zml)
-                endif
-            else
-!
-                write(*,*) 'donnee inlet_d non convenable'
-!
-            endif
-!
+      else
+        write(*,*) 'donnee inlet_d non convenable'
+      endif
+    endif
+
+    if ( kvoisin == -2 ) then ! *** flux sortant ***
+      if ( hautl > tolisec_d ) then
+        if ( vitul > 0.d0 .and. vitul/sqrt(gp_d*hautl) < 1.d0 ) then
+          hautl = h_sortie_d - zml
+          if ( hautl > tolisec_d ) then
+            flux(1) = hautl * vitul
+            flux(2) = norm(1) * ( hautl * vitul**2 + gp_d * hautl*(hautl+zml) ) - norm(2) * hautl * vitul * vitvl
+            flux(3) = norm(2) * ( hautl * vitul**2 + gp_d * hautl*(hautl+zml) ) + norm(1) * hautl * vitul * vitvl
+          else
+            flux(1) = 0.d0
+            flux(2) = norm(1) * gp_d * hautl*(hautl+zml)
+            flux(3) = norm(2) * gp_d * hautl*(hautl+zml)
+          endif
+        else
+          flux(1) = hautl * vitul
+          flux(2) = norm(1) * ( hautl * vitul**2 + gp_d * hautl*(hautl+zml) ) - norm(2) * hautl * vitul * vitvl
+          flux(3) = norm(2) * ( hautl * vitul**2 + gp_d * hautl*(hautl+zml) ) + norm(1) * hautl * vitul * vitvl
         endif
-!****************************************************************************
-        if ( kvoisin == -2 ) then ! *** flux sortant ***
-!
-            if ( hautl > tolisec_d ) then
+      else
+        flux(1) = 0.d0
+        flux(2) = norm(1) * gp_d * hautl*(hautl+zml)
+        flux(3) = norm(2) * gp_d * hautl*(hautl+zml)   
+      endif
 
-                if ( vitul > 0.d0 .and. vitul/sqrt(gp_d*hautl) < 1.d0 ) then
-!
-                    hautl = h_sortie_d - zml
-!
-                    if ( hautl > tolisec_d ) then
-                        flux(1) = hautl * vitul
-                        flux(2) = norm(1) * ( hautl * vitul**2 + gp_d * hautl*(hautl+zml) ) - norm(2) * hautl * vitul * vitvl
-                        flux(3) = norm(2) * ( hautl * vitul**2 + gp_d * hautl*(hautl+zml) ) + norm(1) * hautl * vitul * vitvl
-                    else
-                        flux(1) = 0.d0
-                        flux(2) = norm(1) * gp_d * hautl*(hautl+zml)
-                        flux(3) = norm(2) * gp_d * hautl*(hautl+zml)
-                    endif
-!           
-                else
-                    flux(1) = hautl * vitul
-                    flux(2) = norm(1) * ( hautl * vitul**2 + gp_d * hautl*(hautl+zml) ) - norm(2) * hautl * vitul * vitvl
-                    flux(3) = norm(2) * ( hautl * vitul**2 + gp_d * hautl*(hautl+zml) ) + norm(1) * hautl * vitul * vitvl
-                endif
-!
-            else
-                flux(1) = 0.d0
-                flux(2) = norm(1) * gp_d * hautl*(hautl+zml)
-                flux(3) = norm(2) * gp_d * hautl*(hautl+zml)   
-            endif
+      if ( vitul > 0.d0)  then 
+        debit_sortie_arr_d(io_identifier_d(gi))  = flux(1)*ln
+      else
+        debit_sortie_arr_d(io_identifier_d(gi))  = 0.d0
+      endif
+    endif
 
-            if ( vitul > 0.d0)  then 
-                debit_sortie_arr_d(io_identifier_d(gi))  = flux(1)*ln
-            else
-                debit_sortie_arr_d(io_identifier_d(gi))  = 0.d0
-            endif
+    if ( kvoisin == -3 ) then  ! *** flux de mur ***
+      if (hautl > tolisec_d) then
+        zmr   =  zml
+        hautr =  hautl
+        vitur = -vitul
+        vitvr = -vitvl
+        call solver_Riemann_cudaf(gi,kvoisin,surf_d,norm,vdlg_d,hautl,vitul,vitvl,hautr,vitur,vitvr,zml,zmr,hybrid,flux,ln,pp)
+      else
+        flux(1) = 0.d0
+        flux(2) = 0.d0
+        flux(3) = 0.d0
+      endif
+    endif
 
-!
-        endif
-!*******************************************************************************************************************
-        if ( kvoisin == -3 ) then  ! *** flux de mur ***
-!
-            if (hautl > tolisec_d) then
-!               flux(1) = 0.d0
-!               flux(2) = norm(1) * gp_d * hautl*(hautl+zml)
-!               flux(3) = norm(2) * gp_d * hautl*(hautl+zml)
-!
-                zmr   =  zml
-				hautr =  hautl
-				vitur = -vitul
-				vitvr = -vitvl
-				call solver_Riemann_cudaf(gi,kvoisin,surf_d,norm,vdlg_d,hautl,vitul,vitvl,hautr,vitur,vitvr,zml,zmr,hybrid,flux,ln,pp)
-!
-!	           flux(1) = 0.d0
-!               flux(2) = norm(1)*(hautl*vitul**2 + gp_d * hautl*(hautl+zml)) + norm(2)*(hautl*vitul*vitvl) + sqrt(gp_d*hautl)*hautl*vitul
-!               flux(3) = norm(2)*(hautl*vitvl**2 + gp_d * hautl*(hautl+zml)) + norm(1)*(hautl*vitul*vitvl) + sqrt(gp_d*hautl)*hautl*vitvl
-!
-            else
-                flux(1) = 0.d0
-                flux(2) = 0.d0
-                flux(3) = 0.d0
-            endif  
-!   
-        endif
-!*******************************************************************************************************************                        
-!       
-        if  ( kvoisin > 0. ) then   ! *** kvol fait frontiere avec kvoisin ***
-!
-            hautr = vdlg_d(1,kvoisin)  !this is inefficient global memory access, put vdlg_d in shared? possible?
-            zmr = zm_d(kvoisin)        !this is also inefficient global memory access
+    if  ( kvoisin > 0. ) then   ! *** kvol fait frontiere avec kvoisin ***
+      hautr = vdlg_d(1,kvoisin)  !this is inefficient global memory access, put vdlg_d in shared? possible?
+      zmr = zm_d(kvoisin)        !this is also inefficient global memory access
 
-            if ( hautr > tolisec_d ) then
-                hur    = vdlg_d(2,kvoisin)  ! this is very  inefficient global memory access, can be done may be by shared memory
-                hvr    = vdlg_d(3,kvoisin)  ! this is very  inefficient global memory access, can be done may be by shared memory
+      if ( hautr > tolisec_d ) then
+        hur    = vdlg_d(2,kvoisin)  ! this is very  inefficient global memory access, can be done may be by shared memory
+        hvr    = vdlg_d(3,kvoisin)  ! this is very  inefficient global memory access, can be done may be by shared memory
 
-                vitur = ( hur * norm(1) + hvr * norm(2) ) / hautr
-                vitvr = ( hvr * norm(1) - hur * norm(2) ) / hautr
-                ! if(gi == 500) write(*,*) 'vitur = ', vitur,'vitvr = ', vitvr
-            else
-                hautr = tolisec_d
-                vitur = 0.d0
-                vitvr = 0.d0
-                hybrid = 0
-            endif
-!
+        vitur = ( hur * norm(1) + hvr * norm(2) ) / hautr
+        vitvr = ( hvr * norm(1) - hur * norm(2) ) / hautr
+
+      else
+        hautr = tolisec_d
+        vitur = 0.d0
+        vitvr = 0.d0
+        hybrid = 0
+      endif
+
+      call solver_Riemann_cudaf(gi,kvoisin,surf_d,norm,vdlg_d,hautl,vitul,vitvl,hautr,vitur,vitvr,zml,zmr,hybrid,flux,ln,pp)
+
+      ! *** WET and DRY
+      ! *** Prolongement du niveau d'eau sur le sec pour éviter la création d'un gradient
+      if (hautr <= tolisec_d .and. hautl > tolisec_d) then
+        if( zmr > hautl+zml ) then
+          !Transitoire : Cellule calculée mouillée - Cellule voisine sèche ***
+          if ( vitul > sqrt(2*gp_d*(zmr-zml) ) ) then
+            zmr = zml+hautl  
             call solver_Riemann_cudaf(gi,kvoisin,surf_d,norm,vdlg_d,hautl,vitul,vitvl,hautr,vitur,vitvr,zml,zmr,hybrid,flux,ln,pp)
-            
-! *** WET and DRY
-! *** Prolongement du niveau d'eau sur le sec pour éviter la création d'un gradient
-!           
-            if (hautr <= tolisec_d .and. hautl > tolisec_d) then
-!
-                if( zmr > hautl+zml ) then
-!
-!               Transitoire : Cellule calculée mouillée - Cellule voisine sèche ***
-                    if ( vitul > sqrt(2*gp_d*(zmr-zml) ) ) then
-                        zmr = zml+hautl  
-                        call solver_Riemann_cudaf(gi,kvoisin,surf_d,norm,vdlg_d,hautl,vitul,vitvl,hautr,vitur,vitvr,zml,zmr,hybrid,flux,ln,pp)
-                    else
-                        flux(1) = 0.d0
-                        flux(2) = norm(1) * gp_d * hautl*(hautl+zml)
-                        flux(3) = norm(2) * gp_d * hautl*(hautl+zml)
-                    endif
+          else
+            flux(1) = 0.d0
+            flux(2) = norm(1) * gp_d * hautl*(hautl+zml)
+            flux(3) = norm(2) * gp_d * hautl*(hautl+zml)
+          endif
+        endif   ! de if( zmr > hautl+zml ) then
 
-                    ! if(gi == 24) write(*,*) 'flux = ',flux(1),',', flux(2),',', flux(3)
-!               **************************************************************************************************************************
-!
-!               C-Property : Cellule calculée mouillée - Cellule voisine sèche ******
-!                   if ( abs (vitul) < tolisec_d .and. abs (vitur) < tolisec_d ) then
-!                       zmr = zml+hautl  
-!!                      zm_redef(kvoisin) = zmr
-!!
-!                       call lax_method_eta(kvol,kvoisin,norm,vdlg,hautl,vitul,vitvl,hautr,vitur,vitvr,zml,zmr,0,flux,&
-!                                      & Bijpn1,Bijpn2,Bijp,Blamdaij,Blamdaijn1,Blamdaijn2,ln,pp)
-!                   endif
-!               **************************************************************************************************************************                  
-!                   
-                endif   ! de if( zmr > hautl+zml ) then
-!
-!
-            elseif( hautl <= tolisec_d .and. hautr > tolisec_d ) then  ! de if (hautr <= tolisec_d .and. hautl > tolisec_d) then
-!   
-                if( zml >= hautr+zmr ) then 
-!
-!               Transitoire : Cellule calculée sèche  - Cellule voisine mouillée 
-                    if ( -vitur > sqrt(2*gp_d*(zml-zmr) ) .and. vitur < 0) then
-                        zml   = zmr+hautr
-                        call solver_Riemann_cudaf(gi,kvoisin,surf_d,norm,vdlg_d,hautl,vitul,vitvl,hautr,vitur,vitvr,zml,zmr,hybrid,flux,ln,pp)
-                    else
-                        flux(1) = 0.d0
-                        flux(2) = 0.d0
-                        flux(3) = 0.d0
-                    endif
-                    ! if(gi == 24) write(*,*) 'flux = ',flux(1),',', flux(2),',', flux(3)
-!               **************************************************************************************************************************
-!               C-Property : Cellule calculée sèche  - Cellule voisine mouillée ***
-!                   if ( abs (vitul) < tolisec_d .and. abs (vitur) < tolisec_d ) then
-!                       flux(1) = 0.d0
-!                       flux(2) = 0.d0
-!                       flux(3) = 0.d0
-!                   endif                                                                                               
-!               **************************************************************************************************************************                      
-!   
-                endif ! de if( zml >= hautr+zmr ) then
-!
-!                           
-            endif   ! (hautr <= tolisec_d .and. hautl > tolisec_d) then
-!
-! ************************************************************************************************************************************************
-!
-! Cas de deux éléments voisins secs **********************************************
-            if (test_d /=1) then  ! Necessaire dans la cas de la prairie
-                if (hautl <= tolisec_d .and. hautr <= tolisec_d) then
-                    flux(1) = 0.d0
-                    flux(2) = 0.d0
-                    flux(3) = 0.d0
-                endif
-            endif
-!
-! Sommation des flux d'interface
-!
-    ! flux_interface = flux_interface + flux*ln
-!
-        endif ! de ( kvoisin > 0. )
-! 
-        s1(ti, tj)   = flux(1) * ln
-        call syncthreads()
-        
-        if(tj == 1)   resc_d(1,gi) = s1(ti, 1) + s1(ti, 2) + s1(ti, 3) + s1(ti, 4)
-        call syncthreads()
-        
-        s1(ti, tj)   = flux(2) * ln
-        call syncthreads()
-        if(tj == 1)   resc_d(2,gi) = s1(ti, 1) + s1(ti, 2) + s1(ti, 3) + s1(ti, 4)
-        call syncthreads()
+      elseif( hautl <= tolisec_d .and. hautr > tolisec_d ) then  ! de if (hautr <= tolisec_d .and. hautl > tolisec_d) then
+        if( zml >= hautr+zmr ) then 
+          !               Transitoire : Cellule calculée sèche  - Cellule voisine mouillée 
+          if ( -vitur > sqrt(2*gp_d*(zml-zmr) ) .and. vitur < 0) then
+            zml   = zmr+hautr
+            call solver_Riemann_cudaf(gi,kvoisin,surf_d,norm,vdlg_d,hautl,vitul,vitvl,hautr,vitur,vitvr,zml,zmr,hybrid,flux,ln,pp)
+          else
+            flux(1) = 0.d0
+            flux(2) = 0.d0
+            flux(3) = 0.d0
+          endif
+        endif ! de if( zml >= hautr+zmr ) then
+      endif   ! (hautr <= tolisec_d .and. hautl > tolisec_d) then
 
-        s1(ti, tj)   = flux(3) * ln
-        call syncthreads()
-        if(tj == 1)   resc_d(3,gi) = s1(ti, 1) + s1(ti, 2) + s1(ti, 3) + s1(ti, 4)
+      ! Cas de deux éléments voisins secs **********************************************
+      if (test_d /=1) then  ! Necessaire dans la cas de la prairie
+        if (hautl <= tolisec_d .and. hautr <= tolisec_d) then
+          flux(1) = 0.d0
+          flux(2) = 0.d0
+          flux(3) = 0.d0
+        endif
+      endif
+    endif ! de ( kvoisin > 0. )
 
-!
-        ! if (pod==0 .and. shot==1) lamda_stock(kvol,i) = lamda_d
-        
-        ! if (pod==1) podlamdafull(kvol) = podlamdafull(kvol) + lamda_d
-!check here
-    endif ! Fin de if(gi<nelt_d) 
-!
-   ! if (pod==1) podlamdafull(kvol) = podlamdafull(kvol)/pp
-! ... fin du traitement ................................................
-!
+    s1(ti, tj)   = flux(1) * ln
+    call syncthreads()
+
+    if(tj == 1)   resc_d(1,gi) = s1(ti, 1) + s1(ti, 2) + s1(ti, 3) + s1(ti, 4)
+    call syncthreads()
+
+    s1(ti, tj)   = flux(2) * ln
+    call syncthreads()
+    if(tj == 1)   resc_d(2,gi) = s1(ti, 1) + s1(ti, 2) + s1(ti, 3) + s1(ti, 4)
+    call syncthreads()
+
+    s1(ti, tj)   = flux(3) * ln
+    call syncthreads()
+    if(tj == 1)   resc_d(3,gi) = s1(ti, 1) + s1(ti, 2) + s1(ti, 3) + s1(ti, 4)
+
+  endif ! Fin de if(gi<nelt_d) 
 end subroutine cotes_cudaf4
 
 
 attributes(device) subroutine upwindmean_cudaf(kvol,kvoisin,surf,vdlg,xupwind,yupwind,hautdec,vitudec,vitvdec)
-!
-! ======================================================================
-!
-!     upwindmean_cudaf = calcul une moyenne decentree de l'etat du cote de kvol
-!
-!     auteur : Youssef Loukili  GRANIT ETSMTL
-!
-!     version : 1.0  ;  May 12 2003
-! ======================================================================
-!
-!     parametres =
-!       kvol   :
-!       aire   :
-!
-! ======================================================================
-!
-    use global_device
-    use precision_m
-!
-    implicit none
+  ! ======================================================================
+  !     upwindmean_cudaf = calcul une moyenne decentree de l'etat du cote de kvol
+  !     auteur : Youssef Loukili  GRANIT ETSMTL
+  !     version : 1.0  ;  May 12 2003
+  ! ======================================================================
+  
+  use global_device
+  use precision_m
 
-! ... debut de l interface .............................................
-!
-! ... fin de l interface ...............................................
-! 
-! ... variables passees en parametre ...................................
-!
-    integer, intent(in)                           :: kvol, kvoisin
-    real(fp_kind), dimension(:), intent(in)       :: surf
-    real(fp_kind), dimension(:,:), intent(in)     :: vdlg
-    real(fp_kind), intent(inout)                  :: hautdec, vitudec, vitvdec
-    real(fp_kind), intent(inout)                  :: xupwind, yupwind
-!
-! ... variables locales ................................................
-!
-    integer                       :: i, j, noeud1, noeud2, elemupw
-    integer, dimension(4)         :: elemkvol
-    real(fp_kind)                 :: xnoeud1, xnoeud2, ynoeud1, ynoeud2, xface, yface
-    real(fp_kind)                 :: dnoeud12, norm1, norm2, celer
-    real(fp_kind)                 :: hautl, vitul, vitvl, hautr, vitur, vitvr
-    real(fp_kind)                 :: xelemkvol, yelemkvol, surfupw, difhaut, surfarea, vdlg_elem1
-!
-! ... debut du traitement
-!
-    xupwind = 0.d0
-    yupwind = 0.d0
-    hautdec = 0.d0
-    vitudec = 0.d0
-    vitvdec = 0.d0
-    surfupw = 0.d0
-    
-!
-    IF ( ns_d == 3 ) THEN
-!
-        hautl = vdlg(1,kvol)
-!
-        do i=1,ns_d
-!
-            elemkvol(i) = boundary_d(kvol,i)
-!
-            if ( elemkvol(i) == -1 .or. elemkvol(i) == -2 ) then ! *** flux entrant ou sortant ***
-                surfarea = surf(kvol)
-                hautdec  = hautdec + surfarea * hautl
-                vitudec  = vitudec + surfarea * vdlg(2,kvol) / hautl
-                vitvdec  = vitvdec + surfarea * vdlg(3,kvol) / hautl
-                surfupw  = surfupw + surfarea
+  implicit none
 
-            else if ( elemkvol(i) == -3 ) then  ! *** flux nul ***
-!           pour mur non glissant ###
-                surfarea = surf(kvol)
-                surfupw = surfupw + surfarea
-                hautdec = hautdec + surfarea * hautl
-!
-            else if (elemkvol(i) /= kvoisin) then   ! *** kvol frontier avec 1 vol /= kvoisin ***
-!
-                ! call centroid(elemkvol(i),xelemkvol,yelemkvol)
-                ! xelemkvol = x_centroid_d(elemkvol(i))
-                ! yelemkvol = y_centroid_d(elemkvol(i))
-                
-                surfarea = surf(elemkvol(i))
-                surfupw = surfupw + surfarea
-                vdlg_elem1 = vdlg(1,elemkvol(i))
-                hautdec = hautdec + surfarea * vdlg_elem1
-                vitudec = vitudec + surfarea * vdlg(2,elemkvol(i)) / vdlg_elem1
-                vitvdec = vitvdec + surfarea * vdlg(3,elemkvol(i)) / vdlg_elem1
-            endif
-!
-        enddo
-!
-        hautdec = hautdec / surfupw
-        vitudec = vitudec / surfupw
-        vitvdec = vitvdec / surfupw
-!
-!     ELSE    ! element rectangulaire
-! !
-!         if ( elemkvol(1) == kvoisin ) then
-!             elemupw = elemkvol(3)
-!             noeud1 = connectivite(kvol,3)
-!             noeud2 = connectivite(kvol,4)
-!         else if ( elemkvol(2) == kvoisin ) then
-!             elemupw = elemkvol(4)
-!             noeud1 = connectivite(kvol,4)
-!             noeud2 = connectivite(kvol,1)
-!         else if ( elemkvol(3) == kvoisin ) then
-!             elemupw = elemkvol(1)
-!             noeud1 = connectivite(kvol,1)
-!             noeud2 = connectivite(kvol,2)
-!         else if ( elemkvol(4) == kvoisin ) then
-!             elemupw = elemkvol(2)
-!             noeud1 = connectivite(kvol,2)
-!             noeud2 = connectivite(kvol,3)
-!         endif
-!     !
-!         if ( elemupw < 0 ) then
-!     !
-!             xnoeud1 = coordonnees(noeud1,1)
-!             ynoeud1 = coordonnees(noeud1,2)
-!             xnoeud2 = coordonnees(noeud2,1)
-!             ynoeud2 = coordonnees(noeud2,2)
-!     !
-!             xface = ( xnoeud1 + xnoeud2 ) / 2
-!             yface = ( ynoeud1 + ynoeud2 ) / 2
-!     !
-!             dnoeud12 = sqrt( (xnoeud2 - xnoeud1)**2 + (ynoeud2 - ynoeud1)**2 )
-!             norm1 = ( ynoeud2 - ynoeud1 ) / dnoeud12
-!             norm2 = ( xnoeud1 - xnoeud2 ) / dnoeud12
-!     !
-!             xupwind = xupwind + surf(kvol) * & 
-!                               & ( ( xnoeud1 + xnoeud2 )/2 + ( ynoeud2 - ynoeud1 )/2 )
-!             yupwind = yupwind + surf(kvol) * & 
-!                               & ( ( ynoeud1 + ynoeud2 )/2 + ( xnoeud1 - xnoeud2 )/2 )
-!     !
-!             surfupw = surfupw + surf(kvol)
-!     !
-!             hautl = vdlg(1,kvol)
-!     !
-!         endif
-!     !
-!         if ( elemupw == -1 .or. elemupw == -2 ) then ! *** flux entrant ou sortant ***
-!     !
-!             hautdec = hautdec + surf(kvol) * hautl
-!             vitudec = vitudec + surf(kvol) * vdlg(2,kvol) / hautl
-!             vitvdec = vitvdec + surf(kvol) * vdlg(3,kvol) / hautl
+  integer, intent(in)                           :: kvol, kvoisin
+  real(fp_kind), dimension(:), intent(in)       :: surf
+  real(fp_kind), dimension(:,:), intent(in)     :: vdlg
+  real(fp_kind), intent(inout)                  :: hautdec, vitudec, vitvdec
+  real(fp_kind), intent(inout)                  :: xupwind, yupwind
 
-!     !
-!         else if ( elemupw == -3 ) then  ! *** flux nul ***
-!     !
-!     !       pour mur non glissant ###
-!                 hautdec = hautdec + surf(kvol) * hautl
-!     !
-!         else if ( elemupw /= kvoisin ) then ! *** elemupw frontier avec 1 vol /= kvoisin ***
-!     !
-!             call centroid(elemupw,xelemkvol,yelemkvol)
-!             xupwind = xupwind + surf(elemupw) * xelemkvol
-!             yupwind = yupwind + surf(elemupw) * yelemkvol
-!             surfupw = surfupw + surf(elemupw)
-!     !
-!             hautdec = hautdec + surf(elemupw) * vdlg(1,elemupw)
-!             vitudec = vitudec + surf(elemupw) * vdlg(2,elemupw) / vdlg(1,elemupw)
-!             vitvdec = vitvdec + surf(elemupw) * vdlg(3,elemupw) / vdlg(1,elemupw)
-!     !
-!         endif
-!     !
-!         xupwind   = xupwind   / surfupw
-!         yupwind   = yupwind   / surfupw
-!         hautdec = hautdec / surfupw
-!         vitudec = vitudec / surfupw
-!         vitvdec = vitvdec / surfupw
-!
-!
-    ENDIF
-!
-! ... fin du traitement ................................................
-!
+  integer                       :: i, j, noeud1, noeud2, elemupw
+  integer, dimension(4)         :: elemkvol
+  real(fp_kind)                 :: xnoeud1, xnoeud2, ynoeud1, ynoeud2, xface, yface
+  real(fp_kind)                 :: dnoeud12, norm1, norm2, celer
+  real(fp_kind)                 :: hautl, vitul, vitvl, hautr, vitur, vitvr
+  real(fp_kind)                 :: xelemkvol, yelemkvol, surfupw, difhaut, surfarea, vdlg_elem1
+
+  xupwind = 0.d0
+  yupwind = 0.d0
+  hautdec = 0.d0
+  vitudec = 0.d0
+  vitvdec = 0.d0
+  surfupw = 0.d0
+
+  IF ( ns_d == 3 ) THEN
+    hautl = vdlg(1,kvol)
+    do i=1,ns_d
+      elemkvol(i) = boundary_d(kvol,i)
+      if ( elemkvol(i) == -1 .or. elemkvol(i) == -2 ) then ! *** flux entrant ou sortant ***
+        surfarea = surf(kvol)
+        hautdec  = hautdec + surfarea * hautl
+        vitudec  = vitudec + surfarea * vdlg(2,kvol) / hautl
+        vitvdec  = vitvdec + surfarea * vdlg(3,kvol) / hautl
+        surfupw  = surfupw + surfarea
+
+      else if ( elemkvol(i) == -3 ) then  ! *** flux nul ***
+        !           pour mur non glissant ###
+        surfarea = surf(kvol)
+        surfupw = surfupw + surfarea
+        hautdec = hautdec + surfarea * hautl
+
+      else if (elemkvol(i) /= kvoisin) then   ! *** kvol frontier avec 1 vol /= kvoisin ***
+        surfarea = surf(elemkvol(i))
+        surfupw = surfupw + surfarea
+        vdlg_elem1 = vdlg(1,elemkvol(i))
+        hautdec = hautdec + surfarea * vdlg_elem1
+        vitudec = vitudec + surfarea * vdlg(2,elemkvol(i)) / vdlg_elem1
+        vitvdec = vitvdec + surfarea * vdlg(3,elemkvol(i)) / vdlg_elem1
+      endif
+    enddo
+
+    hautdec = hautdec / surfupw
+    vitudec = vitudec / surfupw
+    vitvdec = vitvdec / surfupw
+  ENDIF
 end subroutine upwindmean_cudaf
-!                             solver_Riemann_cudaf(gi,kvoisin,surf_d,norm,vdlg_d,hautl,vitul,vitvl,hautr,vitur,vitvr,zml,zmr,hybrid,flux,ln,pp)
+
 attributes(device) subroutine solver_Riemann_cudaf(kvol,kvoisin,surf,norm,vdlg,hl,ul,vl,hr,ur,vr,zml,zmr,model,flux,ln,pp)
-!
-! **********************************************************************
-!
-!     lax_method = calcul du flux de eta par la méthode "lax-fredrichs"
-! == référence : analysis of the discontinuous galerkin method 
-! ==             applied to the diffusion operator.
-! ==             harold l. atkins - nasa langley research center.
-! ==             chi-wang shu - brown university.
-! ==             14th aiaa computational fluid dynamics conference
-! ==             28 - 31 june 1999, norfolk, va.
-!
-!     auteur : youssef loukili  granit etsmtl
-!
-!     version : 1.0  ;  may 12 2003
-! ======================================================================
-!
-!     parametres =
-!       kvol    :
-!       kvoisin :
-!       norm    :
-!       flux    :
-!
-! ======================================================================
-!
-    ! use global
-    ! use m_param
-    use precision_m
-    use global_device
-    implicit none
+  ! **********************************************************************
+  !     lax_method = calcul du flux de eta par la méthode "lax-fredrichs"
+  ! == référence : analysis of the discontinuous galerkin method 
+  ! ==             applied to the diffusion operator.
+  ! ==             harold l. atkins - nasa langley research center.
+  ! ==             chi-wang shu - brown university.
+  ! ==             14th aiaa computational fluid dynamics conference
+  ! ==             28 - 31 june 1999, norfolk, va.
+  !     auteur : youssef loukili  granit etsmtl
+  !     version : 1.0  ;  may 12 2003
+  ! ======================================================================
 
-! ... debut de l interface .............................................
-!
-    interface
-!
-        attributes(device) subroutine upwindmean_cudaf(kvol,kvoisin,surf,vdlg,xupwind,yupwind,hautdec,vitudec,vitvdec)
-            use global_device
-            use precision_m
+  use precision_m
+  use global_device
+  implicit none
 
-            integer, intent(in)                           :: kvol, kvoisin
-            real(fp_kind), dimension(:), intent(in)       :: surf
-            real(fp_kind), dimension(:,:), intent(in)     :: vdlg
-            real(fp_kind), intent(inout)                  :: hautdec, vitudec, vitvdec
-            real(fp_kind), intent(inout)                  :: xupwind, yupwind
-        end subroutine upwindmean_cudaf
-!
-    end interface
-!
-! ... fin de l interface ...............................................
-!
-! ... variables passees en parametre ...................................
-!
-    integer, intent(in)                         :: kvol, kvoisin, model
-    integer, intent(inout)                      :: pp
-    real(fp_kind), intent(in)                   :: hl, ul, vl, hr, ur, vr, zml, zmr, ln
-    real(fp_kind), dimension(2), intent(in)     :: norm
-    real(fp_kind), dimension(3), intent(inout)  :: flux
-    real(fp_kind), dimension(:), intent(in)     :: surf
-    real(fp_kind), dimension(:,:), intent(in)   :: vdlg
-!
-! ... variables locales ................................................
-!
-!================================================================================== 
-    real(fp_kind)                 :: hm, cel, vitess, vitesm, vitesp, hp !,cell, celr
-    real(fp_kind)                 :: hl2, hr2, zml2, zmr2
-    real(fp_kind), dimension(3)   :: fl, fr, flux1, alfa_corrige
-    real(fp_kind), dimension(2,3) :: f
-!
-    integer                 :: i, noeud, dl ,p
-    real(fp_kind)                 :: udeclg, vdeclg, udecrg, vdecrg, limiteurh, limiteurhu, limiteurhv
-    real(fp_kind)                 :: hdecl, udecl, vdecl, hdecr, udecr, vdecr
-    real(fp_kind)                 :: al, ar, het, gl, gr, sl, sr, set, xl, xr
-    real(fp_kind)                 :: xleftupw, yleftupw, xrigtupw, yrigtupw, lamda_local
-    real(fp_kind), dimension(3)   :: courant, bbb, psi, ratio, dloc, dupw
-    real(fp_kind), dimension(5)   :: poids
-!====================================================================
-! ... debut du traitement
-!
-! *** flux a gauche et a droite ***
-!---------------------------------------------------------------------
-!
-    pp = pp + 1
-    hp = hl     
-!
-    f(1,1) = hl * ul
-    f(1,2) = hl * ul**2 + gp_d*hp*(hl+zml)            
-    f(1,3) = hl * ul * vl
-    f(2,1) = hr * ur
-    f(2,2) = hr * ur**2 + gp_d*hp*(hr+zmr)
-    f(2,3) = hr * ur * vr
-!
-!---------------------------------------------------------------------
-!
-	if ( hr <= tolisec_d .or. hl <= tolisec_d )  then
-!
-! *** calcul de la celerite et de la vitsse de propagation d'onde ***
-!
-        hm     = (hl + hr) / 2.d0 
-        vitess = (ul + ur) / 2.d0
-!
-        cel =  sqrt( gp_d * hm )
-        vitesm = vitess  - cel
-        vitesp = vitess  + cel
-!          
-        lamda_local = max( abs(vitesm) , abs(vitess) , abs(vitesp) )          
-!
-!   --- Ur - Ul -------------------------- 
-        fl(1) = (hr + zmr) - (hl+zml)
-        fl(2) = hr * ur - hl * ul
-        fl(3) = hr * vr - hl * vl
-!
-        do dl=1,ndln_d
-            flux1(dl) = ( f(1,dl) + f(2,dl) - lamda_local * fl(dl) ) / 2.d0
-        enddo
-!
-!   ===========================================================================================
-    else    !  L interface separe deux cellules mouillees
-!
-!           *** celerités a gauche et a droite ***
-            al = sqrt( gp_d * hl )
-            ar = sqrt( gp_d * hr )
-!
-!           *** profondeur dans la region etoile ***  Shock-Capturing Methods for Free-Surface Shallow Flows : Toro
-            het  =  ( hl + hr ) / 2  -  ( ur - ul ) * ( hl + hr ) / ( al + ar ) / 4     ! formules (10.17 / 10.18) p178/179
-            if ( het.le.min(hl,hr) ) then       ! == onde de rarefaction :
-                het = ( ( al + ar )/2 + ( ul - ur )/4 )**2 / gp_d
-            else
-                gl = sqrt( 0.5 * gp_d * ( het + hl ) / ( het * hl ) )
-                gr = sqrt( 0.5 * gp_d * ( het + hr ) / ( het * hr ) )
-                het = ( hl * gl + hr * gr + ul - ur ) / ( gl + gr )
-            endif
-!           *** vitesses d'ondes ***
-            if ( hl <= tolisec_d ) then
-                sl  = ur - 2 * ar
-                sr  = ur + ar
-                set = sl
-            else if ( hr <= tolisec_d ) then
-                sl  = ul - al
-                sr  = ul + 2 * al
-                set = sr
-            else
-                if ( het > hl ) then
-                    sl = ul - al * sqrt( het * (het + hl) / 2 ) / hl
-                else
-                    sl = ul - al
-                endif
-                if ( het > hr ) then
-                    sr = ur + ar * sqrt( het * (het + hr) / 2 ) / hr
-                else
-                    sr = ur + ar
-                endif
-                set = ( sl * hr * ( ur - sr ) - sr * hl * ( ul - sl ) ) /  ( hr * ( ur - sr ) - hl * ( ul - sl ) )
-            endif
-!
-!---------------------------------------------------------------------------------------------------------------------
-!			Flux HLLC
-!---------------------------------------------------------------------------------------------------------------------
-!
-                if ( sl >= 0 ) then
-                    do dl=1, ndln_d
-                        flux1(dl) = f(1,dl)
-                    enddo
-                elseif ( sr <= 0 ) then
-                    do dl=1, ndln_d
-                        flux1(dl) = f(2,dl)
-                    enddo
-                elseif ( sl < 0 .and. set >= 0 ) then
-                    flux1(1) = ( sr * f(1,1) - sl * f(2,1) + sl * sr * ( hr - hl ) ) / ( sr - sl )
-                    flux1(2) = ( sr * f(1,2) - sl * f(2,2) + sl * sr * (hr*ur - hl*ul) ) / ( sr - sl )
-                    flux1(3) = flux1(1) * vl
-                elseif ( set <= 0 .and. sr > 0 ) then
-                    flux1(1) = ( sr * f(1,1) - sl * f(2,1) + sl * sr * ( hr - hl ) ) / ( sr - sl )
-                    flux1(2) = ( sr * f(1,2) - sl * f(2,2) + sl * sr * (hr*ur - hl*ul) ) / ( sr - sl )
-                    flux1(3) = flux1(1) * vr
-                endif
-!
-! --------------------------------------------------------------------------------------------------------
-    endif !		de ''if ( hr <= tolisec_d .or. hl <= tolisec_d )''
-! --------------------------------------------------------------------------------------------------------
-!
-! *** inersion du flux ***
-!
-    flux(1) = flux1(1)
-    flux(2) = norm(1) * flux1(2) - norm(2) * flux1(3)
-    flux(3) = norm(2) * flux1(2) + norm(1) * flux1(3)                       
-!
-! ... fin du traitement ................................................
+  interface
 
+    attributes(device) subroutine upwindmean_cudaf(kvol,kvoisin,surf,vdlg,xupwind,yupwind,hautdec,vitudec,vitvdec)
+
+      use global_device
+      use precision_m
+
+      integer, intent(in)                           :: kvol, kvoisin
+      real(fp_kind), dimension(:), intent(in)       :: surf
+      real(fp_kind), dimension(:,:), intent(in)     :: vdlg
+      real(fp_kind), intent(inout)                  :: hautdec, vitudec, vitvdec
+      real(fp_kind), intent(inout)                  :: xupwind, yupwind
+    end subroutine upwindmean_cudaf
+
+  end interface
+
+  integer, intent(in)                         :: kvol, kvoisin, model
+  integer, intent(inout)                      :: pp
+  real(fp_kind), intent(in)                   :: hl, ul, vl, hr, ur, vr, zml, zmr, ln
+  real(fp_kind), dimension(2), intent(in)     :: norm
+  real(fp_kind), dimension(3), intent(inout)  :: flux
+  real(fp_kind), dimension(:), intent(in)     :: surf
+  real(fp_kind), dimension(:,:), intent(in)   :: vdlg
+
+  real(fp_kind)                 :: hm, cel, vitess, vitesm, vitesp, hp !,cell, celr
+  real(fp_kind)                 :: hl2, hr2, zml2, zmr2
+  real(fp_kind), dimension(3)   :: fl, fr, flux1, alfa_corrige
+  real(fp_kind), dimension(2,3) :: f
+
+  integer                 :: i, noeud, dl ,p
+  real(fp_kind)                 :: udeclg, vdeclg, udecrg, vdecrg, limiteurh, limiteurhu, limiteurhv
+  real(fp_kind)                 :: hdecl, udecl, vdecl, hdecr, udecr, vdecr
+  real(fp_kind)                 :: al, ar, het, gl, gr, sl, sr, set, xl, xr
+  real(fp_kind)                 :: xleftupw, yleftupw, xrigtupw, yrigtupw, lamda_local
+  real(fp_kind), dimension(3)   :: courant, bbb, psi, ratio, dloc, dupw
+  real(fp_kind), dimension(5)   :: poids
+
+  pp = pp + 1
+  hp = hl     
+
+  f(1,1) = hl * ul
+  f(1,2) = hl * ul**2 + gp_d*hp*(hl+zml)            
+  f(1,3) = hl * ul * vl
+  f(2,1) = hr * ur
+  f(2,2) = hr * ur**2 + gp_d*hp*(hr+zmr)
+  f(2,3) = hr * ur * vr
+
+  if ( hr <= tolisec_d .or. hl <= tolisec_d )  then
+    ! *** calcul de la celerite et de la vitsse de propagation d'onde ***
+    hm     = (hl + hr) / 2.d0 
+    vitess = (ul + ur) / 2.d0
+
+    cel =  sqrt( gp_d * hm )
+    vitesm = vitess  - cel
+    vitesp = vitess  + cel
+
+    lamda_local = max( abs(vitesm) , abs(vitess) , abs(vitesp) )          
+
+    fl(1) = (hr + zmr) - (hl+zml)
+    fl(2) = hr * ur - hl * ul
+    fl(3) = hr * vr - hl * vl
+
+    do dl=1,ndln_d
+      flux1(dl) = ( f(1,dl) + f(2,dl) - lamda_local * fl(dl) ) / 2.d0
+    enddo
+
+  else    !  L interface separe deux cellules mouillees
+    !           *** celerités a gauche et a droite ***
+    al = sqrt( gp_d * hl )
+    ar = sqrt( gp_d * hr )
+
+    !           *** profondeur dans la region etoile ***  Shock-Capturing Methods for Free-Surface Shallow Flows : Toro
+    het  =  ( hl + hr ) / 2  -  ( ur - ul ) * ( hl + hr ) / ( al + ar ) / 4     ! formules (10.17 / 10.18) p178/179
+
+    if ( het.le.min(hl,hr) ) then       ! == onde de rarefaction :
+      het = ( ( al + ar )/2 + ( ul - ur )/4 )**2 / gp_d
+    else
+      gl = sqrt( 0.5 * gp_d * ( het + hl ) / ( het * hl ) )
+      gr = sqrt( 0.5 * gp_d * ( het + hr ) / ( het * hr ) )
+      het = ( hl * gl + hr * gr + ul - ur ) / ( gl + gr )
+    endif
+    !           *** vitesses d'ondes ***
+    if ( hl <= tolisec_d ) then
+      sl  = ur - 2 * ar
+      sr  = ur + ar
+      set = sl
+    else if ( hr <= tolisec_d ) then
+      sl  = ul - al
+      sr  = ul + 2 * al
+      set = sr
+    else
+      if ( het > hl ) then
+        sl = ul - al * sqrt( het * (het + hl) / 2 ) / hl
+      else
+        sl = ul - al
+      endif
+      if ( het > hr ) then
+        sr = ur + ar * sqrt( het * (het + hr) / 2 ) / hr
+      else
+        sr = ur + ar
+      endif
+      set = ( sl * hr * ( ur - sr ) - sr * hl * ( ul - sl ) ) /  ( hr * ( ur - sr ) - hl * ( ul - sl ) )
+    endif
+
+    !			Flux HLLC
+    if ( sl >= 0 ) then
+      do dl=1, ndln_d
+        flux1(dl) = f(1,dl)
+      enddo
+    elseif ( sr <= 0 ) then
+      do dl=1, ndln_d
+        flux1(dl) = f(2,dl)
+      enddo
+    elseif ( sl < 0 .and. set >= 0 ) then
+      flux1(1) = ( sr * f(1,1) - sl * f(2,1) + sl * sr * ( hr - hl ) ) / ( sr - sl )
+      flux1(2) = ( sr * f(1,2) - sl * f(2,2) + sl * sr * (hr*ur - hl*ul) ) / ( sr - sl )
+      flux1(3) = flux1(1) * vl
+    elseif ( set <= 0 .and. sr > 0 ) then
+      flux1(1) = ( sr * f(1,1) - sl * f(2,1) + sl * sr * ( hr - hl ) ) / ( sr - sl )
+      flux1(2) = ( sr * f(1,2) - sl * f(2,2) + sl * sr * (hr*ur - hl*ul) ) / ( sr - sl )
+      flux1(3) = flux1(1) * vr
+    endif
+  endif !		de ''if ( hr <= tolisec_d .or. hl <= tolisec_d )''
+
+  ! *** inersion du flux ***
+  flux(1) = flux1(1)
+  flux(2) = norm(1) * flux1(2) - norm(2) * flux1(3)
+  flux(3) = norm(2) * flux1(2) + norm(1) * flux1(3)                       
 end subroutine solver_Riemann_cudaf
