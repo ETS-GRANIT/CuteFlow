@@ -3,6 +3,7 @@ attributes(global) subroutine cflcond_cudaf(solut_d, deltatmin_d)
   !     cfl_dcond = calculation of the time step following the cfl_d
   !     auteur : Youssef Loukili  GRANIT ETSMTL
   !     version : 1.0  ;  May 12 2003
+  ! ======================================================================
 
   use precision_m
   use global_device

@@ -195,7 +195,7 @@ program general
   call MPI_COMM_SIZE (MPI_COMM_WORLD, num_procs, mpi_ierr)
 
   !! Setting proper GPU device for each MPI process
-  ierr = cudaDeviceReset()
+  !! ierr = cudaDeviceReset()
   call assignDevice(dev)
   ierr = cudaSetDevice(dev)
   ierr = cudaGetDeviceProperties (prop , 0)

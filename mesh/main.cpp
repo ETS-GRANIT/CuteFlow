@@ -718,7 +718,7 @@ int main(int argc, char* argv[]){
   cout << "Ecriture des fichiers de maillages finaux." << endl;
   for(int p=0;p<nParts;p++){
     cout << "Part " << p << ", " << fantElemsRecep[p].size() << " mailles à recep et " << fantElemsEnvoi[p].size() << " à envoyer." << endl;
-    //ecritureFem(p, newNodes[p], newElems[p]);
+    ecritureFem(p, newNodes[p], newElems[p]);
     //ecritureFant(p,newNodes[p], newElems[p], new_entreNodes[p], new_sortieNodes[p], new_wallNodes[p], fantElemsRecep[p], fantElemsEnvoi[p]);
     ecriture(fileName, p,newNodes[p], newElems[p], new_entreNodes[p], new_sortieNodes[p], new_wallNodes[p], fantElemsRecep[p], fantElemsEnvoi[p], infoRecep[p], infoEnvoi[p]);
     ecritureLiens(p, nLTG[p]);
