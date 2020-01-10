@@ -32,11 +32,12 @@ module global
 
   !! Variables donnees initiales
   character(len=200)  :: fich_sol_init
-  integer             :: solinit, eqlin_barrage
+  integer             :: solinit, eqlin_barrage, plan
   real(fp_kind)             :: h_amont, u_amont, v_amont, h_aval, u_aval, v_aval
+  real(fp_kind)             :: h_point, xplan, yplan, zplan, xpoint, ypoint
   real(fp_kind)             :: xcenter, ycenter, xgate, rayon, x1eqbar, x2eqbar, y1eqbar, y2eqbar
   namelist/datainit/ h_amont, u_amont, v_amont, h_aval, u_aval, v_aval, & 
-    & xgate, xcenter, ycenter, rayon, eqlin_barrage, x1eqbar, x2eqbar, y1eqbar, y2eqbar, solinit, fich_sol_init
+    & xgate, xcenter, ycenter, rayon, eqlin_barrage, x1eqbar, x2eqbar, y1eqbar, y2eqbar, plan, h_point, xplan, yplan, zplan, xpoint, ypoint, solinit, fich_sol_init
 
   !! Variables donnees de simulation
   character(len=10)   :: timedisc

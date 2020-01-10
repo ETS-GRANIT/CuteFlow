@@ -389,7 +389,7 @@ subroutine Full_FV
   iaff = 0
   do while ( (tc - ts + 2*tol ) < tol )
     !!do while ( nt < 1 )
-    !!do while ( nt < 100 )
+  !!do while ( nt < 100 )
 
     call cpu_time(tb1)
 
@@ -735,11 +735,14 @@ subroutine Full_FV
     call cpu_time(te2)
 
     if ( mod(nt,freqaffich)==0 ) then
-      print*, "**** Performance calculs vs echange mémoire **** "
+      print*, "Performance calculs vs echange mémoire"
       print*, "temps calculs ", te1-tb1
       print*, "temps echange ", te2-te1
       print*, "%temps echange ", 100*(te2-te1)/(te2-tb1)
       print*,"dt = ", dt
+      call sol_nodes(vdlg,surf,zm,sh0,she0,shu0,shv0,su0,sv0)
+      vdlg = vdlg_d
+      call paraview_export (she0, sh0, shu0, shv0, nt/freqaffich)
     end if
 
   enddo 

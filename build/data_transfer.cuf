@@ -47,6 +47,15 @@ subroutine global_data_transfer
   y1eqbar_d           = y1eqbar
   y2eqbar_d           = y2eqbar
 
+  plan_d = plan
+  xplan_d = xplan
+  yplan_d = yplan
+  zplan_d = zplan
+  h_point_d = h_point
+  xpoint_d = xpoint
+  ypoint_d = ypoint
+  
+
   !! Simulation variables
   if(inlet == 'transm') then
     tempinlet = 1

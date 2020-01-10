@@ -167,6 +167,19 @@ attributes(global) subroutine cond_initial_cudaf(zm_d, ut_d, ut1_d, visio_d)
     endif
     !
 
+    if (plan_d==1) then
+      ut_dgi1 = (-xplan_d*(xpoint_d-v1)-yplan_d*(ypoint_d-v2))/zplan_d + h_point_d - zmd
+      ut_d(1,gi) = ut_dgi1
+
+      if ( ut_dgi1 > tolisec_d ) then
+        ut_d(2,gi) = u_aval_d
+        ut_d(3,gi) = v_aval_d
+      else
+        ut_d(1,gi) = tolisec_d
+        ut_d(2,gi) = 0.00
+        ut_d(3,gi) = 0.00
+      endif
+    endif
     ut1_d(1,gi) = ut_d(1,gi) + zmd
 
     if(test_d == 8) ut1_d(1,gi) = max(ut_d(1,gi),zmd)  ! CAS DU BOL PARABOLIQUE (CASE OF THE PARABOLIC BOWL)

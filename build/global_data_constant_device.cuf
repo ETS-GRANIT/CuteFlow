@@ -17,11 +17,12 @@ module global_device
   integer, constant                :: ncel_d, elt_bound_d
 
   !! Initial data variables
-  integer, constant                  :: solinit_d, eqlin_barrage_d
+  integer, constant                  :: solinit_d, eqlin_barrage_d, plan_d
   real(fp_kind), constant            :: h_amont_d, u_amont_d, v_amont_d
   real(fp_kind), constant            :: h_aval_d, u_aval_d, v_aval_d
   real(fp_kind), constant            :: xcenter_d, ycenter_d, xgate_d
   real(fp_kind), constant            :: rayon_d, x1eqbar_d, x2eqbar_d, y1eqbar_d, y2eqbar_d
+  real(fp_kind), constant            :: xplan_d, yplan_d, zplan_d, xpoint_d, ypoint_d, h_point_d
 
   !! Simulation variables
   integer, constant:: test_d, iflux_d, limiteur_d, grd_d, visual_d, fricimplic_d, debit_var_d, inlet_d  
