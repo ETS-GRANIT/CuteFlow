@@ -228,8 +228,7 @@ subroutine stock_coupe2D(solh, soleta, solhu, solu)
     do j=1,nbrcoupes
       nbr_nds_coupes(j) = 0
       write(no_coupe,'(i2)') j
-      if (pod==0) solfile2d = genrtest //'FV-'// '2D_' //  'coupe_' // no_coupe // valtemps // 's'// '.txt'
-      if (pod==1) solfile2d = genrtest //'POD-'// '2D_' // 'coupe_' // no_coupe // valtemps // 's'// '.txt'
+      solfile2d = genrtest //'FV-'// '2D_' //  'coupe_' // no_coupe // valtemps // 's'// '.txt'
       open(unit=ec_sol2d,file=solfile2d,status="unknown")
       do i=1,nnt
         coupe_y = coupe_a(j) * coordonnees(i,1) + coupe_b(j)
@@ -269,13 +268,6 @@ subroutine ouv_fichiers(vdlg, vdlg1, zm)
   use m_param
 
   implicit none
-
-  interface
-    subroutine entree_sortie_domaine
-      use global
-      use m_param
-    end subroutine entree_sortie_domaine
-  end interface
 
   real(fp_kind), dimension(:), intent(in)         :: zm
   real(fp_kind), dimension(:,:), intent(inout)    :: vdlg, vdlg1
@@ -354,45 +346,14 @@ subroutine ouv_fichiers(vdlg, vdlg1, zm)
     !ts=2*3.1416/sqrt(8*gp*h0)
   endif
   
-  !! Fichiers POD/ROM
-  !! Attention : POD part of the code is not parallelised
-  if (shot == 1) open(unit=350,file='SNAPSHOT.txt',status="unknown")
-
-  if (pod==1) then
-    open(unit=351,file='LAMDA_POD.txt',status="unknown")
-    open(unit=ec_param_pod,file='Parametres_POD.txt',status="unknown")
-    if (test==8) open(unit=400,file='bol_Imput_POD.txt',status="unknown")
-  endif
-
-  if (pod==0 .and. shot==1) then 
-    allocate(lamda_stock(nelt,3))
-    lamda_stock = 0.d0
-    open(unit=398,file='lamda_snapshot.txt',status="unknown")
-    open(unit=4999,file='Q_eta.txt',status="unknown")
-    open(unit=501,file='Q_eta_tild.txt',status="unknown")
-    open(unit=502,file='Q_hu.txt',status="unknown")
-    open(unit=503,file='Q_hv.txt',status="unknown")
-    open(unit=504,file='Q_h.txt',status="unknown")
-    open(unit=505,file='Q_u.txt',status="unknown")
-    open(unit=506,file='Q_v.txt',status="unknown")
-    open(unit=555,file='Q_coef_friction.txt',status="unknown")
-  endif
-
   !! Ouverture du fichier de stockage des solutions 2D  (Opening the 2D solution storage file)
   write(valtemps,'(f12.3)') TS
   if (multi_simul==0 ) then 
-    if (pod==0) solfile2d_MC = genrtest // 'FV--  ' //'Q'// debit_tot // ' n'// coef_frot// 't' //valtemps // 's'// '.txt'
-    if (pod==1) solfile2d_MC = genrtest // 'POD-PID--  ' //'Q'// debit_tot // ' n'// coef_frot// 't' //valtemps // 's'// '.txt'
+    solfile2d_MC = genrtest // 'FV--  ' //'Q'// debit_tot // ' n'// coef_frot// 't' //valtemps // 's'// '.txt'
   endif
   if (monte_carlo==1 ) then
-    if (pod==0) then
-      solfile2d_MC = 'SOL_FV_MULTISIM_2D.txt'
-      solfile3d_MC = 'SOL_FV_MULTISIM_3D.txt'
-    endif
-    if (pod==1) then
-      solfile2d_MC = 'SOL_POD_MULTISIM_2D.txt'
-      solfile3d_MC = 'SOL_POD_MULTISIM_3D.txt'
-    endif
+    solfile2d_MC = 'SOL_FV_MULTISIM_2D.txt'
+    solfile3d_MC = 'SOL_FV_MULTISIM_3D.txt'
     open(unit=3002,file=solfile2d_MC,status="unknown")
     open(unit=3003,file=solfile3d_MC,status="unknown")
   endif
@@ -401,8 +362,6 @@ subroutine ouv_fichiers(vdlg, vdlg1, zm)
     file_Q_coupes = genrtest // 'FV- ' //'debit_coupes'//'.txt'
     open(unit=ec_Q_coupes,file=file_Q_coupes,status="unknown")
   endif
-
-  if (pod==0 .and. shot==1)  call entree_sortie_domaine
 
 end subroutine ouv_fichiers
 
@@ -568,74 +527,6 @@ subroutine res_elem_selct_ligne(icel,bathy,solution)
   close(721)
 end subroutine res_elem_selct_ligne
 
-subroutine entree_sortie_domaine
-  ! =========================================================================
-  !     entree_domaine : Routine pour extraire les cellules à l'entrée du domaine,
-  !                      les longueurs des interfaces et les vecteurs normaux
-  !     auteur : Jean-Marie Zokagoa  GRANIT ETSMTL
-  !     version : 2.0  ;  Mars 28 2011
-  ! =========================================================================
-  
-  use precision_m
-  use global
-  use m_param
-
-  integer               :: i, nc1, nc2, ne, j
-  real(fp_kind)               :: x1, x2, y1, y2, ln
-  real(fp_kind), dimension(2) :: norm
-
-  open(unit=507,file=genrtest //'Donnees_POD_Entree.dat',status="unknown")
-  write(507,*) ndi-1
-  open(unit=508,file=genrtest //'Donnees_POD_Sortie.dat',status="unknown")
-  write(508,*) ndo-1  
-
-  do i=1,nelt
-    do j=1,ns
-      if(boundary(i,j)==-1) then  ! Frontière = Entree
-        nc1 = connectivite(i,j)
-        if ( j < ns ) then
-          nc2 = connectivite(i,j+1)
-        else
-          nc2 = connectivite(i,1) 
-        endif
-        !! *** calcul du vecteur normal à ce coté ***
-        x1 = coordonnees(nc1,1)
-        x2 = coordonnees(nc2,1)
-        y1 = coordonnees(nc1,2)
-        y2 = coordonnees(nc2,2)
-        ln = sqrt( (x2 - x1)**2 + (y2 - y1)**2 )
-        norm(1) = ( y2 - y1 ) / ln
-        norm(2) = ( x1 - x2 ) / ln
-
-        write(507,'(i6,3f16.8)') i, ln, norm(1), norm(2)
-      endif
-
-      if(boundary(i,j)==-2) then  ! Frontière = Sortie
-        nc1 = connectivite(i,j)
-        if ( j < ns ) then
-          nc2 = connectivite(i,j+1)
-        else
-          nc2 = connectivite(i,1) 
-        endif
-        !! *** calcul du vecteur normal à ce coté ***
-        x1 = coordonnees(nc1,1)
-        x2 = coordonnees(nc2,1)
-        y1 = coordonnees(nc1,2)
-        y2 = coordonnees(nc2,2)
-        ln = sqrt( (x2 - x1)**2 + (y2 - y1)**2 )
-        norm(1) = ( y2 - y1 ) / ln
-        norm(2) = ( x1 - x2 ) / ln
-
-        write(508,'(i6,3f16.8)') i, ln, norm(1), norm(2)
-      endif
-    enddo
-  enddo
-  
-  close(507)
-  close(508)
-
-end subroutine entree_sortie_domaine
-
 subroutine lecture_fichier_matlab(nfichier, ni, nj, matrx)
   ! =======================================================================
   !     lecture_fichier_matlab : range en matrice le vecteur issu de matlab
@@ -775,7 +666,8 @@ subroutine paraview_export(solh, soleta, solhu, solhv, ci)
   write(ec_Paraview,'(a,I10,a)') "POINTS", nnt, " float"
 
   do nd=1, nnt
-    write(ec_Paraview,'(3f16.6)') coordonnees(nd,1), coordonnees(nd,2), soleta(nd)-solh(nd)
+    !!write(ec_Paraview,'(3f16.6)') coordonnees(nd,1), coordonnees(nd,2), soleta(nd)-solh(nd)
+    write(ec_Paraview,'(3f16.6)') coordonnees(nd,1), coordonnees(nd,2), 0
   end do
 
   write(ec_Paraview,'(a)') ""
@@ -803,6 +695,13 @@ subroutine paraview_export(solh, soleta, solhu, solhv, ci)
   write(ec_Paraview,'(a)') "LOOKUP_TABLE default"
   do nd=1, nnt
     write(ec_Paraview,'(f16.6)') solh(nd)
+  end do
+
+  write(ec_Paraview,'(a)') ""
+  write(ec_Paraview,'(a)') "SCALARS b float"
+  write(ec_Paraview,'(a)') "LOOKUP_TABLE default"
+  do nd=1, nnt
+    write(ec_Paraview,'(f16.6)') soleta(nd)-solh(nd)
   end do
 
   write(ec_Paraview,'(a)') ""
@@ -842,8 +741,7 @@ subroutine tecplot_export(solh, soleta, solhu, solhv)
 
   if ( start == 1 ) then
 
-    if(pod==0) tecplot   =  genrtest//'FV Tecplot.dat'
-    if(pod==1) tecplot   =  genrtest//'POD Tecplot.dat'
+    tecplot   =  genrtest//'FV Tecplot.dat'
 
     open(unit=ec_tecplot,file=tecplot,status="unknown")
 

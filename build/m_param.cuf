@@ -24,7 +24,6 @@
       integer, parameter :: ec_bound_r          = 25        ! fichier lecture table elts frontiers (elts frontiers table reading file)
       integer, parameter :: lec_mesh            = 200       ! fichier lecture d'un maillage non structure (file reading an unstructured mesh)  
       integer, parameter :: ec_tecplot          = 300       ! fichier ecriture solution 3d pour Bluekenu (file writing 3d solution for Bluekenu) 
-      integer, parameter :: ec_param_pod        = 397       ! fichier ecriture parametres POD (POD parameter writing file)
       integer, parameter :: ec_solj_eta         = 796       ! fichier ecriture solution jauges (file writing solution gauges) 
       integer, parameter :: ec_solj_h           = 797       ! fichier ecriture solution jauges (file writing solution gauges)      
       integer, parameter :: ec_solj_u           = 798       ! fichier ecriture solution jauges (file writing solution gauges) 

@@ -28,7 +28,7 @@ module global_device
   integer, constant:: test_d, iflux_d, limiteur_d, grd_d, visual_d, fricimplic_d, debit_var_d, inlet_d  
   integer, constant:: freqvisual_d, freqaffich_d, freqjauges_d, nbrjauges_d, nbrcoupes_d, densite_coupe_d, instjauges_d, soldomaine_d, n_soldom_d
   integer, constant:: comptvisu_d, cptvis2d_d, cptvis3d_d, cptvideo_d, cptvisjauge_d, cptvisdom_d, cptdebit_d 
-  real(fp_kind), constant:: long_d, critere_arret_d, debitglob_d, h_sortie_d, h_pod_d, alfa_d, delta_Q_pod_d
+  real(fp_kind), constant:: long_d, critere_arret_d, debitglob_d, h_sortie_d, alfa_d
   real(fp_kind), constant:: tbase_d, divbase_d, ts_d, tsstab_d, dt_d, cfl_d, tol_d, tolisec_d, tolratio_d, tolaffiche_d, tol_reg_perm_d
   integer, constant:: multi_simul_d, monte_carlo_d
 
@@ -36,7 +36,7 @@ module global_device
 
   integer, constant:: w_d, idim_d, ndim_d, ndln_d     
   integer, constant:: departchrono_d
-  integer, constant:: podftfull_d, convec_d
+  integer, constant:: convec_d
   real, constant   :: tolisec2_d, tolhfriction_d
 
   integer, constant:: nelt_d, nnt_d, ns_d, ndi_d, ndo_d, ndw_d, correction_d, prediction_d, nbase_d, nbase_h_d, nbase_eta_d, nbase_eta_tild_d, nbase_hu_d, nbase_hv_d, nbase_u_d, nbase_v_d, maxdimbase_d

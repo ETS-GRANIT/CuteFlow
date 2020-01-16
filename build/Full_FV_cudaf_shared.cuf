@@ -224,27 +224,13 @@ subroutine Full_FV
   comptvisu   = 0
   cptvis2d    = 1
   cptvis3d    = 1
-  compt_snap  = 1
   cptvisjauge = 1
   tc_d        = tc
   kk          = 1
   is_solnode  = 0
 
-  !Attention : POD part of the code is not parallelised
-  if (shot==1) pod=0
-  !   -------------------------------------------
-  if (shot==1) then
-    do ii = 1,nsnap  ! Nombre de Snapshot
-      tvis3d2(ii) =  ii*ts/nsnap
-    end do
-  endif
-  !   -------------------------------------------
   print*, ''
   print*, 'FULL-ORDER : VOLUMES FINIS'
-  print*, ''
-
-  !Attention : POD part of the code is not parallelised
-  if(shot==1) print*, 'Stockage des Snaphots'
   print*, ''
 
   allocate(res1( ndln,nelt))
@@ -388,7 +374,7 @@ subroutine Full_FV
   write(*,*) 'Loop over time starts' 
   iaff = 0
   do while ( (tc - ts + 2*tol ) < tol )
-    !!do while ( nt < 1 )
+  !!do while ( nt < 3 )
   !!do while ( nt < 100 )
 
     call cpu_time(tb1)
@@ -527,16 +513,6 @@ subroutine Full_FV
       endif
 
       call cuda_glerror('ierr<-calcul_residue_ele_cudaf <-- Full_FV_cudaf_shared.cuf',1)
-
-      !Stockage du flux pour le POD
-      !Attention : POD Part of this code is not parallelised
-      if (pod==0 .and. shot==1) then 
-        if ( abs( tc - tvis3d2(cptvis3d) ) < 1.0E-01) then 
-          vdlg = vdlg_d
-          call cuda_glerror('ierr<- (D->H) meme transfer to vdlg <-- Full_FV_cudaf_shared.cuf',1)
-          write(405,*) vdlg(1,iel)                                             
-        endif                   
-      endif
 
     enddo  !!End of loop over time step iterations
 
@@ -688,13 +664,6 @@ subroutine Full_FV
     endif
     rewind (ec_sol_elt_t)
     rewind (ec_sol_nd_t)
-
-    !! *****  STOCKAGE DE LA SOLUTION SNAPSHOT POUR LE POD  ******
-    !Attention : POD part of the code is not parallelised
-    if (shot==1) then
-      start=0
-      call pod_snapshot(vdlg, vdlg0, vdlg1, vdlg01)
-    endif
 
     if ( debitglob > 0.0 .and. debit_sortie0 > tol_reg_perm ) then
       !if ( (abs(debit_sortie0 - debit_sortie) < 1.0E-10) .or. (abs(debit_entree - debit_sortie)/debit_entree < tol_reg_perm) ) then

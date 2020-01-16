@@ -46,13 +46,12 @@ module global
   integer :: test, iflux, limiteur, pas_dt, grd, visual, fricimplic, debit_var  
   integer :: freqvisual, freqaffich, freqjauges, nbrjauges, nbrcoupes, densite_coupe, instjauges, soldomaine, n_soldom
   integer :: comptvisu, cptvis2d, cptvis3d, cptvideo, cptvisjauge, cptvisdom, cptdebit 
-  real(fp_kind) :: long, critere_arret, debitglob, h_sortie, h_pod, alfa, delta_Q_pod
+  real(fp_kind) :: long, critere_arret, debitglob, h_sortie, alfa
   real(fp_kind) :: tbase, divbase, ts, tsstab, dt, cfl, tol, tolisec, tolratio, tolaffiche, tol_reg_perm
   real(fp_kind), dimension(10) :: coupe_a, coupe_b, long_coupe
   real(fp_kind), dimension(100000) :: tvis2d , tvis3d 
   real(fp_kind), dimension(100) :: xjauges , yjauges
-  real(fp_kind) :: fact_lamda_pod, fact_h_pod, fact_lamda_pod_tild
-  integer :: pod, pid, shot, nsnap, n_video, base_unique, uselamdapodmoymax, nonlin, video, dim, k_base
+  integer :: n_video, base_unique, nonlin, video, dim, k_base
   integer :: multi_simul, monte_carlo
 
   namelist/datasimul/ test, nom_test, iflux, limiteur, fricimplic, timedisc, & 
@@ -60,8 +59,8 @@ module global
     & tbase, divbase, ts, dt, pas_dt, cfl, tol_reg_perm, tol, tolisec, tolratio, tolaffiche, & 
     & grd, visual, freqvisual, freqaffich, freqjauges, instjauges, &
     & nbrjauges, xjauges, yjauges, nbrcoupes, densite_coupe, coupe_a, coupe_b, long_coupe,  &
-    & tvis2d, tvis3d, soldomaine, n_soldom, video, n_video, alfa, pod, shot, nsnap,&
-    & uselamdapodmoymax, fact_lamda_pod, fact_lamda_pod_tild, fact_h_pod, dim, multi_simul, monte_carlo
+    & tvis2d, tvis3d, soldomaine, n_soldom, video, n_video, alfa, &
+    & dim, multi_simul, monte_carlo
 
   !! Input pour l'analyse stochastiqu
   character (2)  :: key, genrelt
@@ -70,29 +69,28 @@ module global
   character (30) :: aaa1, bbb1, ntrirec, genrtest, genrmeth
   character (30) :: valtemps, D_ETA, D_DEBIT, AFF_DEBITS, debit_tot, coef_frot
   character (2)  :: njaug
-  character (200):: SOLFILE2D, SOLFILE3D, SOLFILE2D_MC, SOLFILE3D_MC, TECPLOT, SOLFILEMC, fichsolfile3d_MC_FV, fichsolfile3d_MC_POD 
+  character (200):: SOLFILE2D, SOLFILE3D, SOLFILE2D_MC, SOLFILE3D_MC, TECPLOT, SOLFILEMC, fichsolfile3d_MC_FV 
   character (200):: SOLFILEJ_ETA, SOLFILEJ_H, SOLFILEJ_U, SOLFILEJ_V, fich_debit_coupe, file_BC, file_Q_coupes
   character (200):: sol_elt_ts, sol_elt_final, sol_nd_ts, sol_nd_final 
   character (200):: solfile_eta_T3S, solfile_h_T3S, solfile_u_T3S, solfile_v_T3S
   character (200):: solfile_para
 
-  character (20):: base_h_num, base_eta_num, base_eta_tild_num, base_hu_num, base_hv_num, base_u_num, base_v_num, lamda_moy_num, lamda_max_num, h_pod_num, fric_pod_num
+  character (20):: base_h_num, base_eta_num, base_eta_tild_num, base_hu_num, base_hv_num, base_u_num, base_v_num, lamda_moy_num, lamda_max_num
   character (1)::  num_seq_base1
   character (2)::  num_seq_base2
   character (3)::  num_seq_base3
 
   integer, parameter :: w=1, idim=1000, ndim=2, ndln=3     
   integer, parameter :: departchrono=1
-  integer, parameter :: podftfull=1, convec=1
+  integer, parameter :: convec=1
   real,    parameter :: tolisec2=1.e-6, tolhfriction=1.e-4
 
-  integer :: n_seq_base, i_seq_pod, compt_snap    
+  integer :: n_seq_base     
   integer :: nelt, nnt, ns, ndi, ndo, ndw, correction, prediction, nbase, nbase_h, nbase_eta, nbase_eta_tild, nbase_hu, nbase_hv, nbase_u, nbase_v, maxdimbase
   integer :: nelt_loc, nnt_loc
   integer :: nelt_fant_recep, nelt_fant_envoi
   integer :: nelt_fant_recep_bloc, nelt_fant_envoi_bloc
   integer :: nelt_entree, nelt_sortie, n_Q, tc_init, start
-  real(fp_kind) :: t_seq_pod, dt_seq_pod    
 
   real(fp_kind) :: tc, cotemin, t_reg_perm, flux_total, long_entree, debit_n, x0, vol_tot_entre, vol_tot_sorti, debit_sortie,debit_sortie0, debit_entree, distcote
   real(fp_kind) :: h0, coef_bol  ! Pour le problème du bol parabolique 
@@ -114,10 +112,10 @@ module global
   real(fp_kind), dimension(:),     allocatable :: huun1full, huun2full, huvn1full, hvvn2full, BQi_eta, BQi_hu, BQi_hv 
   real(fp_kind), dimension(:,:),   allocatable :: Bi_jp,Bijp,Bijpn1_eta,Bijpn2_eta,Bijpn3_hu,Bijpn3_hv,Bi_jp_hu,Bi_jp_hv
   real(fp_kind), dimension(:,:,:), allocatable :: Bijpn_uhu, Bijpn_uhv, Bijpn_vhu, Bijpn_vhv
-  real(fp_kind), dimension(:),     allocatable :: Bzmij, vectpod1, vectpod2, vectpod3, phi_h_zi, podlamdamoy, podlamdamax, h_pod_elt, coef_fric_pod_elt
-  real(fp_kind), dimension(:,:),   allocatable :: lamda_stock, vectpod, podlamdainterf, donnees_entree, donnees_sortie
-  real(fp_kind)                                :: podlamda,podlamda_moy,podlamda_max, lamda, max_a_eta, coef_friction_pod
-  real(fp_kind), dimension(:)  ,   allocatable :: podlamdafull, zero_pod, sourcfric_hu, sourcfric_hv, pod_friction_hu, pod_friction_hv, elts_entree, elts_sortie
+  real(fp_kind), dimension(:),     allocatable :: Bzmij, phi_h_zi
+  real(fp_kind), dimension(:,:),   allocatable :: lamda_stock, donnees_entree, donnees_sortie
+  real(fp_kind)                                :: lamda, max_a_eta
+  real(fp_kind), dimension(:)  ,   allocatable :: sourcfric_hv, elts_entree, elts_sortie
   real(fp_kind), dimension(:,:),   allocatable :: Cg2_eta_tild, Cg3_eta_tild, debit_t
 
   real(fp_kind), dimension(10)                 :: Q_coupe

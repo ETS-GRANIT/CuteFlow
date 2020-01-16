@@ -82,26 +82,6 @@ program general
       real(fp_kind), dimension(:), intent(in)      :: zm
     end subroutine v_tecplot_vol
 
-    subroutine entree_sortie_domaine
-      use precision_m
-      use global
-      use m_param
-    end subroutine entree_sortie_domaine
-
-    subroutine matrice_POD(zm,surf)
-      use precision_m
-      use global
-      use m_param
-      real(fp_kind), dimension(:),  intent(in)  :: zm, surf
-    end subroutine matrice_POD
-
-    subroutine pod_source_friction(surf,zm)
-      use precision_m
-      use global
-      use m_param
-      real(fp_kind), dimension(:),  intent(in)  :: zm, surf
-    end subroutine pod_source_friction
-
     subroutine prod_Mpk_vect(droite,ni,nj,mat,vect1,vect2)
       use precision_m
       integer ,  intent(in)               :: ni,nj, droite
@@ -158,22 +138,6 @@ program general
       use m_param
     end subroutine Full_FV
 
-    subroutine POD_ROM(vdlg,vdlg0,vdlg1,vdlg01,sh0,she0,shu0,shv0,su0,sv0,surf,zm,ti,tf)
-      use precision_m
-      real(fp_kind),intent(out)                    :: ti, tf
-      real(fp_kind), dimension(:), intent(in)      :: surf, zm
-      real(fp_kind), dimension(:), intent(inout)   :: sh0, she0, shu0, shv0, su0, sv0
-      real(fp_kind), dimension(:,:), intent(inout) :: vdlg, vdlg0, vdlg1, vdlg01
-    end subroutine POD_ROM
-
-    subroutine POD_PID_ROM(vdlg,vdlg0,vdlg1,vdlg01,sh0,she0,shu0,shv0,su0,sv0,surf,zm,ti,tf)
-      use precision_m
-      real(fp_kind),intent(out)                    :: ti, tf
-      real(fp_kind), dimension(:), intent(in)      :: surf, zm
-      real(fp_kind), dimension(:), intent(inout)   :: sh0, she0, shu0, shv0, su0, sv0
-      real(fp_kind), dimension(:,:), intent(inout) :: vdlg, vdlg0, vdlg1, vdlg01
-    end subroutine POD_PID_ROM
-
     subroutine tecplot_export(solh, soleta, solhu, solhv)
       use precision_m
       use global
@@ -217,14 +181,6 @@ program general
 
   !! Preparation of solution file names: solfile2d and solfile3d ****
   write(genrtest, "(I2)") my_id
-  !genrtest = genrtest//nom_test
-  !print*,'Test en cours : ', nom_test, genrtest
-
-  !! Fixed simulation parameters if snapshots are stored
-  if (shot==1) then
-    pod=0
-    multi_simul=0
-  endif
 
   !! Initization of the iteration counters
   comptvisu        = 0
@@ -283,7 +239,7 @@ program general
     enddo
   endif
 
-  if (multi_simul ==0) then
+  if (multi_simul == 0) then
     !! Calculation of the area and the gradient term z of each element
     tblock = dim3(64, 1, 1)
     grid   = dim3(ceiling(real(nelt)/real(tblock%x)), 1, 1)
@@ -345,27 +301,6 @@ program general
     write(*,*) '======================================================================'
     write(*,*) '======================================================================'
 
-    !! Attention : POD part of the code is not parallelised
-    if (pod==1) then 
-      !! Reading the elements at the entrance of the domain for the imposition of the flow
-      open(unit=507,file=genrtest //'Donnees_POD_Entree.dat',status="old")
-      read(507,*) nelt_entree
-      allocate(donnees_entree(nelt_entree,4))
-      do i=1,nelt_entree
-        read(507,*) donnees_entree(i,1), donnees_entree(i,2), donnees_entree(i,3), donnees_entree(i,4)
-      enddo
-      close(507)    
-
-      !! Read the elements at the domain output for imposition of the output stream condition
-      open(unit=508,file=genrtest //'Donnees_POD_Sortie.dat',status="old")
-      read(508,*) nelt_sortie
-      allocate(donnees_sortie(nelt_sortie,4))
-      do i=1,nelt_sortie
-        read(508,*) donnees_sortie(i,1), donnees_sortie(i,2), donnees_sortie(i,3), donnees_sortie(i,4)
-      enddo
-      close(508)
-    endif       
-
     !! Initialisation a zero des differents vecteurs
     vdlg0              = zero
     vdlg01             = zero
@@ -410,13 +345,6 @@ program general
       call paraview_export (she0, sh0, shu0, shv0, 0)
     endif
 
-    !! Stockage des Snapshots : Solution Initiale
-    !! Attention : POD part of the code is not parallelised
-    if (shot==1) then
-      start=1 
-      call pod_snapshot(vdlg, vdlg0, vdlg1, vdlg01)
-    endif
-
     !! Storage solution for 2D slices
     if (nbrcoupes > 0 ) then
       start=1
@@ -432,11 +360,7 @@ program general
 
     !! FULL FINITE VOLUME
     write(*,*) '***** FULL_FV *****'
-    if(pod==0) call Full_FV 
-
-    !! POD/ROM                                        
-    if(pod==1) call POD_PID_ROM(vdlg,vdlg0,vdlg1,vdlg01,sh0,she0,shu0,shv0,su0,sv0,surf,zm,ti,tf)
-
+    call Full_FV 
   elseif (multi_simul == 1) then
     !! Calcul de la surface et du terme gradient z de chaque élément
     tblock = dim3(64, 1, 1)
@@ -454,8 +378,7 @@ program general
 
     if (nbrcoupes > 0) then 
       write(valtemps,'(f12.3)') ts
-      if (pod==0) solfileMC = genrtest // 'FV-MC' // valtemps // 's'// '.dat'
-      if (pod==1) solfileMC = genrtest // 'POD-MC' // valtemps // 's'// '.dat'
+      solfileMC = genrtest // 'FV-MC' // valtemps // 's'// '.dat'
       open(unit=3000,file=solfileMC,status="unknown")
     endif
 
@@ -475,28 +398,6 @@ program general
       vdlg1_d  = vdlg1
 
       call cuda_glerror('ierr <- data transfer to (vdlg0_d  and vdlg01_d) <-- general_cudaf.cuf',1)  
-
-      !! Attention : POD part of the code is not parallelised
-      if (pod==1) then
-        !! Lecture des éléments à l'entrée du domaine pour l'imposition du débit
-        open(unit=507,file='Donnees_entree_dom.dat',status="old")
-        read(507,*) nelt_entree
-        allocate(donnees_entree(nelt_entree,4))
-        do i=1,nelt_entree
-          read(507,*) donnees_entree(i,1), donnees_entree(i,2), donnees_entree(i,3), donnees_entree(i,4)
-        enddo
-        close(507)    
-
-        !! Lecture des éléments à la sortie du domaine pour l'imposition de la condition de flux de sortie  
-        open(unit=508,file='Donnees_sortie_dom.dat',status="old")
-        read(508,*) nelt_sortie
-        allocate(donnees_sortie(nelt_sortie,4))
-        do i=1,nelt_sortie
-          read(508,*) donnees_sortie(i,1), donnees_sortie(i,2), donnees_sortie(i,3), donnees_sortie(i,4)
-        enddo
-        close(508)
-      endif       
-
       print*,''
       print*,'========================================================================='
       print*,''
@@ -522,13 +423,7 @@ program general
       call cuda_glerror('ierr <- mise_a_jr_zone_seche_cudaf <-- general_cudaf.cuf',1)
 
       !! Initialisation du temps et calcul de dt via la CFL
-      if (pod==0) then
-        open(unit=1000,file='TempsSimule_FV.txt',status="unknown")
-      elseif (pod ==1) then
-        open(unit=1000,file='TempsSimule_POD.txt',status="unknown")
-      else
-        print*,'Valeur du Parametre POD Inconvenable'
-      endif
+      open(unit=1000,file='TempsSimule_FV.txt',status="unknown")
 
       tc = 0.d0
       tc_d = tc
@@ -538,12 +433,7 @@ program general
       nt = 0 !! Time step iteration counter
 
       !! FULL FINITE VOLUME
-      if(pod==0) call Full_FV
-
-      !! POD/ROM                                        
-      if(pod==1) call POD_PID_ROM(vdlg,vdlg0,vdlg1,vdlg01,sh0,she0,shu0,shv0,su0,sv0,surf,zm,ti,tf)
-
-      if (pod==1) deallocate(donnees_entree, donnees_sortie)
+      call Full_FV
 
       close(507)
       close(508)
@@ -563,32 +453,7 @@ program general
   close(360)
   close(370)
 
-  if (pod==1) then
-    close(395)
-    close(392)
-    close(393)
-    close(394)
-  endif
-
-  close(ec_param_pod)
-
-  if(pod==0 .and. shot==1) then
-    close(398)
-    close(402)
-    close(4999)
-    close(501)
-    close(502)
-    close(503)
-    close(504)
-    close(505)
-    close(506)
-    close(507)
-  endif
-
   close(400)
-
-  if(pod==1)                                      close(401)
-  if(pod==1 .or. shot==1)                         close(405)
 
   if(multi_simul==0 .and. soldomaine==1) then
     close(ec_sol_elt_t)
@@ -627,8 +492,7 @@ program general
   write(ec_bilan_sim,*) '====================================================================='
   write(ec_bilan_sim,*) ''
 
-  if (pod==0) write(ec_bilan_sim,*) 'MODELE FULL-ORDER VOLUMES FINIS'
-  if (pod==1) write(ec_bilan_sim,*) 'MODELE REDUCED-ORDER VOLUMES FINIS'
+  write(ec_bilan_sim,*) 'MODELE FULL-ORDER VOLUMES FINIS'
   write(ec_bilan_sim,*) ''
 
   if ( t_reg_perm > 0. ) then
