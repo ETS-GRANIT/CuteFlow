@@ -667,7 +667,7 @@ subroutine paraview_export(solh, soleta, solhu, solhv, ci)
 
   do nd=1, nnt
     !!write(ec_Paraview,'(3f16.6)') coordonnees(nd,1), coordonnees(nd,2), soleta(nd)-solh(nd)
-    write(ec_Paraview,'(3f16.6)') coordonnees(nd,1), coordonnees(nd,2), 0
+    write(ec_Paraview,'(3f16.6)') coordonnees(nd,1), coordonnees(nd,2), 0.
   end do
 
   write(ec_Paraview,'(a)') ""

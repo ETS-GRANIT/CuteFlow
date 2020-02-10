@@ -1,4 +1,3 @@
-
 &DATASIMUL  Test=10, nom_test='Mille_Iles', IFLUX=1 , limiteur=0 , fricimplic=1 , timedisc='euler', 
             inlet='inflow', debit_var=0, debitglob=793.0, loi_debitglob='Mille_iles_Qt.txt', long=1710.9, 
             H_sortie=29.3505,

@@ -95,7 +95,8 @@ module global
   real(fp_kind) :: tc, cotemin, t_reg_perm, flux_total, long_entree, debit_n, x0, vol_tot_entre, vol_tot_sorti, debit_sortie,debit_sortie0, debit_entree, distcote
   real(fp_kind) :: h0, coef_bol  ! Pour le problème du bol parabolique 
 
-  real(fp_kind), dimension(100000)             :: tvis3d2 , tvis2d2, tvisjauge, tvisdom, tvideo
+  !real(fp_kind), dimension(200000)             :: tvis3d2 , tvis2d2, tvisjauge, tvisdom, tvideo
+  real(fp_kind), dimension(:), allocatable             :: tvis3d2 , tvis2d2, tvisjauge, tvisdom, tvideo
   integer, dimension(:)  ,   allocatable :: ndinput, ndoutput, ndwall, i_dry_wet, nbr_nds_coupes
   integer, dimension(:,:), allocatable :: elt_fant_recep, elt_fant_envoi
   integer, dimension(:,:), allocatable :: elt_fant_recep_bloc, elt_fant_envoi_bloc

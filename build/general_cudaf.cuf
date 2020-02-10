@@ -210,7 +210,8 @@ program general
   allocate( she0(nnt), sh0(nnt), shu0(nnt), shv0(nnt), su0(nnt), sv0(nnt) )
 
   allocate( elts_coupes_transv(nelt, nbrcoupes), nds_coupes(nbrcoupes,nnt), nbr_nds_coupes(nbrcoupes) )
-
+  !real(fp_kind), dimension(:), allocatable             :: tvis3d2 , tvis2d2, tvisjauge, tvisdom, tvideo
+  allocate( tvis3d2(200000), tvis2d2(200000), tvisjauge(200000), tvisdom(200000), tvideo(200000))
   call cuda_glerror('ierr <- device memory allocation <-- general_cudaf.cuf',1)
 
   !! Ouverture/creation des fichiers (opening / creating files)
@@ -339,9 +340,9 @@ program general
     call sol_nodes(vdlg0,surf,zm,sh0,she0,shu0,shv0,su0,sv0)
 
     !!  Storage for postraitement with possibility of animation (Tecplot)
-    if (video ==1) then             
+    if (video == 1) then             
       start=1
-      call tecplot_export (she0, sh0, shu0, shv0)
+      !call tecplot_export (she0, sh0, shu0, shv0)
       call paraview_export (she0, sh0, shu0, shv0, 0)
     endif
 

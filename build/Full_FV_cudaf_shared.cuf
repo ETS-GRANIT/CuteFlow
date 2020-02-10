@@ -299,7 +299,7 @@ subroutine Full_FV
       write(*,*) '*** Attention : nombre de jauges > 30 ***'
     endif
   endif
-  
+
   ! *** preparation of the number of iterations concerning time discretization ***
   if ( timedisc == 'euler' ) then         ! *** Euler ***
     niter = 1
@@ -317,8 +317,8 @@ subroutine Full_FV
   endif
   call cuda_glerror('ierr <- (H->D) data transfer into niter_d <-- Full_FV_cudaf_shared.cuf',1)
   !!Ajout sauvegarde solution initiale a enlever
-  vdlg = vdlg_d
-  call paraview_export (she0, sh0, shu0, shv0, 0)
+  !vdlg = vdlg_d
+  !call paraview_export (she0, sh0, shu0, shv0, 0)
   ! *** beginning of the loop on the temporal scheme iterations ***
   tblock = dim3(128, 1, 1)
   grid   = dim3(ceiling(real(nelt)/real(tblock%x)), 1, 1)
@@ -356,7 +356,7 @@ subroutine Full_FV
     dt_d = dt
   endif
   call cuda_glerror('ierr<-cflcond_cudaf (1) <-- Full_FV_cudaf_shared.cuf',1)
-  
+
   !!time for rought performance overview
   call cpu_time(ti)
 
@@ -375,9 +375,9 @@ subroutine Full_FV
   iaff = 0
   do while ( (tc - ts + 2*tol ) < tol )
   !!do while ( nt < 3 )
-  !!do while ( nt < 100 )
+    !!do while ( nt < 100 )
 
-    call cpu_time(tb1)
+    !call cpu_time(tb1)
 
     debit_entree  = 0.d0
     debit_sortie  = 0.d0
@@ -423,7 +423,7 @@ subroutine Full_FV
           call mise_a_jr_zone_seche_cudaf<<<grid, tblock>>>(zm_d, vdlg_d, vdlg1_d)
           call cuda_glerror('ierr<-mise_a_jr_zone_seche_cudaf{if(niter == 2,  iter == 2)} <-- Full_FV_cudaf_shared.cuf',1)
         endif
-        
+
       elseif ( niter == 4 ) then      ! *** Runge-kutta ***
         if ( iter == 1 ) then                   
           !!call copy_2d<<<grid_copy, block_copy>>>(vdlg1_d, vdlg01_d, nelt_d-nelt_fant_recep_d)
@@ -524,8 +524,10 @@ subroutine Full_FV
     endif
 
     !!Reduce sum of all debits
-    call MPI_ALLREDUCE(MPI_IN_PLACE,debit_entree,1,real_kind_mpi,MPI_SUM,MPI_COMM_WORLD, mpi_ierr)
-    call MPI_ALLREDUCE(MPI_IN_PLACE,debit_sortie,1,real_kind_mpi,MPI_SUM,MPI_COMM_WORLD, mpi_ierr)
+    if(num_procs>1) then
+      call MPI_ALLREDUCE(MPI_IN_PLACE,debit_entree,1,real_kind_mpi,MPI_SUM,MPI_COMM_WORLD, mpi_ierr)
+      call MPI_ALLREDUCE(MPI_IN_PLACE,debit_sortie,1,real_kind_mpi,MPI_SUM,MPI_COMM_WORLD, mpi_ierr)
+    end if
 
     call copy_into_res_d<<<grid_copy, block_copy>>>(niter_d, nelt_d)
     call cuda_glerror('ierr<-copy_into_res_d  <-- Full_FV_cudaf_shared.cuf',1)
@@ -543,7 +545,9 @@ subroutine Full_FV
       call cflcond_cudaf<<<grid, tblock>>>(vdlg_d,deltatmin_d)
       dt_arr = deltatmin_d
       dt = minval(dt_arr)
-      call MPI_ALLREDUCE(MPI_IN_PLACE,dt,1,real_kind_mpi,MPI_MIN,MPI_COMM_WORLD, mpi_ierr)
+      if(num_procs>1) then
+        call MPI_ALLREDUCE(MPI_IN_PLACE,dt,1,real_kind_mpi,MPI_MIN,MPI_COMM_WORLD, mpi_ierr)
+      end if
       dt_d = dt
     endif
     call cuda_glerror('ierr<-cflcond_cudaf (2) <-- Full_FV_cudaf_shared.cuf',1)
@@ -560,17 +564,18 @@ subroutine Full_FV
     if ( mod(nt,freqaffich)==0 ) then
       print*,'-----------------------------------------------'
       write(*,*) 'nt = ', nt
+      print*,' prochain tvideo = ', tvideo(cptvideo), cptvideo
+      print*,debitglob, debit_sortie0, tol_reg_perm, debit_entree, debit_sortie, abs(debit_entree - debit_sortie)/debit_entree
       if (tc < 3600)   print*, 'tc = ', tc, ' Secondes   =>', tc/60,    ' Minutes' 
       if (tc >= 3600)  print*, 'tc = ', tc, ' Secondes   =>', tc/3600,  ' Heures'
       if (tc >= 86400) print*, 'tc = ', tc, ' Secondes   =>', tc/86400, ' Jours'
       print*,''
-      !          if (debit_var==1) print*, 'debitglob=',debitglob
+      if (debit_var==1) print*, 'debitglob=',debitglob
       print*, 'debit_entre =', debit_entree, 'M3/S'
       print*, 'debit_sorti =', debit_sortie, 'M3/S'  
-      print*, 'debit glob =', debitglob, 'M3/S'
       print*,'-----------------------------------------------'
       iaff = iaff + 1
-      vdlg = vdlg_d
+      !vdlg = vdlg_d
     endif
 
     ! *** storage of the solution in 2D sections for the table time 'tvis2d'
@@ -628,7 +633,7 @@ subroutine Full_FV
         endif
 
         start=0
-        call tecplot_export (she0, sh0, shu0, shv0)
+        !call tecplot_export (she0, sh0, shu0, shv0)
         call paraview_export (she0, sh0, shu0, shv0, cptvideo)
         cptvideo = cptvideo + 1
       endif
@@ -687,32 +692,35 @@ subroutine Full_FV
 
     debit_sortie0 = debit_sortie
 
-    call cpu_time(te1)
+    !call cpu_time(te1)
 
     !!  Echange sur GPU directement bloc
     !!  Certains échanges ne servent pas forcement,
     !!   on peut surrement en enlever certains
-    call gpu_echange_fant_bloc(vdlg_d, ndln)
-    call gpu_echange_fant_bloc(vdlg1_d, ndln)
-    call gpu_echange_fant_bloc(vdlg0_d, ndln)
-    call gpu_echange_fant_bloc(vdlg01_d, ndln)
-    call gpu_echange_fant_bloc(zm_d,1)
-    call gpu_echange_fant_bloc(surf_d,1)
-    call gpu_echange_fant_bloc(gradz_d, ndim)
-    call gpu_echange_fant_bloc(res1_d, ndln)
-
-    call cpu_time(te2)
-
-    if ( mod(nt,freqaffich)==0 ) then
-      print*, "Performance calculs vs echange mémoire"
-      print*, "temps calculs ", te1-tb1
-      print*, "temps echange ", te2-te1
-      print*, "%temps echange ", 100*(te2-te1)/(te2-tb1)
-      print*,"dt = ", dt
-      call sol_nodes(vdlg,surf,zm,sh0,she0,shu0,shv0,su0,sv0)
-      vdlg = vdlg_d
-      call paraview_export (she0, sh0, shu0, shv0, nt/freqaffich)
+    if(num_procs>1) then
+      call gpu_echange_fant_bloc(vdlg_d, ndln)
+      call gpu_echange_fant_bloc(vdlg1_d, ndln)
+      call gpu_echange_fant_bloc(vdlg0_d, ndln)
+      call gpu_echange_fant_bloc(vdlg01_d, ndln)
+      call gpu_echange_fant_bloc(zm_d,1)
+      call gpu_echange_fant_bloc(surf_d,1)
+      call gpu_echange_fant_bloc(gradz_d, ndim)
+      call gpu_echange_fant_bloc(res1_d, ndln)
     end if
+
+    !call cpu_time(te2)
+
+!!    if ( mod(nt,freqaffich)==0 ) then
+!!      print*,debitglob, debit_sortie0, tol_reg_perm, debit_entree, debit_sortie, abs(debit_entree - debit_sortie)/debit_entree
+!!      print*, "Performance calculs vs echange mémoire"
+!!      print*, "temps calculs ", te1-tb1
+!!      print*, "temps echange ", te2-te1
+!!      print*, "%temps echange ", 100*(te2-te1)/(te2-tb1)
+!!      print*,"dt = ", dt
+!!      !call sol_nodes(vdlg,surf,zm,sh0,she0,shu0,shv0,su0,sv0)
+!!      !vdlg = vdlg_d
+!!      !call paraview_export (she0, sh0, shu0, shv0, nt/freqaffich)
+!!    end if
 
   enddo 
 
@@ -741,7 +749,7 @@ subroutine Full_FV
 
     vdlg = vdlg_d
     !!call bluekenue_export (she0, sh0, shu0, shv0)
-    call paraview_export (she0, sh0, shu0, shv0, iaff)
+    !!call paraview_export (she0, sh0, shu0, shv0, iaff)
 
     !STORAGE OF FINAL SOLUTIONS IN ALL NODES OF THE DOMAIN (For restarting)
     write(ec_sol_elt_final,*) tc                        
@@ -757,7 +765,7 @@ subroutine Full_FV
         if ( sqrt( ( xjauges(1) - coordonnees(i,1) )**2 + ( yjauges(1) - coordonnees(i,2) )**2 ) < distcote ) nodjauge=i
       enddo
       write(3000,'(6f8.3)') debitglob, H_AMONT, H_AVAL, manning, vdlg(1,nodjauge), vdlg1(1,nodjauge)
-      
+
     else
       if ( abs( tc - TS ) < tolaffiche) then
         do i=1,nnt
@@ -786,6 +794,8 @@ subroutine Full_FV
   deallocate(un_voisin_sec1_d)
   deallocate(afm1_d)
   deallocate(res1)
+
+  deallocate(tvis3d2, tvis2d2, tvisjauge, tvisdom, tvideo)
 
   if(ndi>0) then
     deallocate(debit_entree_arr, debit_entree_arr_d,vol_tot_entre_arr_d, vol_tot_entre_arr)
