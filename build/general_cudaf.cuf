@@ -147,6 +147,7 @@ program general
   end interface
 
   integer         :: i, ii, j, p, kk, ss, ie, iel, nt, n_MC, i_MC
+  character(4)    :: i_MC_char
   integer         :: status, l, ie_coupe_transv, ierr, dev
   real(fp_kind)   :: d2, t2, dtime2, tcm2, d, t, zero, time_start, time_stop, maxheight
   real(fp_kind)   :: errf, errf1, errf2, errf3, errf4, errf5
@@ -387,6 +388,9 @@ program general
     read(3001,*) n_MC
 
     do i_MC = 1, n_MC
+      write(i_MC_char,*) i_MC
+      call SYSTEM("mkdir multi_simul_"//trim(adjustl(i_MC_char)))
+      call SYSTEM("cd multi_simul_"//trim(adjustl(i_MC_char)))
       vdlg0              = zero
       vdlg01             = zero
       vdlg               = zero
@@ -438,6 +442,8 @@ program general
 
       close(507)
       close(508)
+
+      call SYSTEM("cd ..")
     enddo ! de i_MC=1,n_MC
   else
     print*, 'Valeur du Parametrs multi_simul inconvenable'
