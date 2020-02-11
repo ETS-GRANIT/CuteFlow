@@ -1,6 +1,5 @@
 #!/usr/bin/bash
 
-
 #Lecture du fichier INPUT_MONTE_CARLO
 let i=0
 while read -r line;do
@@ -18,12 +17,16 @@ while read -r line;do
     cp ../base_files/* .
     ../gen_donnees $debit $hamont $haval $maning
     mv 4_gpu.sh 4_gpu_multi_$i.sh
-    sbatch 4_gpu_multi_$i.sh
+    if [ $1 == "submit" ]; then
+      echo "Submiting job $i"
+      sbatch 4_gpu_multi_$i.sh
+    elif [ $1 == "clean" ]; then
+      echo "Cleaning folder multi_$i"
+      make clean
+    fi
     cd ..
   else
     nb=$line
-    #echo $nb
   fi
   let i=$i+1
 done < "INPUT_MONTE_CARLO.dat"
-
