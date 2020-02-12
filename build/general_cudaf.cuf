@@ -343,7 +343,7 @@ program general
     if (video == 1) then             
       start=1
       !call tecplot_export (she0, sh0, shu0, shv0)
-      call paraview_export (she0, sh0, shu0, shv0, -1)
+      !call paraview_export (she0, sh0, shu0, shv0, -1)
     endif
 
     !! Storage solution for 2D slices
