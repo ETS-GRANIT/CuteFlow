@@ -337,14 +337,13 @@ program general
 
     vdlg0 = vdlg0_d
     call cuda_glerror('ierr <- data_tansfer(D-->H) to vdlg0 <-- general_cudaf.cuf',1)
-
     call sol_nodes(vdlg0,surf,zm,sh0,she0,shu0,shv0,su0,sv0)
 
     !!  Storage for postraitement with possibility of animation (Tecplot)
     if (video == 1) then             
       start=1
       !call tecplot_export (she0, sh0, shu0, shv0)
-      call paraview_export (she0, sh0, shu0, shv0, 0)
+      call paraview_export (she0, sh0, shu0, shv0, -1)
     endif
 
     !! Storage solution for 2D slices

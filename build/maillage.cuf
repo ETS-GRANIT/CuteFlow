@@ -377,6 +377,10 @@ subroutine lec_donnees
   read(lu_init,nml=datainit)
   close(lu_init)
 
+  !! On rajoute le préfixe devant le nom du fichier de sol init
+  write (prefix, "(I2,A1)") my_id, "_"
+  fich_sol_init = trim(prefix)//trim(fich_sol_init)
+
   open(lu_simul,file=fichsim,form='formatted',status='old')
   read(lu_simul,nml=datasimul)
   close(lu_simul)

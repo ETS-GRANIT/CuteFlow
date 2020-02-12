@@ -30,7 +30,7 @@ echo "
            H_POINT=31.35
            xplan=-0.0001, yplan=-0.0001, zplan=1
            xpoint=274956.783790834, ypoint=5043746.46205659
-           solinit=0, 
+           solinit=1, 
            fich_sol_init='Mille_Iles_solution_initiale_t67500s.txt'/
 " > donneeini_mille_iles.txt
 

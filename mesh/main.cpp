@@ -619,7 +619,7 @@ void genInfoSendRecv(int nParts, vector<vector<vector<int> > > &fantElemsEnvoi, 
     infoRecep[p].push_back(dummy);
   }
 }
-void ecritureLiens(int n, vector<int> &nLTG){
+void ecritureLiens(int n, vector<int> &nLTG, vector<int> &eLTG){
   
   ofstream out;
   stringstream ss;
@@ -628,6 +628,16 @@ void ecritureLiens(int n, vector<int> &nLTG){
 
   for(int i=0;i<nLTG.size();i++){
     out << i+1 << " " << nLTG[i] << endl;
+  }
+
+  out.close();
+
+  ss.str("");
+  ss << "out_lien_elems." << n << ".txt";
+  out.open(ss.str());
+
+  for(int i=0;i<eLTG.size();i++){
+    out << i+1 << " " << eLTG[i] << endl;
   }
 
   out.close();
@@ -721,7 +731,7 @@ int main(int argc, char* argv[]){
     ecritureFem(p, newNodes[p], newElems[p]);
     //ecritureFant(p,newNodes[p], newElems[p], new_entreNodes[p], new_sortieNodes[p], new_wallNodes[p], fantElemsRecep[p], fantElemsEnvoi[p]);
     ecriture(fileName, p,newNodes[p], newElems[p], new_entreNodes[p], new_sortieNodes[p], new_wallNodes[p], fantElemsRecep[p], fantElemsEnvoi[p], infoRecep[p], infoEnvoi[p]);
-    ecritureLiens(p, nLTG[p]);
+    ecritureLiens(p, nLTG[p], eLTG[p]);
   }
 
   //ecritureFem(-1, nodes, elems);

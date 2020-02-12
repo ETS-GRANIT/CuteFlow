@@ -16,7 +16,6 @@ while read -r line;do
     cd multi_$i
     cp ../base_files/* .
     ../gen_donnees $debit $hamont $haval $maning
-    mv 4_gpu.sh 4_gpu_multi_$i.sh
     if [ $1 == "submit" ]; then
       echo "Submiting job $i"
       sbatch 4_gpu_multi_$i.sh
