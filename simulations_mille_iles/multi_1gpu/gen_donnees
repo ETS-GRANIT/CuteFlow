@@ -1,0 +1,42 @@
+echo "
+&DATASIMUL  Test=10, nom_test='Mille_Iles', IFLUX=2 , limiteur=0 , fricimplic=1 , timedisc='euler', 
+            inlet='inflow', debit_var=0, debitglob=$1, loi_debitglob='Mille_iles_Qt.txt', long=1710.9, 
+            H_sortie=30.1803,
+            tbase=0.0 , divbase=3 , TS=18000.01 , dt=0.01 , PAS_DT=2 , CFL=0.4 , 
+            tol_reg_perm=1.0E-4, tol=1.0E-04 , tolisec=1.0E-05 , tolratio=1.0E-04, tolaffiche=1.e-01, GRD=2 , 
+            VISUAL=2, freqvisual=1000, freqaffich=1000, freqjauges=10, instjauges=40,  
+            nbrjauges=0 , 
+            xjauges = 272494.31, 274767.53, 279066.02,          
+            yjauges = 5042222.41, 5046515.26, 5050380.38,  
+            nbrcoupes=0 , densite_coupe=1, 
+            coupe_a    = -0.7946,    -2.6754,    -1.4439,     -0.0754,     -0.1092,
+            coupe_b    =  5.2585e+06, 5.7768e+06, 5.4397e+06,  5.0660e+06, 5.0810e+06,
+            long_coupe =  1.7039e+03, 651.2173,   656.8683,    1.7279e+03, 2.3036e+03, 
+            tvis2d = 10, 20, 3600, 7200, 10800, 14400, 18000, 36000, 72000, 108000, 180000, 360000,
+            tvis3d = 5.0,
+	    soldomaine=0, n_soldom=100,
+	    video=1, n_video=600,
+	    alfa=0.60, 
+      dim=2,  multi_simul=0, monte_carlo=0 /
+" > donneesim_mille_iles.txt
+
+echo "
+&DATAINIT  H_AMONT=$2, U_AMONT=0 , V_AMONT=0 ,
+           H_AVAL =$3, U_AVAL =0 , V_AVAL =0 ,
+           XGATE=601000.0 , XCENTER=20 , YCENTER=20 , RAYON=2.5,
+           eqlin_barrage=1, 
+           x1eqbar=274956.783790834, x2eqbar=275034.184652595, 
+           y1eqbar=5043746.46205659, y2eqbar=5043642.1013441,
+           H_POINT=31.35
+           xplan=-0.0001, yplan=-0.0001, zplan=1
+           xpoint=274956.783790834, ypoint=5043746.46205659
+           solinit=1, 
+           fich_sol_init='Mille_Iles_solution_initiale_t67500s.txt'/
+" > donneeini_mille_iles.txt
+
+echo "
+&DATAFIELD  LCX=38.0, LCY=1.75, PENTE=0, valxpente=0.0, bathyx0=0.0, bathy_reel='oui', step=5.0, xstep = 100, 
+            GP=9.81, z_min_correction=-7.23335, friction=1, manning=$4, 
+            limiteN='imperm', limiteS='imperm', limiteW='entree', limiteE='sortie' /
+
+" > donneeter_mille_iles.txt

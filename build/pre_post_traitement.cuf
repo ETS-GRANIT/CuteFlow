@@ -646,11 +646,12 @@ subroutine paraview_export(solh, soleta, solhu, solhv, ci)
 
   implicit none
 
-  real(fp_kind), dimension(:), intent(inout)  :: soleta, solh, solhu, solhv
+  real(fp_kind), dimension(:), intent(in)  :: soleta, solh, solhu, solhv
 
   integer :: nd, iel, ci
   real(fp_kind) :: solu, solv
 
+  print*,"inside paraview export"
   write(valtemps,'(I20)') ci
 
   solfile_para = trim(adjustl(trim(genrtest)))//'_FV-Paraview_'//trim(adjustl(trim(valtemps)))//adjustl(trim('.vtk'))

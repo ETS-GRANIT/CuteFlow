@@ -318,7 +318,7 @@ subroutine Full_FV
   call cuda_glerror('ierr <- (H->D) data transfer into niter_d <-- Full_FV_cudaf_shared.cuf',1)
   !!Ajout sauvegarde solution initiale a enlever
   vdlg = vdlg_d
-  call paraview_export (she0, sh0, shu0, shv0, 0)
+  call paraview_export(she0, sh0, shu0, shv0, 0)
   ! *** beginning of the loop on the temporal scheme iterations ***
   tblock = dim3(128, 1, 1)
   grid   = dim3(ceiling(real(nelt)/real(tblock%x)), 1, 1)
@@ -717,9 +717,9 @@ subroutine Full_FV
 !!      print*, "temps echange ", te2-te1
 !!      print*, "%temps echange ", 100*(te2-te1)/(te2-tb1)
 !!      print*,"dt = ", dt
-!!      !call sol_nodes(vdlg,surf,zm,sh0,she0,shu0,shv0,su0,sv0)
-!!      !vdlg = vdlg_d
-!!      !call paraview_export (she0, sh0, shu0, shv0, nt/freqaffich)
+!!      call sol_nodes(vdlg,surf,zm,sh0,she0,shu0,shv0,su0,sv0)
+!!      vdlg = vdlg_d
+!!      call paraview_export (she0, sh0, shu0, shv0, nt/freqaffich)
 !!    end if
 
   enddo 

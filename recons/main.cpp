@@ -9,7 +9,6 @@ using namespace std;
 
 void lecture(ifstream &file, double &tsol, vector<vector<double> > &sol){
 
-  int i=0;
   string str;
   vector<double> v(4);
 
@@ -17,23 +16,20 @@ void lecture(ifstream &file, double &tsol, vector<vector<double> > &sol){
   while(!file.eof()){
     file >> v[0] >> v[1] >> v[2] >> v[3];
     sol.push_back(v);
-    i++;
   }
-  sol.pop_back();
+  //sol.pop_back();
 }
 
 void lecture_liens(ifstream &file, vector<vector<int> > &lien){
 
-  int i=0;
   string str;
   vector<int> v(2);
 
   while(!file.eof()){
     file >> v[0] >> v[1] ;
     lien.push_back(v);
-    i++;
   }
-  lien.pop_back();
+  //lien.pop_back();
 }
 int main(int argc, char* argv[]){
   int nParts;
