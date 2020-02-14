@@ -147,7 +147,6 @@ subroutine lect_const_mail
   type(cudaEvent)             :: startEvent , stopEvent
   real(fp_kind)               :: start_cpu, stop_cpu, errf1, errf2, errf3
   real                        :: time_cuda
-  real(fp_kind), dimension(0:num_procs-1) :: cotemin_vector
 
   !! MPI type for memory excanhges
   call MPI_TYPE_CREATE_F90_REAL(fp_kind, MPI_UNDEFINED, real_kind_mpi, mpi_ierr)
@@ -327,17 +326,7 @@ subroutine lect_const_mail
     cotemin = cotemin / 2.
   endif
 
-  cotemin_vector(my_id) = cotemin
-  call MPI_BARRIER(MPI_COMM_WORLD, mpi_ierr)
-  call MPI_ALLGATHER(cotemin_vector(my_id),1,real_kind_mpi,cotemin_vector,1,real_kind_mpi,MPI_COMM_WORLD, mpi_ierr)
-  print*,"avant gather cote min", cotemin
-  do i=0,num_procs-1
-    print*,"id ", i, " cotemin ", cotemin_vector(i)
-    if(cotemin_vector(i)<cotemin) then 
-      cotemin = cotemin_vector(i)
-    end if
-  enddo
-  print*,"après gather cote min", cotemin
+  call MPI_ALLREDUCE(MPI_IN_PLACE,cotemin,1,real_kind_mpi,MPI_MIN,MPI_COMM_WORLD, mpi_ierr)
   cotemin_d = cotemin
   call cuda_glerror('ierr <- (h->d) data transfer to cotemin_d <-- maillage.cuf',1)
   call cuda_glerror('ierr <- lect_const_mail (towards_end_of_function) <-- maillage.cuf',1)
