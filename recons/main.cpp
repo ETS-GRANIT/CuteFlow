@@ -17,7 +17,7 @@ void lecture(ifstream &file, double &tsol, vector<vector<double> > &sol){
     file >> v[0] >> v[1] >> v[2] >> v[3];
     sol.push_back(v);
   }
-  //sol.pop_back();
+  sol.pop_back();
 }
 
 void lecture_liens(ifstream &file, vector<vector<int> > &lien){
@@ -29,7 +29,7 @@ void lecture_liens(ifstream &file, vector<vector<int> > &lien){
     file >> v[0] >> v[1] ;
     lien.push_back(v);
   }
-  //lien.pop_back();
+  lien.pop_back();
 }
 int main(int argc, char* argv[]){
   int nParts;
@@ -71,6 +71,8 @@ int main(int argc, char* argv[]){
     fName << p << "_" << fileName;
     cout << "ecriture " << fName.str() << endl;
     outFile.open(fName.str());
+    outFile << fixed ;
+    outFile.precision(8);
     outFile << tsol << endl;
     for(int j=0;j<liens[p].size();j++){
       outFile << sol[liens[p][j][1]-1][0] << " " << sol[liens[p][j][1]-1][1] << " "<< sol[liens[p][j][1]-1][2] << " " << sol[liens[p][j][1]-1][3] << endl;
