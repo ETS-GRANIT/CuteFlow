@@ -373,9 +373,9 @@ subroutine Full_FV
 
   write(*,*) 'Loop over time starts' 
   iaff = 0
-  !!do while ( (tc - ts + 2*tol ) < tol )
+  do while ( (tc - ts + 2*tol ) < tol )
   !!do while ( nt < 1 )
-  do while ( nt < 100 )
+  !!do while ( nt < 100 )
 
     !call cpu_time(tb1)
 
