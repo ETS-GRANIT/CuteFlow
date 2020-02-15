@@ -799,6 +799,7 @@ subroutine lec_mail_tri
   read(lec_mesh,*) ndi
   if (ndi>0) then
     allocate(ndinput(ndi))
+    allocate(ndinput_d(ndi))
     do i=1,ndi
       read(lec_mesh,*) ndinput(i)
     enddo
@@ -809,6 +810,7 @@ subroutine lec_mail_tri
   read(lec_mesh,*) ndo
   if (ndo>0) then
     allocate(ndoutput(ndo))
+    allocate(ndoutput_d(ndo))
     do i=1,ndo
       read(lec_mesh,*) ndoutput(i)
     enddo
@@ -819,6 +821,7 @@ subroutine lec_mail_tri
   read(lec_mesh,*) ndw
   if (ndw>0) then
     allocate(ndwall(ndw))
+    allocate(ndwall_d(ndw))
     do i=1,ndw
       read(lec_mesh,*) ndwall(i)
     enddo
@@ -829,7 +832,6 @@ subroutine lec_mail_tri
   !! Device memory allocation :
   allocate(coordonnees_d(nnt,3), manning_nd_d(nnt))
   allocate(connectivite_d(nelt,3), manning_nelt_d(nelt))
-  allocate(ndinput_d(ndi), ndoutput_d(ndo), ndwall_d(ndw))
 
   call cuda_glerror('ierr->memory allocation-->lec_mail_tri--> (maillage.cuf)',1)
 
