@@ -744,7 +744,7 @@ subroutine Full_FV
   !*********     DEBUT DU POSTRAITEMENT   *********
   if ( t_reg_perm > 0.0) tc  = t_reg_perm  ! Pour revenir au temps du regime permanent ! To return to the steady state
 
-  if (multi_simul ==0) then
+  if (multi_simul == 0) then
     !!Enregistrement de la solution finale pour post-traitement avec Bluekenue/Paraview
 
     vdlg = vdlg_d
