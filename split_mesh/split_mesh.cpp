@@ -1,3 +1,20 @@
+//Programme pour découper un maillage en plusieurs sous-domaines
+//On utilise la librairie metis pour attribuer chaque maille du maillage
+//d'origine à un sous domaine.
+//On va ensuite rajouter a chaque sous domaine une couche de mailles "fantomes" (overlapping)
+//pour faciliter les échanges mémoires dans le code suivant.
+//Il y a plusieurs étapes de renumérotation et de mise a jour d'une table de correspondance
+//entre les numérotations locales et globales.
+
+//Utilisation: ./split_mesh fichier_maillages nombre_sous_domaines
+
+//En sortie le programme génère des fichiers de mailles de la forme [0-9]_fichier_mailles
+//qui correspondent chacun à un sous domaine et son les fichiers a donne au code CUTEFLOW
+//Le programme génère aussi les fichiers liens_nodes et liens_elems qui contiennent simplement
+//une correspondance entre la numérotation locale dans le sous domaine et la numérotation
+//globale. Ces fichiers sont utilisé dans split_solution par exemple.
+
+
 #include "metis.h"
 #include <iostream>
 #include <fstream>
@@ -6,9 +23,7 @@
 #include <string>
 #include <stdio.h>
 
-
 using namespace std;
-
 
 void lecture(ifstream &mesh, vector<vector<double> > &nodes, vector<vector<double> > &elems,idx_t *&eind, idx_t *&eptr, vector<int> &entreNodes, vector<int> &sortieNodes, vector<int> &wallNodes){
 
@@ -82,46 +97,38 @@ void lecture(ifstream &mesh, vector<vector<double> > &nodes, vector<vector<doubl
   eptr[nElems] = nElems*3;
 }
 
-void ecritureFem(int n, vector<vector<double> > nodes, vector<vector<double> > elems){
+void ecritureGnuplot(int n, vector<vector<double> > nodes, vector<vector<double> > elems){
+  //Génère un fichier de sortie [0-9]_gnuplot_mesh.txt pour visualisation avec gnuplot
+  //dans gnuplot il suffit de faire : plot "[0-9]_gnuplot_mesh.txt"
 
   int i, nNodes, nElems;
   nNodes = nodes.size();
   nElems = elems.size();
   ofstream out_mesh_n;
-  ofstream out_mesh_e;
   stringstream ss;
-  ss << "out_mesh." << n << "_nodes.txt";
+  ss << n << "_gnuplot_mesh.txt";
   out_mesh_n.open(ss.str());
   out_mesh_n << fixed;
-  ss.str("");
-  ss << "out_mesh." << n << "_elements.txt";
-  out_mesh_e.open(ss.str());
-  out_mesh_e << fixed;
-  ss.str("");
 
   i=0;
   while(i<nNodes){
     out_mesh_n << nodes[i][1] << " " << nodes[i][2] << endl ;
     i++; 
   }
-
-  i=0;
-  while(i<nElems){
-    out_mesh_e << elems[i][1]<< " " << elems[i][2]<< " " << elems[i][3] << endl ;
-    i++; 
-  }
   out_mesh_n.close();
-  out_mesh_e.close();
+
 }
 
-void ecritureFant(int n, vector<vector<double> > &nodes, vector<vector<double> > &elems, vector<int> &new_entreNodes, vector<int> &new_sortieNodes, vector<int> &new_wallNodes, vector<vector<int> > &fantElemsRecep, vector<vector<int> > &fantElemsEnvoi){
-  
+void ecritureFantGnuplot(int n, vector<vector<double> > &nodes, vector<vector<double> > &elems, vector<int> &new_entreNodes, vector<int> &new_sortieNodes, vector<int> &new_wallNodes, vector<vector<int> > &fantElemsRecep, vector<vector<int> > &fantElemsEnvoi){
+  //Ecriture des noeuds fantômes de chaque sous maillages pour débugger
+  //meme principe que ecritureGnuplot
+
   int i, nNodes, nElems;
   nNodes = nodes.size();
   nElems = elems.size();
   ofstream out_mesh;
   stringstream ss;
-  ss << "out_mesh." << n << "_fant.txt";
+  ss << n << "_nodes_fant.txt";
   out_mesh.open(ss.str());
   out_mesh << fixed ;
 
@@ -136,61 +143,6 @@ void ecritureFant(int n, vector<vector<double> > &nodes, vector<vector<double> >
   out_mesh.close();
 }
 
-void ecriture_base(int n, vector<vector<double> > &nodes, vector<vector<double> > &elems, vector<int> &new_entreNodes, vector<int> &new_sortieNodes, vector<int> &new_wallNodes){
-
-  int i, nNodes, nElems;
-  nNodes = nodes.size();
-  nElems = elems.size();
-  ofstream out_mesh;
-  stringstream ss;
-  ss << "out_mesh." << n << ".txt";
-  out_mesh.open(ss.str());
-  out_mesh.precision(4);
-  ss.str("");
-  out_mesh << fixed ;
-  out_mesh << "Table de coordonnees" << endl;
-  out_mesh << nNodes << endl;
-
-  i=0;
-  while(i<nNodes){
-    out_mesh << (int) (nodes[i][0]) << " " << nodes[i][1]<< " " << nodes[i][2] << " " << nodes[i][3] <<" " << nodes[i][4] << endl ;
-    i++; 
-  }
-
-  out_mesh << "Table de connectivités" << endl;
-  out_mesh << nElems << " " << nElems << endl;
-  i=0;
-  while(i<nElems){
-    out_mesh << (int) (elems[i][0]) << " " << (int) (elems[i][1]) << " " << (int) (elems[i][2]) << " " << (int) (elems[i][3]) << " " << elems[i][4] << endl ;
-    i++; 
-  }
-
-  out_mesh << "Noeuds d'entre" << endl;
-  out_mesh << new_entreNodes.size() << endl;
-  i=0;
-  while(i<new_entreNodes.size()){
-    out_mesh << new_entreNodes[i] << endl ;
-    i++; 
-  }
-
-  out_mesh << "Noeuds de sortie" << endl;
-  out_mesh << new_sortieNodes.size() << endl;
-  i=0;
-  while(i<new_sortieNodes.size()){
-    out_mesh << new_sortieNodes[i] << endl ;
-    i++; 
-  }
-
-  out_mesh << "Noeuds de murs" << endl;
-  out_mesh << new_wallNodes.size() << endl;
-  i=0;
-  while(i<new_wallNodes.size()){
-    out_mesh << new_wallNodes[i] << endl ;
-    i++; 
-  }
-
-  out_mesh.close();
-}
 void ecriture(string fileName, int n, vector<vector<double> > &nodes, vector<vector<double> > &elems, vector<int> &new_entreNodes, vector<int> &new_sortieNodes, vector<int> &new_wallNodes, vector<vector<int> > &fantElemsRecep, vector<vector<int> > &fantElemsEnvoi, vector<vector<int> > &infoEnvoi, vector<vector<int> > &infoRecep){
 
   int i, nNodes, nElems;
@@ -357,7 +309,7 @@ void fantome(int nParts, vector<vector<double> > &nodes, vector<vector<double> >
      
       if(commonNodes.size()!=0){
         stringstream ss;
-        ss << "com." << i << "." << j << ".dat";
+        ss << "common_nodes." << i << "." << j << ".txt";
         ofstream nflu(ss.str());
         nflu << fixed;
         //Test plot noeuds communs
@@ -493,7 +445,7 @@ void boundary(int nParts, vector<vector<double> > &nodes, vector<vector<double> 
       
     }
     stringstream w;
-    w << "wall." << p << ".dat" ;
+    w << p << "_wall.txt";
     ofstream out(w.str());
     out << fixed ;
     for(int l=0;l<new_wallNodes[p].size();l++){
@@ -504,7 +456,7 @@ void boundary(int nParts, vector<vector<double> > &nodes, vector<vector<double> 
 }
 
 void genOutWall(vector<vector<double> > &nodes, vector<int> &wallNodes){
-  ofstream out("all_wall.dat");
+  ofstream out("all_wall.txt");
   for(int l=0;l<wallNodes.size();l++){
     out << nodes[wallNodes[l]-1][1]<< " " << nodes[wallNodes[l]-1][2] << endl;
   }
@@ -623,7 +575,7 @@ void ecritureLiens(int n, vector<int> &nLTG, vector<int> &eLTG){
   
   ofstream out;
   stringstream ss;
-  ss << "out_lien_nodes." << n << ".txt";
+  ss << n << "_liens_nodes.txt";
   out.open(ss.str());
 
   for(int i=0;i<nLTG.size();i++){
@@ -633,7 +585,7 @@ void ecritureLiens(int n, vector<int> &nLTG, vector<int> &eLTG){
   out.close();
 
   ss.str("");
-  ss << "out_lien_elems." << n << ".txt";
+  ss << n << "_liens_elems.txt";
   out.open(ss.str());
 
   for(int i=0;i<eLTG.size();i++){
@@ -649,8 +601,8 @@ int main(int argc, char* argv[]){
   ifstream mesh;
   string fileName;
 
-  if(argc < 2){
-    cout << "Utilisation : ./main fichier_maillage nombre_partitions" << endl;
+  if(argc < 3){
+    cout << "Utilisation : ./split_mesh fichier_de_maillage nombre_de_sous_domaines" << endl;
     return(0);
   }
   else{
@@ -687,8 +639,8 @@ int main(int argc, char* argv[]){
   vector<vector<int> > eLTGCopie(nParts, vector<int>(0));
   vector<vector<int> > eGTLCopie(nParts, vector<int>(elems.size()));
   
-  //Ecriture de tous les noeud de murs dans un fichier "all_wall.dat"
-  genOutWall(nodes,wallNodes);
+  //Ecriture de tous les noeud de murs dans un fichier "all_wall.txt"
+  //genOutWall(nodes,wallNodes);
 
   //Variables pour METIS
   nNodes = nodes.size();
@@ -707,14 +659,14 @@ int main(int argc, char* argv[]){
   constr(nParts, nNodes, nElems, nodes, elems, nLTG, nGTL, eLTG, eGTL, newNodes, newElems); 
   int maxN(newNodes.size());
 
-  cout << "Ajout de mailles fantomes à chaque sous maillage" << endl;
+  cout << "Ajout de mailles fantômes à chaque sous maillage" << endl;
   vector<vector<vector<int> > > fantElemsRecep(nParts), fantElemsEnvoi(nParts);
   fantome(nParts, nodes, elems, newNodes, newElems, epart, fantElemsRecep, fantElemsEnvoi, nLTG, nGTL, eLTG, eGTL);
 
-  cout << "Traitement des noeuds d'entre sortie et murs" << endl;
+  cout << "Traitement des noeuds d'entrée sortie et murs" << endl;
   boundary(nParts, nodes, elems, newNodes, newElems, sortieNodes, entreNodes, wallNodes, new_sortieNodes, new_entreNodes, new_wallNodes, nLTG, nGTL, eLTG, eGTL);
 
-  cout << "Renumerotation des mailles a envoyer" << endl;
+  cout << "Renumerotation des mailles à envoyer" << endl;
   renum(nParts, newElems, newElemsCopie, fantElemsRecep, fantElemsEnvoi, eLTG, eGTL, eLTGCopie, eGTLCopie);
   newElems = newElemsCopie;
   eLTG = eLTGCopie;
@@ -728,14 +680,12 @@ int main(int argc, char* argv[]){
   cout << "Ecriture des fichiers de maillages finaux." << endl;
   for(int p=0;p<nParts;p++){
     cout << "Part " << p << ", " << fantElemsRecep[p].size() << " mailles à recep et " << fantElemsEnvoi[p].size() << " à envoyer." << endl;
-    ecritureFem(p, newNodes[p], newElems[p]);
-    //ecritureFant(p,newNodes[p], newElems[p], new_entreNodes[p], new_sortieNodes[p], new_wallNodes[p], fantElemsRecep[p], fantElemsEnvoi[p]);
+    ecritureGnuplot(p, newNodes[p], newElems[p]);
+    //ecritureFantGnuplot(p,newNodes[p], newElems[p], new_entreNodes[p], new_sortieNodes[p], new_wallNodes[p], fantElemsRecep[p], fantElemsEnvoi[p]);
     ecriture(fileName, p,newNodes[p], newElems[p], new_entreNodes[p], new_sortieNodes[p], new_wallNodes[p], fantElemsRecep[p], fantElemsEnvoi[p],infoEnvoi[p], infoRecep[p]);
     ecritureLiens(p, nLTG[p], eLTG[p]);
   }
 
-  //ecritureFem(-1, nodes, elems);
-  //ecriture_base(-1,nodes, elems, entreNodes, sortieNodes, wallNodes);
   delete [] eptr;
   delete [] eind;
   eptr = NULL;

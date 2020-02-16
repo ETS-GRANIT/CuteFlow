@@ -5,5 +5,4 @@
 #SBATCH --account=def-soulaima
 #SBATCH --output=outfile.out
 
-#./main Mille_Iles_mesh_11769800_elts.txt 64
-./main Mille_Iles_mesh_5237773_elts.txt 32
+./split_mesh Mille_Iles_mesh_5237773_elts.txt 32

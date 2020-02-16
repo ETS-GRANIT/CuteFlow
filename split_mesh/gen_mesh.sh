@@ -9,7 +9,7 @@ cd ..
 for i in 2 4 8 16 32
 do
   mkdir "${i}gpu";cd "${i}gpu"
-  cp ../../main .
+  cp ../../split_mesh .
   cp ../../job.sh .
   cp "../../$1" .
     
@@ -20,7 +20,7 @@ do
 #SBATCH --account=def-soulaima
 #SBATCH --output=outfile.out
 
-./main $1 $i
+./split_mesh $1 $i
 " > job.sh
   sbatch job.sh
   cd ..
