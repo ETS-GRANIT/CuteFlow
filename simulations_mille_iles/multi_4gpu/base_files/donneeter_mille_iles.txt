@@ -1,3 +1,0 @@
-&DATAFIELD  LCX=38.0, LCY=1.75, PENTE=0, valxpente=0.0, bathyx0=0.0, bathy_reel='oui', step=5.0, xstep = 100, 
-            GP=9.81, z_min_correction=-7.09856, friction=1, manning=0.025, 
-            limiteN='imperm', limiteS='imperm', limiteW='entree', limiteE='sortie' /
