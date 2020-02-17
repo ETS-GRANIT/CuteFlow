@@ -70,7 +70,7 @@ int main(int argc, char* argv[]){
   stringstream fName;
   for(int p=0;p<nParts;p++){
     fName.str("");
-    fName << p << "_lien_elems.txt";
+    fName << p << "_liens_elems.txt";
     file.open(fName.str());
     if(!file.is_open()){
       cout << "Erreur lors de l'ouverture d'un fichier : " << fName.str() << " manquant." << endl;
