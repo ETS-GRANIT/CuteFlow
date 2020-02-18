@@ -353,7 +353,8 @@ subroutine Full_FV
     dt_arr = deltatmin_d
     dt = minval(dt_arr)
     call MPI_ALLREDUCE(MPI_IN_PLACE,dt,1,real_kind_mpi,MPI_MIN,MPI_COMM_WORLD, mpi_ierr)
-    dt_d = dt
+    !dt_d = dt
+    dt_d = 0.1*dt
   endif
   call cuda_glerror('ierr<-cflcond_cudaf (1) <-- Full_FV_cudaf_shared.cuf',1)
 
@@ -548,6 +549,12 @@ subroutine Full_FV
       if(num_procs>1) then
         call MPI_ALLREDUCE(MPI_IN_PLACE,dt,1,real_kind_mpi,MPI_MIN,MPI_COMM_WORLD, mpi_ierr)
       end if
+
+      !!On diminue le pas de temps au début
+      if ( nt < 20000 ) then
+        dt = 0.1*dt
+      end if
+
       dt_d = dt
     endif
     call cuda_glerror('ierr<-cflcond_cudaf (2) <-- Full_FV_cudaf_shared.cuf',1)
