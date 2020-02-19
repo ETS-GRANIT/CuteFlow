@@ -551,7 +551,7 @@ subroutine Full_FV
       end if
 
       !!On diminue le pas de temps au début
-      if ( nt < 20000 ) then
+      if ( nt < 10000 ) then
         dt = 0.1*dt
       end if
 
@@ -755,8 +755,8 @@ subroutine Full_FV
     !!Enregistrement de la solution finale pour post-traitement avec Bluekenue/Paraview
 
     vdlg = vdlg_d
-    !!call bluekenue_export (she0, sh0, shu0, shv0)
-    !!call paraview_export (she0, sh0, shu0, shv0, iaff)
+    call bluekenue_export (she0, sh0, shu0, shv0)
+    call paraview_export (she0, sh0, shu0, shv0, 9999)
 
     !STORAGE OF FINAL SOLUTIONS IN ALL NODES OF THE DOMAIN (For restarting)
     write(ec_sol_elt_final,*) tc                        
