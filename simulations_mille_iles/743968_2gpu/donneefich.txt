@@ -1,0 +1,2 @@
+&DATAFICH  fichter='donneeter_mille_iles.txt' , fichmai='donneemai_mille_iles.txt' , 
+           fichini='donneeini_mille_iles.txt' , fichsim='donneesim_mille_iles.txt'/
