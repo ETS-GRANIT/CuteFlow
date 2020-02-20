@@ -1,0 +1,23 @@
+#!/usr/bin/bash
+
+if [ ! -d results ]; then
+  mkdir results
+else
+  echo "!! Attention les fichiers dans le dossier results vont être éffacer, continuer ? (yes/no): "
+  read resp
+  if [ $resp == "yes" ]; then
+    echo "Suppression de results/*"
+    rm results/*
+  fi
+fi
+
+cd results
+cp ../base_files/*_liens* .
+cp ../base_files/merge_solutions .
+let ngpu = $(ls "^*[0-9]_SOLUTION_FINALE_PAR_ELEMENT.txt" | wc -l)
+for i in `seq 1 $1`;do
+  cd ../multi_$i
+  ./merge_solutions ../multi_$i/SOLUTION_FINALE_PAR_ELEMENT.txt
+  cat SOLUTION_FINALE_PAR_ELEMENTS.txt >> ../results/SOLUTION_MONTE_CARLO_$i_.txt
+  cd ../results
+done

@@ -551,7 +551,7 @@ subroutine Full_FV
       end if
 
       !!On diminue le pas de temps au début
-      if ( nt < 10000 ) then
+      if ( nt < 20000 ) then
         dt = 0.1*dt
       end if
 
