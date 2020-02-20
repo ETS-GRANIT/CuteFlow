@@ -255,7 +255,7 @@ subroutine lect_const_mail
   end select
 
   !! Prescription du genre des faces frontieres
-  file_bc = genrtest//'boundary_table' // meshfile
+  file_bc = trim(adjustl(genrtest)) //'_boundary_table_' // trim(adjustl(meshfile))
   if (elt_bound==0) then
     if (elt_bound==0) then
       open(unit=1100,file=file_bc,status="unknown")

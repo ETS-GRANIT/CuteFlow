@@ -17,7 +17,7 @@ echo "
 	    soldomaine=0, n_soldom=100,
 	    video=1, n_video=750,
 	    alfa=0.60, 
-      dim=2,  multi_simul=0, monte_carlo=0 /
+      dim=2,  multi_simul=0, monte_carlo=1 /
 " > donneesim_mille_iles.txt
 
 echo "

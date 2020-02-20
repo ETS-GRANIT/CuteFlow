@@ -565,10 +565,10 @@ subroutine bluekenue_export(solh, soleta, solhu, solhv)
   real(fp_kind) :: solu, solv
 
   write(valtemps,'(f12.3)') tc 
-  solfile_eta_T3S = trim(adjustl(genrtest)) // 'FV-ETA-Bluekenue_t_'// trim(adjustl(valtemps)) // 's .T3S'
-  solfile_h_T3S   = trim(adjustl(genrtest)) //   'FV-H-Bluekenue_t_'// trim(adjustl(valtemps)) // 's .T3S'
-  solfile_u_T3S   = trim(adjustl(genrtest)) //   'FV-U-Bluekenue_t_'// trim(adjustl(valtemps)) // 's .T3S'
-  solfile_v_T3S   = trim(adjustl(genrtest)) //   'FV-V-Bluekenue_t_'// trim(adjustl(valtemps)) // 's .T3S'
+  solfile_eta_T3S = trim(adjustl(genrtest)) // 'FV-ETA-Bluekenue_t_'// trim(adjustl(valtemps)) // 's.T3S'
+  solfile_h_T3S   = trim(adjustl(genrtest)) //   'FV-H-Bluekenue_t_'// trim(adjustl(valtemps)) // 's.T3S'
+  solfile_u_T3S   = trim(adjustl(genrtest)) //   'FV-U-Bluekenue_t_'// trim(adjustl(valtemps)) // 's.T3S'
+  solfile_v_T3S   = trim(adjustl(genrtest)) //   'FV-V-Bluekenue_t_'// trim(adjustl(valtemps)) // 's.T3S'
 
   open(unit=ec_Bluekenu_eta,file=solfile_ETA_T3S,status="unknown")
   open(unit=ec_Bluekenu_h,file=solfile_H_T3S,    status="unknown")
