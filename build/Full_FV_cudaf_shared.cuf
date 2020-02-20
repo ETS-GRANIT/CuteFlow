@@ -763,10 +763,7 @@ subroutine Full_FV
     do i=1,nelt
       write(ec_sol_elt_final,'(4f16.6)') vdlg(1,i), vdlg1(1,i), vdlg1(2,i), vdlg1(3,i)
     enddo
-  endif
 
-  !! Stockage de la solution pour traitement par monte carlo
-  if (multi_simul ==1) then
     if (monte_carlo == 0) then
       do i=1,nnt
         if ( sqrt( ( xjauges(1) - coordonnees(i,1) )**2 + ( yjauges(1) - coordonnees(i,2) )**2 ) < distcote ) nodjauge=i
@@ -782,16 +779,17 @@ subroutine Full_FV
           aux = su0(i)/sh0(i)
           if (sh0(i)<=tolisec) aux=0.0
           if ( abs( coordonnees(i,2) - coupe_y ) <= distcote/densite_coupe  ) &
-            write(3002,'(5f16.6)') coordonnees(i,1), sh0(i)-she0(i), she0(i), sh0(i), shu0(i)
+            write(3002,'(I10,5f16.6)') i, coordonnees(i,1), sh0(i)-she0(i), she0(i), sh0(i), shu0(i)
 
           !! Stockage de la solution finale par scenario dans tout le domaine 
           !! pour l'analyse statistique
-          write(3003,'(i7,7f16.6)') i, coordonnees(i,1), coordonnees(i,2), abs(sh0(i)-she0(i)), she0(i), sh0(i), shu0(i), shv0(i)
+          write(3003,'(I10,7f16.6)') i, coordonnees(i,1), coordonnees(i,2), abs(sh0(i)-she0(i)), she0(i), sh0(i), shu0(i), shv0(i)
 
         enddo
       endif   ! de ( abs( tc - TS ) < tolaffiche) then
     endif ! de if (monte_carlo == 0) then
-  endif ! de if (multi_simul ==1) then
+  endif
+
 
   call cpu_time(tf)
 

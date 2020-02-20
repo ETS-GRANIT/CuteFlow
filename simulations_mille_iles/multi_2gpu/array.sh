@@ -5,7 +5,7 @@
 #SBATCH --mem=8000M
 #SBATCH --time=0-02:00
 #SBATCH --account=def-soulaima
-#SBATCH --array=1-20
+#SBATCH --array=1-10
 
 module load pgi/19.4 cuda/10.0.130 openmpi/3.1.2
 

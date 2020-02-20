@@ -14,7 +14,7 @@ fi
 cd results
 cp ../base_files/*_liens* .
 cp ../base_files/merge_solutions .
-let ngpu = $(ls "^*[0-9]_SOLUTION_FINALE_PAR_ELEMENT.txt" | wc -l)
+let ngpu = $(ls "^*_SOLUTION_FINALE_PAR_ELEMENT.txt" | wc -l)
 for i in `seq 1 $1`;do
   cd ../multi_$i
   ./merge_solutions ../multi_$i/SOLUTION_FINALE_PAR_ELEMENT.txt
