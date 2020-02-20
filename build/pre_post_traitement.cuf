@@ -228,7 +228,7 @@ subroutine stock_coupe2D(solh, soleta, solhu, solu)
     do j=1,nbrcoupes
       nbr_nds_coupes(j) = 0
       write(no_coupe,'(i2)') j
-      solfile2d = trim(adjustl(genrtest)) //'FV-2D_coupe_' // trim(adjustl(no_coupe))  // "_" // trim(adjustl(valtemps)) // '_s.txt'
+      solfile2d = trim(adjustl(genrtest)) //'_FV-2D_coupe_' // trim(adjustl(no_coupe))  // "_" // trim(adjustl(valtemps)) // '_s.txt'
       open(unit=ec_sol2d,file=solfile2d,status="unknown")
       do i=1,nnt
         coupe_y = coupe_a(j) * coordonnees(i,1) + coupe_b(j)
@@ -246,7 +246,7 @@ subroutine stock_coupe2D(solh, soleta, solhu, solu)
     write(coef_frot,'(f8.3)') manning
     do j=1,nbrcoupes
       write(no_coupe,'(i2)') j            !
-      solfile2d = trim(adjustl(genrtest)) //'FV-'// '2D_' // 'coupe_' // trim(adjustl(no_coupe)) // "_" // trim(adjustl(valtemps)) // '_s'// '.txt'
+      solfile2d = trim(adjustl(genrtest)) //'_FV-'// '2D_' // 'coupe_' // trim(adjustl(no_coupe)) // "_" // trim(adjustl(valtemps)) // '_s'// '.txt'
       open(unit=ec_sol2d,file=solfile2d,status="unknown")
       if(nbr_nds_coupes(j) > 0) then
         do i=1,nbr_nds_coupes(j)
@@ -338,17 +338,17 @@ subroutine ouv_fichiers(vdlg, vdlg1, zm)
   !! Ouverture du fichier de stockage des solutions 2D  (Opening the 2D solution storage file)
   write(valtemps,'(f12.3)') TS
   if (multi_simul==0 ) then 
-    solfile2d_MC = trim(adjustl(genrtest)) // 'FV--Q' // trim(adjustl(debit_tot)) // '_n_'// trim(adjustl(coef_frot))// '_t_' // trim(adjustl(valtemps)) // '_s'// '.txt'
+    solfile2d_MC = trim(adjustl(genrtest)) // '_FV--Q' // trim(adjustl(debit_tot)) // '_n_'// trim(adjustl(coef_frot))// '_t_' // trim(adjustl(valtemps)) // '_s'// '.txt'
   endif
   if (monte_carlo==1 ) then
-    solfile2d_MC = trim(adjustl(genrtest)) // 'SOL_FV_MULTISIM_2D.txt'
-    solfile3d_MC = trim(adjustl(genrtest)) // 'SOL_FV_MULTISIM_3D.txt'
+    solfile2d_MC = trim(adjustl(genrtest)) // '_SOL_FV_MULTISIM_2D.txt'
+    solfile3d_MC = trim(adjustl(genrtest)) // '_SOL_FV_MULTISIM_3D.txt'
     open(unit=3002,file=solfile2d_MC,status="unknown")
     open(unit=3003,file=solfile3d_MC,status="unknown")
   endif
 
   if (nbrcoupes>1) then
-    file_Q_coupes = trim(adjustl(genrtest)) // 'FV-debit_coupes.txt'
+    file_Q_coupes = trim(adjustl(genrtest)) // '_FV-debit_coupes.txt'
     open(unit=ec_Q_coupes,file=file_Q_coupes,status="unknown")
   endif
 
@@ -565,10 +565,10 @@ subroutine bluekenue_export(solh, soleta, solhu, solhv)
   real(fp_kind) :: solu, solv
 
   write(valtemps,'(f12.3)') tc 
-  solfile_eta_T3S = trim(adjustl(genrtest)) // 'FV-ETA-Bluekenue_t_'// trim(adjustl(valtemps)) // 's.T3S'
-  solfile_h_T3S   = trim(adjustl(genrtest)) //   'FV-H-Bluekenue_t_'// trim(adjustl(valtemps)) // 's.T3S'
-  solfile_u_T3S   = trim(adjustl(genrtest)) //   'FV-U-Bluekenue_t_'// trim(adjustl(valtemps)) // 's.T3S'
-  solfile_v_T3S   = trim(adjustl(genrtest)) //   'FV-V-Bluekenue_t_'// trim(adjustl(valtemps)) // 's.T3S'
+  solfile_eta_T3S = trim(adjustl(genrtest)) // '_FV-ETA-Bluekenue_t_'// trim(adjustl(valtemps)) // 's.T3S'
+  solfile_h_T3S   = trim(adjustl(genrtest)) //   '_FV-H-Bluekenue_t_'// trim(adjustl(valtemps)) // 's.T3S'
+  solfile_u_T3S   = trim(adjustl(genrtest)) //   '_FV-U-Bluekenue_t_'// trim(adjustl(valtemps)) // 's.T3S'
+  solfile_v_T3S   = trim(adjustl(genrtest)) //   '_FV-V-Bluekenue_t_'// trim(adjustl(valtemps)) // 's.T3S'
 
   open(unit=ec_Bluekenu_eta,file=solfile_ETA_T3S,status="unknown")
   open(unit=ec_Bluekenu_h,file=solfile_H_T3S,    status="unknown")
@@ -730,7 +730,7 @@ subroutine tecplot_export(solh, soleta, solhu, solhv)
 
   if ( start == 1 ) then
 
-    tecplot   =  trim(adjustl(genrtest))//'FV-Tecplot.dat'
+    tecplot   =  trim(adjustl(genrtest))//'_FV-Tecplot.dat'
 
     open(unit=ec_tecplot,file=tecplot,status="unknown")
 
