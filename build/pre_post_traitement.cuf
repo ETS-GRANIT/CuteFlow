@@ -274,11 +274,11 @@ subroutine ouv_fichiers(vdlg, vdlg1, zm)
 
   integer                 :: i
   
-  open(unit=ec_bilan_sim,file='RAPPORT SIMULATION.txt',status="unknown")
-  sol_elt_ts = genrtest    // 'SOLUTION DERNIERE ENREGISTREE PAR ELEMENT.txt'  
-  sol_elt_final = genrtest // 'SOLUTION FINALE PAR ELEMENT.txt'
-  sol_nd_ts = genrtest     // 'SOLUTION DERNIERE ENREGISTREE PAR NOEUD.txt'
-  sol_nd_final = genrtest  // 'SOLUTION FINALE PAR NOEUD.txt'
+  open(unit=ec_bilan_sim,file='RAPPORT_SIMULATION.txt',status="unknown")
+  sol_elt_ts = trim(adjustl(genrtest))    // trim(adjustl('SOLUTION_DERNIERE_ENREGISTREE_PAR_ELEMENT.txt'))
+  sol_elt_final = trim(adjustl(genrtest)) // trim(adjustl('SOLUTION_FINALE_PAR_ELEMENT.txt'))
+  sol_nd_ts = trim(adjustl(genrtest))     // trim(adjustl('SOLUTION_DERNIERE_ENREGISTREE_PAR_NOEUD.txt'))
+  sol_nd_final = trim(adjustl(genrtest))  // trim(adjustl('SOLUTION_FINALE_PAR_NOEUD.txt'))
 
   if(multi_simul==0) then
     if(soldomaine==1) then
