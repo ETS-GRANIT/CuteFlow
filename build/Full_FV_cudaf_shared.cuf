@@ -771,22 +771,21 @@ subroutine Full_FV
       write(3000,'(6f8.3)') debitglob, H_AMONT, H_AVAL, manning, vdlg(1,nodjauge), vdlg1(1,nodjauge)
 
     else
-      if ( abs( tc - TS ) < tolaffiche) then
-        do i=1,nnt
-          !! Storage of the final solution by scenario along a section
-          !! for the statistical analysis 
-          coupe_y = coupe_a(1) * coordonnees(i,1) + coupe_b(1)
-          aux = su0(i)/sh0(i)
-          if (sh0(i)<=tolisec) aux=0.0
-          if ( abs( coordonnees(i,2) - coupe_y ) <= distcote/densite_coupe  ) &
-            write(3002,'(I10,5f16.6)') i, coordonnees(i,1), sh0(i)-she0(i), she0(i), sh0(i), shu0(i)
+      do i=1,nnt
+        !! Storage of the final solution by scenario along a section
+        !! for the statistical analysis 
+        coupe_y = coupe_a(1) * coordonnees(i,1) + coupe_b(1)
+        aux = su0(i)/sh0(i)
+        if (sh0(i)<=tolisec) aux=0.0
+        if ( abs( coordonnees(i,2) - coupe_y ) <= distcote/densite_coupe  ) &
+          !!ajouté le i ici
+          write(3002,'(I10,5f16.6)') i, coordonnees(i,1), sh0(i)-she0(i), she0(i), sh0(i), shu0(i)
 
-          !! Stockage de la solution finale par scenario dans tout le domaine 
-          !! pour l'analyse statistique
-          write(3003,'(I10,7f16.6)') i, coordonnees(i,1), coordonnees(i,2), abs(sh0(i)-she0(i)), she0(i), sh0(i), shu0(i), shv0(i)
+        !! Stockage de la solution finale par scenario dans tout le domaine 
+        !! pour l'analyse statistique
+        write(3003,'(I10,7f16.6)') i, coordonnees(i,1), coordonnees(i,2), abs(sh0(i)-she0(i)), she0(i), sh0(i), shu0(i), shv0(i)
 
-        enddo
-      endif   ! de ( abs( tc - TS ) < tolaffiche) then
+      enddo
     endif ! de if (monte_carlo == 0) then
   endif
 

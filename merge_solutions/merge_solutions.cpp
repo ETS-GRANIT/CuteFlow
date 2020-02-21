@@ -7,7 +7,7 @@
 
 using namespace std;
 
-void lecture_txt(ifstream &file, double &tsol, vector<vector<double> > &sol){
+void lecture_restart(ifstream &file, double &tsol, vector<vector<double> > &sol){
   //Lecture des fichiers de solution sur le domaine complet
   //pour les fichier txt avec 4 colonnes
 
@@ -22,6 +22,35 @@ void lecture_txt(ifstream &file, double &tsol, vector<vector<double> > &sol){
   sol.pop_back();
 }
 
+void lecture_3d(ifstream &file, vector<vector<double> > &sol){
+  //Lecture des fichiers de solution sur le domaine complet
+  //pour les fichier txt avec 8 colonnes
+
+  string str;
+  vector<double> v(8);
+
+  while(!file.eof()){
+    file >> v[0] >> v[1] >> v[2] >> v[3] >> v[4] >> v[5] >> v[6] >> v[7];
+    sol.push_back(v);
+  }
+  sol.pop_back();
+}
+
+void lecture_2d(ifstream &file, vector<vector<double> > &sol){
+  //Lecture des fichiers de solution sur le domaine complet
+  //pour les fichier txt avec 6 colonnes
+
+  string str;
+  vector<double> v(6);
+
+  while(!file.eof()){
+    file >> v[0] >> v[1] >> v[2] >> v[3] >> v[4] >> v[5] ;
+    sol.push_back(v);
+  }
+  sol.pop_back();
+}
+
+
 void lecture_liens(ifstream &file, int p, vector<vector<int> > &lien){
 
   vector<int> v(2);
@@ -34,28 +63,40 @@ void lecture_liens(ifstream &file, int p, vector<vector<int> > &lien){
 }
 
 int main(int argc, char* argv[]){
-  //Utilisation : ./merge_solutions nom_de_base_fichiers_a_combiner nombre_de_fichiers
-  //Lancer le programme avec comme argument 1 le nom de base des fichiers solution,
-  //par exemple : Mille_Iles_solution.txt 
+  //Utilisation : ./merge_solutions {restart|sol2d|sol3d} nom_de_base_fichiers_a_combiner nombre_de_fichiers
+  //Lancer le programme avec comme argument 1 le type de fichier a reconstruire
+  // en argument 2 le nom de base des fichiers solution,
+  //par exemple, Mille_Iles_solution.txt
   //si les fichiers s'appellent [0-9]_Mille_Iles_solutions.txt
-  //comme argument 2 le nombre de fichiers
+  //comme argument 3 le nombre de fichiers
+  //Exemple pour reconstruire les fichiers de restart à partir de 
+  //0_Mille_Iles_solution_initiale_t67500.txt et 1_Mille_Iles_solution_initiale_t67500.txt :
+  //./merge_solutions restart Mille_Iles_solution_initiale_t67500.txt 2
   //!! Attention il faut s'assurer que les fichiers de lien entre 
   //numérotation globale et locale soient présent dans le dossier ou le code est lancé.
 
   int nParts;
-  ofstream outFile;
-  string fileName;
-  vector<vector<double> > sol_fin;
+  string fileName, mode;
 
-
-  if(argc < 2){
-    cout << "Utilisation : ./merge_solutions nom_de_base_fichiers_a_combiner nombre_de_fichiers" << endl;
+  if(argc < 4){
+    cout << "Utilisation : ./merge_solutions {restart|sol2d|sol3d} nom_de_base_fichiers_a_combiner nombre_de_fichiers" << endl;
     return(0);
   }
+
+  mode = argv[1];
+  fileName = argv[2];
+  nParts = atoi(argv[3]);
+
+  if((mode!="restart")and(mode!="sol2d")and(mode!="sol3d")){
+    cout << "Utilisation : ./merge_solutions {restart|sol2d|sol3d} nom_de_base_fichiers_a_combiner nombre_de_fichiers" << endl;
+    return(0);
+  }
+
+  ofstream outFile;
+  vector<vector<double> > sol_fin;
+
   
   ifstream file;
-  fileName = argv[1];
-  nParts = atoi(argv[2]);
 
   int totElems = 0;
   vector<double> tsol(nParts, 0);
@@ -68,12 +109,24 @@ int main(int argc, char* argv[]){
     fName << p << "_" << fileName ;
     cout << "Lecture " << fName.str() << endl;
     file.open(fName.str());
-    lecture_txt(file, tsol[p], sol[p]);
+    if(mode == "restart"){
+      lecture_restart(file, tsol[p], sol[p]);
+    }
+    else if(mode == "sol2d"){
+      lecture_3d(file, sol[p]);
+    }
+    else if(mode == "sol3d"){
+      lecture_2d(file, sol[p]);
+    }
     file.close();
     totElems += sol[p].size();
   }
 
   cout << "Nombre total d'éléments : " << totElems << endl;
+  if(totElems == 0){
+    cout << "Erreur de lecture des fichiers d'entrée, 0 éléments trouvés" << endl; 
+    return(0);
+  }
   vector<vector<int> > lien(totElems, vector<int>(2, -1));
 
   for(int p=0;p<nParts;p++){
@@ -96,13 +149,25 @@ int main(int argc, char* argv[]){
   outfile << fixed ;
   outfile.precision(6);
 
-  outfile << "    " << tsol[0] << endl;
+  if(mode == "restart"){
+    outfile << "    " << tsol[0] << endl;
+  }
+
   int i=0;
   while(lien[i][0] != -1){
     int p = lien[i][1];
-    outfile << "      " << sol[p][lien[i][0]][0] << "       " << sol[p][lien[i][0]][1] << "       " << sol[p][lien[i][0]][2] << "       " << sol[p][lien[i][0]][3] << endl;
+    if(mode == "restart"){
+      outfile << "      " << sol[p][lien[i][0]][0] << "       " << sol[p][lien[i][0]][1] << "       " << sol[p][lien[i][0]][2] << "       " << sol[p][lien[i][0]][3] << endl;
+    }
+    else if(mode == "sol2d"){
+      outfile << "      " << sol[p][lien[i][0]][1] << "       " << sol[p][lien[i][0]][2] << "       " << sol[p][lien[i][0]][3]<< "      " << sol[p][lien[i][0]][4] << "       " << sol[p][lien[i][0]][5] << endl;
+    }
+    else if(mode == "sol3d"){
+      outfile << "      " << (int) sol[p][lien[i][0]][0] << "       " << sol[p][lien[i][0]][1] << "       " << sol[p][lien[i][0]][2] << "       " << sol[p][lien[i][0]][3]<< "      " << sol[p][lien[i][0]][4] << "       " << sol[p][lien[i][0]][5] << "       " << sol[p][lien[i][0]][6] << "       " << sol[p][lien[i][0]][7] << endl;
+    }
     i++;
   } 
+
 
   return(0);
 }
