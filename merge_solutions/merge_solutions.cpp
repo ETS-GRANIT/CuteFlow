@@ -98,7 +98,7 @@ int main(int argc, char* argv[]){
   
   ifstream file;
 
-  int totElems = 0;
+  int taille = 0;
   vector<double> tsol(nParts, 0);
   vector<vector<vector<double> > > sol(nParts, vector<vector<double>>());
 
@@ -119,19 +119,32 @@ int main(int argc, char* argv[]){
       lecture_2d(file, sol[p]);
     }
     file.close();
-    totElems += sol[p].size();
+    taille += sol[p].size();
   }
 
-  cout << "Nombre total d'éléments : " << totElems << endl;
-  if(totElems == 0){
-    cout << "Erreur de lecture des fichiers d'entrée, 0 éléments trouvés" << endl; 
+  
+  if(mode == "restart"){
+    cout << "Nombre total d'éléments : " << taille << endl;
+  }
+  else{
+    cout << "Nombre total de noeuds : " << taille << endl; 
+  }
+
+  if(taille == 0){
+    cout << "Erreur de lecture des fichiers d'entrée, 0 éléments/noeuds trouvés" << endl; 
     return(0);
   }
-  vector<vector<int> > lien(totElems, vector<int>(2, -1));
+
+  vector<vector<int> > lien(taille, vector<int>(2, -1));
 
   for(int p=0;p<nParts;p++){
     fName.str("");
-    fName << p << "_liens_elems.txt";
+    if(mode == "restart"){
+      fName << p << "_liens_elems.txt";
+    }
+    else{
+      fName << p << "_liens_nodes.txt";
+    }
     file.open(fName.str());
     if(!file.is_open()){
       cout << "Erreur lors de l'ouverture d'un fichier : " << fName.str() << " manquant." << endl;

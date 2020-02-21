@@ -20,25 +20,33 @@ fi
 
 cd results
 let ngpu=$2
-let min=0
 for i in `seq 1 $1`;do
   echo "[*] Traitement du cas $i"
   cd ../multi_$i
-  if [ $(wc -l 0_SOLUTION_FINALE_PAR_ELEMENT.txt | cut -d " " -f 1) -ge 1 ]; then
-    echo "[+] Cas $i, Fichiers solutions trouvés"
-    ../base_files/merge_solutions SOLUTION_FINALE_PAR_ELEMENT.txt $ngpu
-    cat SOLUTION_FINALE_PAR_ELEMENT.txt >> ../results/TOUTES_SOLUTIONS_FINALES.txt
-    let min=$min+1
+  if [ -f 0_SOLUTION_FINALE_PAR_ELEMENT.txt ] && [ $(wc -l 0_SOLUTION_FINALE_PAR_ELEMENT.txt | cut -d " " -f 1) -ge 1 ]; then
+    echo "[+] Cas $i, Fichiers restart trouvés"
+    echo "[*] ../base_files/merge_solutions restart SOLUTION_FINALE_PAR_ELEMENT.txt $ngpu"
+    ../base_files/merge_solutions restart SOLUTION_FINALE_PAR_ELEMENT.txt $ngpu
   else
-    echo "[-] Cas $i, Aucun fichier solution trouvé !!"
+    echo "[-] Cas $i, Aucun fichier de restart trouvé !!"
+  fi
+
+  if [ -f 0_SOL_FV_MULTISIM_2D.txt ] && [ $(wc -l 0_SOL_FV_MULTISIM_2D.txt | cut -d " " -f 1) -ge 1 ]; then
+    echo "[+] Cas $i, Fichiers sol2d trouvés"
+    echo "[*] ../base_files/merge_solutions sol2d SOL_FV_MULTISIM_3D.txt $ngpu"
+    ../base_files/merge_solutions sol2d SOL_FV_MULTISIM_2D.txt $ngpu
+  else
+    echo "[-] Cas $i, Aucun fichier de solution 2D trouvé !!"
+  fi
+
+  if [ -f 0_SOL_FV_MULTISIM_3D.txt ] && [ $(wc -l 0_SOL_FV_MULTISIM_3D.txt | cut -d " " -f 1) -ge 1 ]; then
+    echo "[+] Cas $i, Fichiers sol3d trouvés"
+    echo "[*] ../base_files/merge_solutions sol3d SOL_FV_MULTISIM_3D.txt $ngpu"
+    ../base_files/merge_solutions sol3d SOL_FV_MULTISIM_3D.txt $ngpu
+    cat SOL_FV_MULTISIM_3D.txt >> ../results/GLOBAL_SOL_FV_MULTISIM_3D.txt
+  else
+    echo "[-] Cas $i, Aucun fichier de solution 3D trouvé !!"
   fi
   cd ../results
 done
 
-if [ $min -ge 1 ];then
-  echo "[+] $min Cas ont produits des solutions"
-  echo "Fichiers de solution créé, results/TOUTES_SOLUTIONS_FINALES.txt"
-else
-  echo "[-] Aucun cas n'as produit de solution"
-  echo "[-] Aucun fichier de solution produit"
-fi
