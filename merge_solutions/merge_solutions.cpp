@@ -165,7 +165,6 @@ int main(int argc, char* argv[]){
   if(mode == "restart"){
     outfile << "    " << tsol[0] << endl;
   }
-
   int i=0;
   while(lien[i][0] != -1){
     int p = lien[i][1];
