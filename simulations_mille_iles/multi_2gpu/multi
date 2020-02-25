@@ -14,6 +14,8 @@ while read -r line;do
     if [ ! -d multi_$i ]; then 
       mkdir multi_$i
     fi
+
+    rm -f multi_$i/*
     cd multi_$i
     cp ../base_files/*_Mille* .
     cp ../base_files/runfile .

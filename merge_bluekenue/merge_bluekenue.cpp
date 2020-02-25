@@ -60,7 +60,7 @@ int main(int argc, char* argv[]){
 
   int nParts=0, nElems=0, nNodes=0;
   int nElemsTrue=0, nNodesTrue=0;
-  string fileName, mode;
+  string fileName;
 
   if(argc < 3){
     cout << "Utilisation : ./merge_bluekenue nom_de_base_fichiers_a_combiner nombre_de_fichiers" << endl;
