@@ -207,7 +207,6 @@ subroutine Full_FV
 
   integer, device                         :: niter_d
   real(fp_kind), allocatable, pinned      :: dt_arr(:)
-  real(fp_kind), allocatable      :: dt_vector(:), debit_vector(:)
   real(fp_kind), allocatable      :: res1(:,:)
   real(fp_kind), device, allocatable      :: deltatmin_d(:)
 
@@ -240,8 +239,6 @@ subroutine Full_FV
 
   allocate(un_voisin_sec1_d(nelt))
   allocate(afm1_d(nelt, 9))
-  allocate(dt_vector(0:num_procs-1))
-  allocate(debit_vector(0:num_procs-1))
 
   !!allocate(dt_arr(nelt), deltatmin_d(nelt))
   allocate(dt_arr(nelt-nelt_fant_recep), deltatmin_d(nelt-nelt_fant_recep))
@@ -378,7 +375,7 @@ subroutine Full_FV
   !!do while ( nt < 1 )
   !!do while ( nt < 100 )
 
-    !call cpu_time(tb1)
+    call cpu_time(tb1)
 
     debit_entree  = 0.d0
     debit_sortie  = 0.d0
@@ -687,7 +684,7 @@ subroutine Full_FV
         print*, 'debit_entre =', debit_entree
         print*, 'debit_sorti =', debit_sortie
         print*, '' 
-        print*, 'LE REGIME PERMANENR EST ATTEINT' !THE PERMANENT REGIME IS REACHED
+        print*, 'LE REGIME PERMANENT EST ATTEINT' !THE PERMANENT REGIME IS REACHED
         print*,('================================================================================')
 
         t_reg_perm = tc
@@ -699,7 +696,7 @@ subroutine Full_FV
 
     debit_sortie0 = debit_sortie
 
-    !call cpu_time(te1)
+    call cpu_time(te1)
 
     !!  Echange sur GPU directement bloc
     !!  Certains échanges ne servent pas forcement,
@@ -715,19 +712,19 @@ subroutine Full_FV
       call gpu_echange_fant_bloc(res1_d, ndln)
     end if
 
-    !call cpu_time(te2)
+    call cpu_time(te2)
 
-!!    if ( mod(nt,freqaffich)==0 ) then
-!!      print*,debitglob, debit_sortie0, tol_reg_perm, debit_entree, debit_sortie, abs(debit_entree - debit_sortie)/debit_entree
-!!      print*, "Performance calculs vs echange mémoire"
-!!      print*, "temps calculs ", te1-tb1
-!!      print*, "temps echange ", te2-te1
-!!      print*, "%temps echange ", 100*(te2-te1)/(te2-tb1)
-!!      print*,"dt = ", dt
-!!      call sol_nodes(vdlg,surf,zm,sh0,she0,shu0,shv0,su0,sv0)
-!!      vdlg = vdlg_d
-!!      call paraview_export (she0, sh0, shu0, shv0, nt/freqaffich)
-!!    end if
+    if ( mod(nt,freqaffich)==0 ) then
+      print*,debitglob, debit_sortie0, tol_reg_perm, debit_entree, debit_sortie, abs(debit_entree - debit_sortie)/debit_entree
+      print*, "Performance calculs vs echange mémoire"
+      print*, "temps calculs ", te1-tb1
+      print*, "temps echange ", te2-te1
+      print*, "%temps echange ", 100*(te2-te1)/(te2-tb1)
+      print*,"dt = ", dt
+      call sol_nodes(vdlg,surf,zm,sh0,she0,shu0,shv0,su0,sv0)
+      vdlg = vdlg_d
+      call paraview_export (she0, sh0, shu0, shv0, nt/freqaffich)
+    end if
 
   enddo 
 
