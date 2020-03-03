@@ -699,17 +699,9 @@ subroutine Full_FV
     call cpu_time(te1)
 
     !!  Echange sur GPU directement bloc
-    !!  Certains échanges ne servent pas forcement,
-    !!   on peut surrement en enlever certains
     if(num_procs>1) then
-      call gpu_echange_fant_bloc(vdlg_d, ndln)
-      call gpu_echange_fant_bloc(vdlg1_d, ndln)
       call gpu_echange_fant_bloc(vdlg0_d, ndln)
       call gpu_echange_fant_bloc(vdlg01_d, ndln)
-      call gpu_echange_fant_bloc(zm_d,1)
-      call gpu_echange_fant_bloc(surf_d,1)
-      call gpu_echange_fant_bloc(gradz_d, ndim)
-      call gpu_echange_fant_bloc(res1_d, ndln)
     end if
 
     call cpu_time(te2)
@@ -721,9 +713,9 @@ subroutine Full_FV
       print*, "temps echange ", te2-te1
       print*, "%temps echange ", 100*(te2-te1)/(te2-tb1)
       print*,"dt = ", dt
-      call sol_nodes(vdlg,surf,zm,sh0,she0,shu0,shv0,su0,sv0)
-      vdlg = vdlg_d
-      call paraview_export (she0, sh0, shu0, shv0, nt/freqaffich)
+      !!call sol_nodes(vdlg,surf,zm,sh0,she0,shu0,shv0,su0,sv0)
+      !!vdlg = vdlg_d
+      !!call paraview_export (she0, sh0, shu0, shv0, nt/freqaffich)
     end if
 
   enddo 
