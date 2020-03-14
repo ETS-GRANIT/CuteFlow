@@ -12,4 +12,4 @@ runfile : ${OBJS}
 	${CC} ${CFLAGS} ${OBJS} -o $@
 
 clean:
-	-rm -f *.o *.core *.mod *T3S outfile* core* *.vtk *~ *boundary* *SOLUTION* *SIMULATION.txt *SOL* SOL*
+	-rm -f *coupe* *gauge* *.o *.core *.mod *T3S outfile* core* *.vtk *~ *boundary* *SOLUTION* *SIMULATION.txt *SOL* SOL*

@@ -246,7 +246,7 @@ subroutine stock_coupe2D(solh, soleta, solhu, solu)
     write(coef_frot,'(f8.3)') manning
     do j=1,nbrcoupes
       write(no_coupe,'(i2)') j            !
-      solfile2d = trim(adjustl(genrtest)) //'_FV-'// '2D_' // 'coupe_' // trim(adjustl(no_coupe)) // "_" // trim(adjustl(valtemps)) // '_s'// '.txt'
+      solfile2d = trim(adjustl(genrtest)) //'_FV-2D_coupe_' // trim(adjustl(no_coupe)) // "_" // trim(adjustl(valtemps)) // '_s.txt'
       open(unit=ec_sol2d,file=solfile2d,status="unknown")
       if(nbr_nds_coupes(j) > 0) then
         do i=1,nbr_nds_coupes(j)
@@ -640,7 +640,11 @@ subroutine paraview_export(solh, soleta, solhu, solhv, ci)
   integer :: nd, iel, ci
   real(fp_kind) :: solu, solv
 
-  write(valtemps,'(I20)') ci
+  if(ci==-1) then
+    write(valtemps,*) "Final"
+  else
+    write(valtemps,'(I20)') ci
+  end if
 
   solfile_para = trim(adjustl(trim(genrtest)))//'_FV-Paraview_'//trim(adjustl(trim(valtemps)))//adjustl(trim('.vtk'))
 

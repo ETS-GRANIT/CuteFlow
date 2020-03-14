@@ -380,7 +380,7 @@ program general
 
     if (nbrcoupes > 0) then 
       write(valtemps,'(f12.3)') ts
-      solfileMC = genrtest // 'FV-MC' // valtemps // 's'// '.dat'
+      solfileMC = trim(adjustl(genrtest)) // 'FV-MC' // trim(adjustl(valtemps)) // 's.dat'
       open(unit=3000,file=solfileMC,status="unknown")
     endif
 
@@ -389,8 +389,6 @@ program general
 
     do i_MC = 1, n_MC
       write(i_MC_char,*) i_MC
-      call SYSTEM("mkdir multi_simul_"//trim(adjustl(i_MC_char)))
-      call SYSTEM("cd multi_simul_"//trim(adjustl(i_MC_char)))
       vdlg0              = zero
       vdlg01             = zero
       vdlg               = zero
@@ -520,7 +518,9 @@ program general
   write(ec_bilan_sim,*) '====================================================================='  
 
   close(ec_bilan_sim)
-  close(3000)
+  if (nbrcoupes > 0) then 
+    close(3000)
+  end if
   close(3001)
   close(3002)
   close(3003)

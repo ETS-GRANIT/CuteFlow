@@ -278,10 +278,10 @@ subroutine Full_FV
   ! *** early storage solution for gauges ***!
   if ( nbrjauges > 0 .and. nodjauges(1) >  0) then
     write(njaug,'(i2)') nbrjauges
-    solfilej_eta = genrtest // 'FV ' // njaug // 'gauges' // '_eta' // '.txt'
-    solfilej_h = genrtest // 'FV ' // njaug // 'gauges' // '_h' // '.txt'
-    solfilej_u = genrtest // 'FV ' // njaug // 'gauges' // '_u' // '.txt'
-    solfilej_v = genrtest // 'FV ' // njaug // 'gauges' // '_v' // '.txt'
+    solfilej_eta = trim(adjustl(genrtest)) // '_FV_' // trim(adjustl(njaug)) // '_gauges_eta.txt'
+    solfilej_h = trim(adjustl(genrtest)) // '_FV_' // trim(adjustl(njaug)) // '_gauges_h.txt'
+    solfilej_u = trim(adjustl(genrtest)) // '_FV_' // trim(adjustl(njaug)) // '_gauges_u.txt'
+    solfilej_v = trim(adjustl(genrtest)) // '_FV_' // trim(adjustl(njaug)) // '_gauges_v.txt'
 
     open(unit=ec_solj_eta,file=solfilej_eta,status="unknown")
     open(unit=ec_solj_h,file=solfilej_h,status="unknown")
@@ -745,7 +745,7 @@ subroutine Full_FV
 
     vdlg = vdlg_d
     call bluekenue_export (she0, sh0, shu0, shv0)
-    call paraview_export (she0, sh0, shu0, shv0, 9999)
+    call paraview_export (she0, sh0, shu0, shv0, -1)
 
     !STORAGE OF FINAL SOLUTIONS IN ALL NODES OF THE DOMAIN (For restarting)
     write(ec_sol_elt_final,*) tc                        
@@ -753,13 +753,7 @@ subroutine Full_FV
       write(ec_sol_elt_final,'(4f16.6)') vdlg(1,i), vdlg1(1,i), vdlg1(2,i), vdlg1(3,i)
     enddo
 
-    if (monte_carlo == 0) then
-      do i=1,nnt
-        if ( sqrt( ( xjauges(1) - coordonnees(i,1) )**2 + ( yjauges(1) - coordonnees(i,2) )**2 ) < distcote ) nodjauge=i
-      enddo
-      write(3000,'(6f8.3)') debitglob, H_AMONT, H_AVAL, manning, vdlg(1,nodjauge), vdlg1(1,nodjauge)
-
-    else
+    if (monte_carlo == 1) then
       do i=1,nnt
         !! Storage of the final solution by scenario along a section
         !! for the statistical analysis 
@@ -775,7 +769,7 @@ subroutine Full_FV
         write(3003,'(I10,7f16.6)') i, coordonnees(i,1), coordonnees(i,2), abs(sh0(i)-she0(i)), she0(i), sh0(i), shu0(i), shv0(i)
 
       enddo
-    endif ! de if (monte_carlo == 0) then
+    endif
   endif
 
 
