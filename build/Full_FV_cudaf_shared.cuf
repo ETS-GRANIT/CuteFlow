@@ -30,6 +30,15 @@ subroutine Full_FV
       real(fp_kind), intent(inout)                  :: deltatmin_d(:)
     end subroutine cflcond_cudaf
 
+    attributes(global) subroutine cflcond_sec_cudaf(solut_d, deltatmin_d, dt_d)
+      use precision_m
+      use global_device 
+      real(fp_kind), dimension(:,:), intent(in)     :: solut_d
+      real(fp_kind), intent(inout)                  :: deltatmin_d(:)
+      real(fp_kind), intent(in)                     :: dt_d
+    end subroutine cflcond_sec_cudaf
+
+
     attributes(global) subroutine mise_a_jr_zone_seche_cudaf(zm_d,vdlg_d, vdlg1_d)
       use precision_m
       use global_device
@@ -54,10 +63,11 @@ subroutine Full_FV
       integer, intent(in) :: n
     end subroutine copy_2d
 
-    attributes(global) subroutine copy_2d_1(vdlg1_d, vdlg01_d, resj_d, niter, iter, dt_d, nelt_d)
+    attributes(global) subroutine copy_2d_1(vdlg1_d, vdlg01_d, resj_d, niter, iter, dt_d, nelt_d, deltatmin_d)
       use precision_m
       real(fp_kind), intent(inout) :: vdlg1_d(:,:), vdlg01_d(:,:)
       real(fp_kind), intent(in) :: resj_d(:,:), dt_d
+      real(fp_kind), intent(inout)                  :: deltatmin_d(:)
       integer, intent(in) :: nelt_d
       integer, value :: niter, iter
     end subroutine copy_2d_1
@@ -117,13 +127,13 @@ subroutine Full_FV
       real(fp_kind), dimension(:), intent(inout)  :: soleta,solh,solhu,solhv,solu,solv
     end subroutine sol_nodes
 
-    attributes(global) subroutine source_cudaf(vdlg_d,surf_d,zm_d,gradz_d)
+    attributes(global) subroutine source_cudaf(vdlg_d,surf_d,zm_d,gradz_d,deltatmin_d)
       use precision_m
       use global_device
       implicit none
 
       real(fp_kind), dimension(:,:), intent(in)    :: vdlg_d
-      real(fp_kind), dimension(:), intent(in)      :: surf_d, zm_d
+      real(fp_kind), dimension(:), intent(in)      :: surf_d, zm_d, deltatmin_d
       real(fp_kind), dimension(:,:), intent(in)    :: gradz_d
     end subroutine source_cudaf
 
@@ -351,7 +361,10 @@ subroutine Full_FV
     dt = minval(dt_arr)
     call MPI_ALLREDUCE(MPI_IN_PLACE,dt,1,real_kind_mpi,MPI_MIN,MPI_COMM_WORLD, mpi_ierr)
     !dt_d = dt
-    dt_d = 0.1*dt
+    dt = 0.1*dt
+    dt_d = dt
+    call cflcond_sec_cudaf<<<grid, tblock>>>(vdlg_d, deltatmin_d, dt_d)
+    print*,"INITIAL DT ", dt
   endif
   call cuda_glerror('ierr<-cflcond_cudaf (1) <-- Full_FV_cudaf_shared.cuf',1)
 
@@ -371,9 +384,9 @@ subroutine Full_FV
 
   write(*,*) 'Loop over time starts' 
   iaff = 0
-  do while ( (tc - ts + 2*tol ) < tol )
-  !!do while ( nt < 1 )
-  !!do while ( nt < 100 )
+  !!do while ( (tc - ts + 2*tol ) < tol )
+  !!do while ( nt < 5 )
+  do while ( nt < 100 )
 
     call cpu_time(tb1)
 
@@ -415,7 +428,7 @@ subroutine Full_FV
 
         else
           !!call copy_2d_1<<<grid_copy, block_copy>>>(vdlg1_d, vdlg01_d, res1_d, niter, iter, dt_d, nelt_d-nelt_fant_recep_d)
-          call copy_2d_1<<<grid_copy, block_copy>>>(vdlg1_d, vdlg01_d, res1_d, niter, iter, dt_d, nelt_d)
+          call copy_2d_1<<<grid_copy, block_copy>>>(vdlg1_d, vdlg01_d, res1_d, niter, iter, dt_d, nelt_d,deltatmin_d)
           call cuda_glerror('ierr<-copy_2d_1{if(niter == 2 iter == 2)} <-- Full_FV_cudaf_shared.cuf',1)
 
           call mise_a_jr_zone_seche_cudaf<<<grid, tblock>>>(zm_d, vdlg_d, vdlg1_d)
@@ -433,7 +446,7 @@ subroutine Full_FV
 
         elseif ( iter == 2 ) then
           !!call copy_2d_1<<<grid_copy, block_copy>>>(vdlg1_d, vdlg01_d, res1_d, niter, iter, dt_d, nelt_d-nelt_fant_recep_d)
-          call copy_2d_1<<<grid_copy, block_copy>>>(vdlg1_d, vdlg01_d, res1_d, niter, iter, dt_d, nelt_d)
+          call copy_2d_1<<<grid_copy, block_copy>>>(vdlg1_d, vdlg01_d, res1_d, niter, iter, dt_d, nelt_d, deltatmin_d)
           call cuda_glerror('ierr<-copy_2d_1{if(niter == 4, iter == 2)} <-- Full_FV_cudaf_shared.cuf',1)
 
           call mise_a_jr_zone_seche_cudaf<<<grid, tblock>>>(zm_d, vdlg_d, vdlg1_d)
@@ -441,7 +454,7 @@ subroutine Full_FV
 
         elseif ( iter == 3 ) then
           !!call copy_2d_1<<<grid_copy, block_copy>>>(vdlg1_d, vdlg01_d, res2_d, niter, iter, dt_d, nelt_d-nelt_fant_recep_d)
-          call copy_2d_1<<<grid_copy, block_copy>>>(vdlg1_d, vdlg01_d, res2_d, niter, iter, dt_d, nelt_d)
+          call copy_2d_1<<<grid_copy, block_copy>>>(vdlg1_d, vdlg01_d, res2_d, niter, iter, dt_d, nelt_d,deltatmin_d)
           call cuda_glerror('ierr<-copy_2d_1{if(niter == 4, iter== 3)} <-- Full_FV_cudaf_shared.cuf',1)
 
           call mise_a_jr_zone_seche_cudaf<<<grid, tblock>>>(zm_d, vdlg_d, vdlg1_d)
@@ -449,7 +462,7 @@ subroutine Full_FV
 
         else
           !!call copy_2d_1<<<grid_copy, block_copy>>>(vdlg1_d, vdlg01_d, res3_d, niter, iter, dt_d, nelt_d-nelt_fant_recep_d)
-          call copy_2d_1<<<grid_copy, block_copy>>>(vdlg1_d, vdlg01_d, res3_d, niter, iter, dt_d, nelt_d)
+          call copy_2d_1<<<grid_copy, block_copy>>>(vdlg1_d, vdlg01_d, res3_d, niter, iter, dt_d, nelt_d,deltatmin_d)
           call cuda_glerror('ierr<-copy_2d_1{if(niter == 4, iter== 4)} <-- Full_FV_cudaf_shared.cuf',1)
 
           call mise_a_jr_zone_seche_cudaf<<<grid, tblock>>>(zm_d, vdlg_d, vdlg1_d)
@@ -487,7 +500,7 @@ subroutine Full_FV
       call cuda_glerror('ierr<-(D->H) mem transfer debit_sortie_arr or debit_entree_arr <-- Full_FV_cudaf_shared.cuf',1)
 
       !! ***** Calculation of source terms
-      call source_cudaf<<<grid, tblock>>>(vdlg_d,surf_d,zm_d,gradz_d)
+      call source_cudaf<<<grid, tblock>>>(vdlg_d,surf_d,zm_d,gradz_d,deltatmin_d)
       call cuda_glerror('ierr<-source_cuda <-- Full_FV_cudaf_shared.cuff',1)
 
       if ( niter == 1 ) then          ! *** Euler ***
@@ -531,7 +544,7 @@ subroutine Full_FV
     call cuda_glerror('ierr<-copy_into_res_d  <-- Full_FV_cudaf_shared.cuf',1)
 
     ! *** solution à la fin du pas avec traitement de la zone seche ***
-    call copy_2d_1<<<grid_copy, block_copy>>>(vdlg1_d, vdlg01_d, res_d, 2, 2, dt_d, nelt_d)
+    call copy_2d_1<<<grid_copy, block_copy>>>(vdlg1_d, vdlg01_d, res_d, 2, 2, dt_d, nelt_d,deltatmin_d)
     call cuda_glerror('ierr<-copy_2d_1 <-- Full_FV_cudaf_shared.cuf',1)
 
     ! *** mise a jour de la zone seche ***
@@ -553,6 +566,7 @@ subroutine Full_FV
       end if
 
       dt_d = dt
+      call cflcond_sec_cudaf<<<grid, tblock>>>(vdlg_d,deltatmin_d, dt_d)
     endif
     call cuda_glerror('ierr<-cflcond_cudaf (2) <-- Full_FV_cudaf_shared.cuf',1)
 
@@ -579,7 +593,11 @@ subroutine Full_FV
       print*, 'debit_sorti =', debit_sortie, 'M3/S'  
       print*,'-----------------------------------------------'
       iaff = iaff + 1
-      !vdlg = vdlg_d
+
+      !Sauvegarde de la solution a enlever
+      vdlg = vdlg_d
+      call sol_nodes(vdlg,surf,zm,sh0,she0,shu0,shv0,su0,sv0)
+      call paraview_export (she0, sh0, shu0, shv0, nt)
     endif
 
     ! *** storage of the solution in 2D sections for the table time 'tvis2d'
@@ -778,6 +796,7 @@ subroutine Full_FV
   deallocate(resc_d,res_d, res1_d)
   deallocate(sourcfric_d)
   deallocate(dt_arr, deltatmin_d)
+  deallocate(cotemin_arr, cotemin_arr_d)
   deallocate(un_voisin_sec1_d)
   deallocate(afm1_d)
   deallocate(res1)
@@ -808,10 +827,11 @@ attributes(global) subroutine copy_2d(a,b,n)
 
 end subroutine copy_2d
 
-attributes(global) subroutine copy_2d_1(vdlg1_d, vdlg01_d, resj_d, niter, iter, dt_d, nelt_d)
+attributes(global) subroutine copy_2d_1(vdlg1_d, vdlg01_d, resj_d, niter, iter, dt_d, nelt_d,deltatmin_d)
   use precision_m
   real(fp_kind), intent(inout) :: vdlg1_d(:,:), vdlg01_d(:,:)
   real(fp_kind), intent(in) :: resj_d(:,:), dt_d
+  real(fp_kind), intent(in)                  :: deltatmin_d(:)
   integer, intent(in) :: nelt_d
   integer, value :: niter, iter
 
@@ -821,20 +841,23 @@ attributes(global) subroutine copy_2d_1(vdlg1_d, vdlg01_d, resj_d, niter, iter, 
   ti = threadIdx%x
   gi = (blockIdx%x - 1)*blockDim%x + ti
 
-  if(gi <= nelt_d) then
-    !!if(gi <= nelt_fant_recep_d) then
+  !!if(gi <= nelt_d) then
+  if(gi <= nelt_d-nelt_fant_recep_d) then
 
     if(niter == 2 .and. iter == 2) then 
 
-      vdlg1_d(:,gi) = vdlg01_d(:,gi) + dt_d * resj_d(:,gi)
+      !vdlg1_d(:,gi) = vdlg01_d(:,gi) + dt_d * resj_d(:,gi)
+      vdlg1_d(:,gi) = vdlg01_d(:,gi) + deltatmin_d(gi) * resj_d(:,gi)
 
     elseif(niter == 4 .and. (iter == 2 .or. iter == 3)) then 
 
-      vdlg1_d(:,gi) = vdlg01_d(:,gi) + dt_d * resj_d(:,gi)/2
+      ! vdlg1_d(:,gi) = vdlg01_d(:,gi) + dt_d * resj_d(:,gi)/2
+      vdlg1_d(:,gi) = vdlg01_d(:,gi) + deltatmin_d(gi) * resj_d(:,gi)/2
 
     elseif(niter == 4 .and. iter == 4) then 
 
-      vdlg1_d(:,gi) = vdlg01_d(:,gi) + dt_d * resj_d(:,gi)
+      ! vdlg1_d(:,gi) = vdlg01_d(:,gi) + dt_d * resj_d(:,gi)
+      vdlg1_d(:,gi) = vdlg01_d(:,gi) + deltatmin_d(gi) * resj_d(:,gi)
 
     endif
   endif

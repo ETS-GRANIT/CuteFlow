@@ -1,4 +1,4 @@
-attributes(global) subroutine source_cudaf(vdlg_d,surf_d,zm_d,gradz_d)
+attributes(global) subroutine source_cudaf(vdlg_d,surf_d,zm_d,gradz_d,deltatmin_d)
 !
 ! ======================================================================
 !
@@ -39,7 +39,7 @@ attributes(global) subroutine source_cudaf(vdlg_d,surf_d,zm_d,gradz_d)
 ! ... variables passees en parametre ...................................
 !
     real(fp_kind), dimension(:,:), intent(in)    :: vdlg_d
-    real(fp_kind), dimension(:), intent(in)      :: surf_d, zm_d
+    real(fp_kind), dimension(:), intent(in)      :: surf_d, zm_d, deltatmin_d
     real(fp_kind), dimension(:,:), intent(in)    :: gradz_d
 
 
@@ -58,8 +58,8 @@ attributes(global) subroutine source_cudaf(vdlg_d,surf_d,zm_d,gradz_d)
 ! ... debut du traitement
 !
 
-    if (gi <= nelt_d) then
-    !!if (gi <= nelt_d-nelt_fant_recep_d) then
+    !!if (gi <= nelt_d) then
+    if (gi <= nelt_d-nelt_fant_recep_d) then
         sourcfric_d(:,gi) = 0.d0
         q1 = vdlg_d(1,gi)
         q2 = vdlg_d(2,gi)
@@ -112,7 +112,8 @@ attributes(global) subroutine source_cudaf(vdlg_d,surf_d,zm_d,gradz_d)
                     ! tempa  = real(q1**(-4.d0/3.d0))
                     ! dtgn2h = dt_d / 2.d0 * gp_d * manning*manning*tempa
     !
-                    dtgn2h = dt_d / 2.d0 * gp_d * manning*manning*q1**(-4.d0/3.d0)
+                    !!dtgn2h = dt_d / 2.d0 * gp_d * manning*manning*q1**(-4.d0/3.d0)
+                    dtgn2h = deltatmin_d(gi) / 2.d0 * gp_d * manning*manning*q1**(-4.d0/3.d0)
 
                     af(1,1) = 1.d0
                     af(1,2) = 0.d0
@@ -156,7 +157,8 @@ attributes(global) subroutine source_cudaf(vdlg_d,surf_d,zm_d,gradz_d)
                     ! tempa  = real(q1**(-4.d0/3.d0))
                     ! beta = - dt_d* gp_d * manning*manning * normvit * tempa
 
-                    beta = - dt_d* gp_d * manning*manning * normvit * q1**(-4.d0/3.d0)
+                    !!beta = - dt_d* gp_d * manning*manning * normvit * q1**(-4.d0/3.d0)
+                    beta = - deltatmin_d(gi) * gp_d * manning*manning * normvit * q1**(-4.d0/3.d0)
     !
                     af(1,1) = 1.d0
                     af(1,2) = 0.d0
