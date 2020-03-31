@@ -384,9 +384,9 @@ subroutine Full_FV
 
   write(*,*) 'Loop over time starts' 
   iaff = 0
-  !!do while ( (tc - ts + 2*tol ) < tol )
+  do while ( (tc - ts + 2*tol ) < tol )
   !!do while ( nt < 5 )
-  do while ( nt < 100 )
+  !!do while ( nt < 100 )
 
     call cpu_time(tb1)
 
@@ -544,7 +544,7 @@ subroutine Full_FV
     call cuda_glerror('ierr<-copy_into_res_d  <-- Full_FV_cudaf_shared.cuf',1)
 
     ! *** solution à la fin du pas avec traitement de la zone seche ***
-    call copy_2d_1<<<grid_copy, block_copy>>>(vdlg1_d, vdlg01_d, res_d, 2, 2, dt_d, nelt_d,deltatmin_d)
+    call copy_2d_1<<<grid_copy, block_copy>>>(vdlg1_d, vdlg01_d, res_d, 2, 2, dt_d, nelt_d, deltatmin_d)
     call cuda_glerror('ierr<-copy_2d_1 <-- Full_FV_cudaf_shared.cuf',1)
 
     ! *** mise a jour de la zone seche ***
@@ -595,9 +595,9 @@ subroutine Full_FV
       iaff = iaff + 1
 
       !Sauvegarde de la solution a enlever
-      vdlg = vdlg_d
-      call sol_nodes(vdlg,surf,zm,sh0,she0,shu0,shv0,su0,sv0)
-      call paraview_export (she0, sh0, shu0, shv0, nt)
+      !vdlg = vdlg_d
+      !call sol_nodes(vdlg,surf,zm,sh0,she0,shu0,shv0,su0,sv0)
+      !call paraview_export (she0, sh0, shu0, shv0, nt)
     endif
 
     ! *** storage of the solution in 2D sections for the table time 'tvis2d'
