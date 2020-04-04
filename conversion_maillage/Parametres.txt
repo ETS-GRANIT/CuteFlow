@@ -1,0 +1,4 @@
+&DATAF  nom_test='Mille_Iles',   
+	fich_xyz='MI_973589elts_xyz.t3s',
+	fich_xyman='MI_973589elts_xyman.t3s',
+        fich_bc='MI_973589elts_xyz_BC.cli'/
