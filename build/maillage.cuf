@@ -138,6 +138,14 @@ subroutine lect_const_mail
       use global_device
     end subroutine construct_coo_table_elemwise
 
+    subroutine calcul_long_entree
+      use precision_m
+      use global
+      use global_device
+      use m_param
+      use cudafor
+  end subroutine calcul_long_entree
+
   end interface 
 
   integer                     ::  premnoeud, deuxnoeud
@@ -150,7 +158,7 @@ subroutine lect_const_mail
 
   !! MPI type for memory excanhges
   call MPI_TYPE_CREATE_F90_REAL(fp_kind, MPI_UNDEFINED, real_kind_mpi, mpi_ierr)
-  
+
   !! Construction / lecture  et  stockage du maillage
   if ( aleat == 0) then           ! structure
     print*,'Construction du maillage'
@@ -279,8 +287,18 @@ subroutine lect_const_mail
 
     boundary_d = boundary
     call cuda_glerror('ierr <- (h->d) data transfer boundary_d = boundary <--- maillage.cuf',1)
-
   endif
+
+  !!Calcul de la longueur de l'entree
+  if(ndi > 0) then 
+    call calcul_long_entree
+  else 
+   long=0.
+  end if
+
+  call MPI_ALLREDUCE(MPI_IN_PLACE,long,1,real_kind_mpi,MPI_SUM,MPI_COMM_WORLD, mpi_ierr)
+  long_d=long
+
 
   !! Calculation of the elementwise coordinates table
   allocate(coo_table_elemwise(nelt,3*ns) , coo_table_elemwise_d(nelt,3*ns))
@@ -514,7 +532,7 @@ subroutine lec_mail_rect
       read(lec_mesh,*) connectivite(i,1),connectivite(i,2),connectivite(i,3),connectivite(i,4)
     enddo
   endif
-  
+
   !! Table des noeuds de l'entrée :
   read(lec_mesh,*) tarati
   read(lec_mesh,*) ndi
@@ -522,7 +540,7 @@ subroutine lec_mail_rect
   do i=1,ndi
     read(lec_mesh,*) ndinput(i)
   enddo
-  
+
   !! Table des noeuds de la sortie :
   read(lec_mesh,*) tarati
   read(lec_mesh,*) ndo
@@ -1951,3 +1969,29 @@ integer, value :: kvol, kfac
     ! ... fin du traitement ................................................
     !
   end subroutine surfzmgradz_cudaf
+
+  subroutine calcul_long_entree
+    use precision_m
+    use global
+    use global_device
+    use m_param
+    use cudafor
+    implicit none
+
+    integer kvol, kfac, n1, n2
+
+    do kvol=1,nelt
+      do kfac=1,ns
+        n1 = connectivite(kvol,kfac)
+        if ( kfac < ns ) then
+          n2 = connectivite(kvol,kfac+1)
+        else
+          n2 = connectivite(kvol,1)
+        endif
+
+        if(boundary(kvol,kfac) == -1) then
+          long = long + sqrt((coordonnees(n1,1)-coordonnees(n2,1))**2+(coordonnees(n1,2)-coordonnees(n2,2))**2+(coordonnees(n1,3)-coordonnees(n2,3))**2)
+        end if
+      end do
+    end do
+  end subroutine calcul_long_entree

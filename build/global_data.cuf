@@ -55,7 +55,7 @@ module global
   integer :: multi_simul, monte_carlo
 
   namelist/datasimul/ test, nom_test, iflux, limiteur, fricimplic, timedisc, & 
-    & inlet,debit_var, debitglob, loi_debitglob, long, h_sortie, &
+    & inlet,debit_var, debitglob, loi_debitglob, h_sortie, &
     & tbase, divbase, ts, dt, pas_dt, cfl, tol_reg_perm, tol, tolisec, tolratio, tolaffiche, & 
     & grd, visual, freqvisual, freqaffich, freqjauges, instjauges, &
     & nbrjauges, xjauges, yjauges, nbrcoupes, densite_coupe, coupe_a, coupe_b, long_coupe,  &

@@ -25,7 +25,7 @@
 
 using namespace std;
 
-void lecture(ifstream &mesh, vector<vector<double> > &nodes, vector<vector<double> > &elems,idx_t *&eind, idx_t *&eptr, vector<int> &entreNodes, vector<int> &sortieNodes, vector<int> &wallNodes){
+void lecture(ifstream &mesh, vector<vector<double> > &nodes, vector<vector<double> > &elems,idx_t *&eind, idx_t *&eptr, vector<int> &entreNodes, vector<int> &numEntreNodes, vector<int> &sortieNodes, vector<int> &wallNodes){
 
   int i, nNodes, nElems, nSortie, nEntre, nWall;
   string str;
@@ -67,9 +67,11 @@ void lecture(ifstream &mesh, vector<vector<double> > &nodes, vector<vector<doubl
   cout << "Lecture noeuds entree " << nEntre << endl;
   i=0;
   int dum;
+  vector<int> dum_v(2);
   while(i<nEntre){
-    mesh >> dum;
-    entreNodes.push_back(dum);
+    mesh >> dum_v[0] >> dum_v[1];
+    entreNodes.push_back(dum_v[0]);
+    numEntreNodes.push_back(dum_v[1]);
     i++;
   }
   getline(mesh, str);
@@ -143,7 +145,7 @@ void ecritureFantGnuplot(int n, vector<vector<double> > &nodes, vector<vector<do
   out_mesh.close();
 }
 
-void ecriture(string fileName, int n, vector<vector<double> > &nodes, vector<vector<double> > &elems, vector<int> &new_entreNodes, vector<int> &new_sortieNodes, vector<int> &new_wallNodes, vector<vector<int> > &fantElemsRecep, vector<vector<int> > &fantElemsEnvoi, vector<vector<int> > &infoEnvoi, vector<vector<int> > &infoRecep){
+void ecriture(string fileName, int n, vector<vector<double> > &nodes, vector<vector<double> > &elems, vector<int> &new_entreNodes, vector<int> &new_numEntreNodes, vector<int> &new_sortieNodes, vector<int> &new_wallNodes, vector<vector<int> > &fantElemsRecep, vector<vector<int> > &fantElemsEnvoi, vector<vector<int> > &infoEnvoi, vector<vector<int> > &infoRecep){
 
   int i, nNodes, nElems;
   nNodes = nodes.size();
@@ -177,7 +179,7 @@ void ecriture(string fileName, int n, vector<vector<double> > &nodes, vector<vec
   out_mesh << new_entreNodes.size() << endl;
   i=0;
   while(i<new_entreNodes.size()){
-    out_mesh << new_entreNodes[i] << endl ;
+    out_mesh << new_entreNodes[i] <<  " " << new_numEntreNodes[i] << endl ;
     i++; 
   }
 
@@ -423,13 +425,14 @@ void fantome(int nParts, vector<vector<double> > &nodes, vector<vector<double> >
   }
 }
 
-void boundary(int nParts, vector<vector<double> > &nodes, vector<vector<double> > &elems, vector<vector<vector<double> > > &newNodes, vector<vector<vector<double> > > &newElems, vector<int> &sortieNodes, vector<int> &entreNodes, vector<int> &wallNodes, vector<vector<int> > &new_sortieNodes, vector<vector<int> > &new_entreNodes,vector<vector<int> > &new_wallNodes,vector<vector<int> > &nLTG,vector<vector<int> > &nGTL,vector<vector<int> > &eLTG,vector<vector<int> > &eGTL){
+void boundary(int nParts, vector<vector<double> > &nodes, vector<vector<double> > &elems, vector<vector<vector<double> > > &newNodes, vector<vector<vector<double> > > &newElems, vector<int> &sortieNodes, vector<int> &entreNodes, vector<int> &numEntreNodes, vector<int> &wallNodes, vector<vector<int> > &new_sortieNodes,vector<vector<int> > &new_entreNodes, vector<vector<int> > &new_numEntreNodes, vector<vector<int> > &new_wallNodes,vector<vector<int> > &nLTG,vector<vector<int> > &nGTL,vector<vector<int> > &eLTG,vector<vector<int> > &eGTL){
   
   for(int p=0;p<nParts;p++){
     for(int i=0;i<newNodes[p].size();i++){
       for(int j=0;j<entreNodes.size();j++){
         if(nLTG[p][i] == entreNodes[j]){
           new_entreNodes[p].push_back(i+1);
+          new_numEntreNodes[p].push_back(numEntreNodes[j]);
         }
       }
       for(int j=0;j<sortieNodes.size();j++){
@@ -571,6 +574,7 @@ void genInfoSendRecv(int nParts, vector<vector<vector<int> > > &fantElemsEnvoi, 
     infoRecep[p].push_back(dummy);
   }
 }
+
 void ecritureLiens(int n, vector<int> &nLTG, vector<int> &eLTG){
   
   ofstream out;
@@ -613,8 +617,8 @@ int main(int argc, char* argv[]){
 
   int n, i, nNodes, nElems, ncom(1);
   int new_nElems, new_nNodes;
-  vector<int> entreNodes, sortieNodes, wallNodes;
-  vector<vector<int> > new_entreNodes(nParts);
+  vector<int> entreNodes, sortieNodes, wallNodes, numEntreNodes;
+  vector<vector<int> > new_entreNodes(nParts), new_numEntreNodes(nParts);
   vector<vector<int> > new_sortieNodes(nParts);
   vector<vector<int> > new_wallNodes(nParts);
   vector<vector<double> > nodes, elems;
@@ -627,7 +631,7 @@ int main(int argc, char* argv[]){
   cout << fixed;
 
   //Lecture du maillage
-  lecture(mesh, nodes, elems, eind, eptr, entreNodes, sortieNodes, wallNodes);
+  lecture(mesh, nodes, elems, eind, eptr, entreNodes, numEntreNodes, sortieNodes, wallNodes);
   mesh.close();
 
 
@@ -664,7 +668,7 @@ int main(int argc, char* argv[]){
   fantome(nParts, nodes, elems, newNodes, newElems, epart, fantElemsRecep, fantElemsEnvoi, nLTG, nGTL, eLTG, eGTL);
 
   cout << "Traitement des noeuds d'entrée sortie et murs" << endl;
-  boundary(nParts, nodes, elems, newNodes, newElems, sortieNodes, entreNodes, wallNodes, new_sortieNodes, new_entreNodes, new_wallNodes, nLTG, nGTL, eLTG, eGTL);
+  boundary(nParts, nodes, elems, newNodes, newElems, sortieNodes, entreNodes, numEntreNodes, wallNodes, new_sortieNodes, new_entreNodes, new_numEntreNodes, new_wallNodes, nLTG, nGTL, eLTG, eGTL);
 
   cout << "Renumerotation des mailles à envoyer" << endl;
   renum(nParts, newElems, newElemsCopie, fantElemsRecep, fantElemsEnvoi, eLTG, eGTL, eLTGCopie, eGTLCopie);
@@ -682,7 +686,7 @@ int main(int argc, char* argv[]){
     cout << "Part " << p << ", " << fantElemsRecep[p].size() << " mailles à recep et " << fantElemsEnvoi[p].size() << " à envoyer." << endl;
     ecritureGnuplot(p, newNodes[p], newElems[p]);
     //ecritureFantGnuplot(p,newNodes[p], newElems[p], new_entreNodes[p], new_sortieNodes[p], new_wallNodes[p], fantElemsRecep[p], fantElemsEnvoi[p]);
-    ecriture(fileName, p,newNodes[p], newElems[p], new_entreNodes[p], new_sortieNodes[p], new_wallNodes[p], fantElemsRecep[p], fantElemsEnvoi[p],infoEnvoi[p], infoRecep[p]);
+    ecriture(fileName, p,newNodes[p], newElems[p], new_entreNodes[p], new_numEntreNodes[p], new_sortieNodes[p], new_wallNodes[p], fantElemsRecep[p], fantElemsEnvoi[p],infoEnvoi[p], infoRecep[p]);
     ecritureLiens(p, nLTG[p], eLTG[p]);
   }
 

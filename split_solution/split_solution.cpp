@@ -51,7 +51,7 @@ int main(int argc, char* argv[]){
   vector<vector<vector<double> > > sol_fin;
 
 
-  if(argc < 2){
+  if(argc <= 2){
     cout << "Utilisation : ./split fichier_sur_domaine_entier nombre_partitions" << endl;
     return(0);
   }
