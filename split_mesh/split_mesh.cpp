@@ -25,7 +25,7 @@
 
 using namespace std;
 
-void lecture(ifstream &mesh, vector<vector<double> > &nodes, vector<vector<double> > &elems,idx_t *&eind, idx_t *&eptr, vector<int> &entreNodes, vector<int> &numEntreNodes, vector<int> &sortieNodes, vector<int> &wallNodes){
+void lecture(ifstream &mesh, vector<vector<double> > &nodes, vector<vector<double> > &elems,idx_t *&eind, idx_t *&eptr, vector<int> &entreNodes, vector<int> &numEntreNodes, vector<int> &sortieNodes, vector<int> &wallNodes, int &nombreEntre){
 
   int i, nNodes, nElems, nSortie, nEntre, nWall;
   string str;
@@ -63,7 +63,7 @@ void lecture(ifstream &mesh, vector<vector<double> > &nodes, vector<vector<doubl
   }
   getline(mesh, str);
   getline(mesh, str);
-  mesh >> nEntre;
+  mesh >> nEntre >> nombreEntre;
   cout << "Lecture noeuds entree " << nEntre << endl;
   i=0;
   int dum;
@@ -145,7 +145,7 @@ void ecritureFantGnuplot(int n, vector<vector<double> > &nodes, vector<vector<do
   out_mesh.close();
 }
 
-void ecriture(string fileName, int n, vector<vector<double> > &nodes, vector<vector<double> > &elems, vector<int> &new_entreNodes, vector<int> &new_numEntreNodes, vector<int> &new_sortieNodes, vector<int> &new_wallNodes, vector<vector<int> > &fantElemsRecep, vector<vector<int> > &fantElemsEnvoi, vector<vector<int> > &infoEnvoi, vector<vector<int> > &infoRecep){
+void ecriture(string fileName, int n, vector<vector<double> > &nodes, vector<vector<double> > &elems, vector<int> &new_entreNodes, vector<int> &new_numEntreNodes, vector<int> &new_sortieNodes, vector<int> &new_wallNodes, vector<vector<int> > &fantElemsRecep, vector<vector<int> > &fantElemsEnvoi, vector<vector<int> > &infoEnvoi, vector<vector<int> > &infoRecep, int &nombreEntre){
 
   int i, nNodes, nElems;
   nNodes = nodes.size();
@@ -176,7 +176,7 @@ void ecriture(string fileName, int n, vector<vector<double> > &nodes, vector<vec
   }
 
   out_mesh << "Noeuds d'entre" << endl;
-  out_mesh << new_entreNodes.size() << endl;
+  out_mesh << new_entreNodes.size() << " " << nombreEntre << endl;
   i=0;
   while(i<new_entreNodes.size()){
     out_mesh << new_entreNodes[i] <<  " " << new_numEntreNodes[i] << endl ;
@@ -615,7 +615,7 @@ int main(int argc, char* argv[]){
     nParts = atoi(argv[2]);
   }
 
-  int n, i, nNodes, nElems, ncom(1);
+  int n, i, nNodes, nElems, ncom(1), nombreEntre;
   int new_nElems, new_nNodes;
   vector<int> entreNodes, sortieNodes, wallNodes, numEntreNodes;
   vector<vector<int> > new_entreNodes(nParts), new_numEntreNodes(nParts);
@@ -631,7 +631,7 @@ int main(int argc, char* argv[]){
   cout << fixed;
 
   //Lecture du maillage
-  lecture(mesh, nodes, elems, eind, eptr, entreNodes, numEntreNodes, sortieNodes, wallNodes);
+  lecture(mesh, nodes, elems, eind, eptr, entreNodes, numEntreNodes, sortieNodes, wallNodes, nombreEntre);
   mesh.close();
 
 
@@ -686,7 +686,7 @@ int main(int argc, char* argv[]){
     cout << "Part " << p << ", " << fantElemsRecep[p].size() << " mailles à recep et " << fantElemsEnvoi[p].size() << " à envoyer." << endl;
     ecritureGnuplot(p, newNodes[p], newElems[p]);
     //ecritureFantGnuplot(p,newNodes[p], newElems[p], new_entreNodes[p], new_sortieNodes[p], new_wallNodes[p], fantElemsRecep[p], fantElemsEnvoi[p]);
-    ecriture(fileName, p,newNodes[p], newElems[p], new_entreNodes[p], new_numEntreNodes[p], new_sortieNodes[p], new_wallNodes[p], fantElemsRecep[p], fantElemsEnvoi[p],infoEnvoi[p], infoRecep[p]);
+    ecriture(fileName, p,newNodes[p], newElems[p], new_entreNodes[p], new_numEntreNodes[p], new_sortieNodes[p], new_wallNodes[p], fantElemsRecep[p], fantElemsEnvoi[p],infoEnvoi[p], infoRecep[p], nombreEntre);
     ecritureLiens(p, nLTG[p], eLTG[p]);
   }
 

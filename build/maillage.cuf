@@ -292,12 +292,14 @@ subroutine lect_const_mail
   !!Calcul de la longueur de l'entree
   if(ndi > 0) then 
     call calcul_long_entree
-  else 
-   long=0.
   end if
 
-  call MPI_ALLREDUCE(MPI_IN_PLACE,long,1,real_kind_mpi,MPI_SUM,MPI_COMM_WORLD, mpi_ierr)
-  long_d=long
+  if(nombre_input==0) then
+    call MPI_ALLREDUCE(MPI_IN_PLACE,long_entree,1,real_kind_mpi,MPI_SUM,MPI_COMM_WORLD, mpi_ierr)
+  else
+    call MPI_ALLREDUCE(MPI_IN_PLACE,long_entree,nombre_input,real_kind_mpi,MPI_SUM,MPI_COMM_WORLD, mpi_ierr)
+  end if
+  long_entree_d=long_entree
 
 
   !! Calculation of the elementwise coordinates table
@@ -646,15 +648,31 @@ subroutine lec_mail_tri_mpi
 
   !! Table des noeuds de l'entrée :
   read(lec_mesh,*) tarati
-  read(lec_mesh,*) ndi
-  print*,"id ", my_id, ", ", ndi, " noeuds entre"
-  if (ndi>0) then
-    allocate(ndinput(ndi))
-    allocate(ndinput_d(ndi))
-    do i=1,ndi
-      read(lec_mesh,*) ndinput(i)
-    enddo
-  endif
+  if(multi_entree==0) then
+    read(lec_mesh,*) ndi
+    allocate(long_entree(1))
+    allocate(long_entree_d(1))
+    if (ndi>0) then
+      allocate(ndinput(ndi))
+      allocate(ndinput_d(ndi))
+      do i=1,ndi
+        read(lec_mesh,*) ndinput(i)
+      enddo
+    endif
+  else
+    read(lec_mesh,*) ndi, nombre_input
+    allocate(long_entree(nombre_input))
+    allocate(long_entree_d(nombre_input))
+    if (ndi>0) then
+      allocate(ndinput(ndi))
+      allocate(numero_ndinput(ndi))
+      allocate(ndinput_d(ndi))
+      allocate(numero_ndinput_d(ndi))
+      do i=1,ndi
+        read(lec_mesh,*) ndinput(i), numero_ndinput(i)
+      enddo
+    endif
+  end if
 
   !! Table des noeuds de la sortie :
   read(lec_mesh,*) tarati
@@ -739,6 +757,7 @@ subroutine lec_mail_tri_mpi
   nelt_fant_envoi_d = nelt_fant_envoi
   nnt_d  = nnt
   ndi_d  = ndi
+  nombre_input_d  = nombre_input
   ndo_d  = ndo
   ndw_d  = ndw
 
@@ -747,6 +766,7 @@ subroutine lec_mail_tri_mpi
   connectivite_d      = connectivite
   manning_nelt_d      = manning_nelt
   ndinput_d           = ndinput
+  numero_ndinput_d    = numero_ndinput
   ndoutput_d          = ndoutput
   ndwall_d            = ndwall
 
@@ -814,14 +834,32 @@ subroutine lec_mail_tri
 
   !! Table des noeuds de l'entrée :
   read(lec_mesh,*) tarati
-  read(lec_mesh,*) ndi
-  if (ndi>0) then
-    allocate(ndinput(ndi))
-    allocate(ndinput_d(ndi))
-    do i=1,ndi
-      read(lec_mesh,*) ndinput(i)
-    enddo
-  endif
+  if(multi_entree==0) then
+    read(lec_mesh,*) ndi
+    allocate(long_entree(1))
+    allocate(long_entree_d(1))
+    if (ndi>0) then
+      allocate(ndinput(ndi))
+      allocate(ndinput_d(ndi))
+      do i=1,ndi
+        read(lec_mesh,*) ndinput(i)
+      enddo
+    endif
+  else
+    read(lec_mesh,*) ndi, nombre_input
+    allocate(long_entree(nombre_input))
+    allocate(long_entree_d(nombre_input))
+    if (ndi>0) then
+      allocate(ndinput(ndi))
+      allocate(numero_ndinput(ndi))
+      allocate(ndinput_d(ndi))
+      allocate(numero_ndinput_d(ndi))
+      do i=1,ndi
+        read(lec_mesh,*) ndinput(i), numero_ndinput(i)
+      enddo
+    endif
+  end if
+
 
   !! Table des noeuds de la sortie :
   read(lec_mesh,*) tarati
@@ -859,6 +897,7 @@ subroutine lec_mail_tri
   nelt_fant_envoi_d = nelt_fant_envoi
   nnt_d  = nnt
   ndi_d  = ndi
+  nombre_input_d  = nombre_input
   ndo_d  = ndo
   ndw_d  = ndw
 
@@ -867,6 +906,7 @@ subroutine lec_mail_tri
   connectivite_d      = connectivite
   manning_nelt_d      = manning_nelt
   ndinput_d           = ndinput
+  numero_ndinput_d    = numero_ndinput
   ndoutput_d          = ndoutput
   ndwall_d            = ndwall
 
@@ -1990,7 +2030,8 @@ integer, value :: kvol, kfac
         endif
 
         if(boundary(kvol,kfac) == -1) then
-          long = long + sqrt((coordonnees(n1,1)-coordonnees(n2,1))**2+(coordonnees(n1,2)-coordonnees(n2,2))**2+(coordonnees(n1,3)-coordonnees(n2,3))**2)
+          !!long = long + sqrt((coordonnees(n1,1)-coordonnees(n2,1))**2+(coordonnees(n1,2)-coordonnees(n2,2))**2+(coordonnees(n1,3)-coordonnees(n2,3))**2)
+          long_entree = long_entree + sqrt((coordonnees(n1,1)-coordonnees(n2,1))**2+(coordonnees(n1,2)-coordonnees(n2,2))**2+(coordonnees(n1,3)-coordonnees(n2,3))**2)
         end if
       end do
     end do

@@ -25,10 +25,10 @@ module global
   !! Variables donnees du maillage
   character(len=60)       :: meshfile
   integer                 :: aleat, mail, mtri, nnx, nny, numerot, zcolumn
-  integer                 :: ncel, elt_bound
+  integer                 :: ncel, elt_bound, multi_entree
   integer, dimension(20)  :: elts
 
-  namelist/datamesh/ aleat, mail, mtri, nnx, nny, meshfile, elt_bound, numerot, zcolumn, ncel, elts 
+  namelist/datamesh/ aleat, mail, mtri, nnx, nny, meshfile, elt_bound, numerot, zcolumn, ncel, elts, multi_entree
 
   !! Variables donnees initiales
   character(len=200)  :: fich_sol_init
@@ -86,18 +86,18 @@ module global
   real,    parameter :: tolisec2=1.e-6, tolhfriction=1.e-4
 
   integer :: n_seq_base     
-  integer :: nelt, nnt, ns, ndi, ndo, ndw, correction, prediction, nbase, nbase_h, nbase_eta, nbase_eta_tild, nbase_hu, nbase_hv, nbase_u, nbase_v, maxdimbase
+  integer :: nelt, nnt, ns, ndi, ndo, ndw, correction, prediction, nbase, nbase_h, nbase_eta, nbase_eta_tild, nbase_hu, nbase_hv, nbase_u, nbase_v, maxdimbase, nombre_input
   integer :: nelt_loc, nnt_loc
   integer :: nelt_fant_recep, nelt_fant_envoi
   integer :: nelt_fant_recep_bloc, nelt_fant_envoi_bloc
   integer :: nelt_entree, nelt_sortie, n_Q, tc_init, start
 
-  real(fp_kind) :: tc, cotemin, t_reg_perm, flux_total, long_entree, debit_n, x0, vol_tot_entre, vol_tot_sorti, debit_sortie,debit_sortie0, debit_entree, distcote
+  real(fp_kind) :: tc, cotemin, t_reg_perm, flux_total, debit_n, x0, vol_tot_entre, vol_tot_sorti, debit_sortie,debit_sortie0, debit_entree, distcote
   real(fp_kind) :: h0, coef_bol  ! Pour le problème du bol parabolique 
 
   !real(fp_kind), dimension(200000)             :: tvis3d2 , tvis2d2, tvisjauge, tvisdom, tvideo
   real(fp_kind), dimension(:), allocatable             :: tvis3d2 , tvis2d2, tvisjauge, tvisdom, tvideo
-  integer, dimension(:)  ,   allocatable :: ndinput, ndoutput, ndwall, i_dry_wet, nbr_nds_coupes
+  integer, dimension(:)  ,   allocatable :: ndinput, ndoutput, ndwall, i_dry_wet, nbr_nds_coupes, numero_ndinput, long_entree
   integer, dimension(:,:), allocatable :: elt_fant_recep, elt_fant_envoi
   integer, dimension(:,:), allocatable :: elt_fant_recep_bloc, elt_fant_envoi_bloc
   integer, dimension(:,:),   allocatable :: connectivite, boundary, ij_wet_dry, ij_dry_wet, elts_coupes_transv, nds_coupes
