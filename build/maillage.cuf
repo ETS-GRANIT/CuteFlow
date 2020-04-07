@@ -218,11 +218,8 @@ subroutine lect_const_mail
     call calcul_long_entree
   end if
 
-  if(nombre_input==0) then
-    call mpi_allreduce(mpi_in_place,long_entree,1,real_kind_mpi,mpi_sum,mpi_comm_world, mpi_ierr)
-  else
-    call mpi_allreduce(mpi_in_place,long_entree,nombre_input,real_kind_mpi,mpi_sum,mpi_comm_world, mpi_ierr)
-  end if
+  call mpi_allreduce(mpi_in_place,long_entree,nombre_input,real_kind_mpi,mpi_sum,mpi_comm_world, mpi_ierr)
+
   long_entree_d=long_entree
 
 
@@ -576,11 +573,15 @@ subroutine lec_mail_tri_mpi
     read(lec_mesh,*) ndi
     allocate(long_entree(1))
     allocate(long_entree_d(1))
+    nombre_input = 1
     if (ndi>0) then
       allocate(ndinput(ndi))
+      allocate(numero_ndinput(ndi))
       allocate(ndinput_d(ndi))
+      allocate(numero_ndinput_d(ndi))
       do i=1,ndi
         read(lec_mesh,*) ndinput(i)
+        numero_ndinput(i) = 1
       enddo
     endif
   else
@@ -763,9 +764,12 @@ subroutine lec_mail_tri
     nombre_input=1
     if (ndi>0) then
       allocate(ndinput(ndi))
+      allocate(numero_ndinput(ndi))
       allocate(ndinput_d(ndi))
+      allocate(numero_ndinput_d(ndi))
       do i=1,ndi
         read(lec_mesh,*) ndinput(i)
+        numero_ndinput(i) = 1
       enddo
     endif
   else
@@ -1504,16 +1508,18 @@ integer, value :: kvol, kfac
 
                 if(ndi > 0 .and. ndw > 0 ) then 
 
-                  call assign_type_2<<<grid_wi, tblock_wi>>>(ndwall_d, ndinput_d,boundary_d,kvol,kfac,ndw, ndi, n1, n2, -1)
+                  !!call assign_type_2<<<grid_wi, tblock_wi>>>(ndwall_d, ndinput_d,boundary_d,kvol,kfac,ndw, ndi, n1, n2, -1)
+                  call assign_type_2<<<grid_wi, tblock_wi>>>(ndwall_d, ndinput_d,boundary_d,kvol,kfac,ndw, ndi, n1, n2, -3)
                   call cuda_glerror( 'ierr <- boundary_kind_cudaf <-- assign_type_2 (1) <--- maillage.cuf',1)
-                  call assign_type_2_numero_entree<<<grid_wi, tblock_wi>>>(ndwall_d, ndinput_d, numero_ndinput_d,boundary_d,kvol,kfac, ndw, ndi, n1, n2, -1)
+                  !!call assign_type_2_numero_entree<<<grid_wi, tblock_wi>>>(ndwall_d, ndinput_d, numero_ndinput_d,boundary_d,kvol,kfac, ndw, ndi, n1, n2, -1)
                   call cuda_glerror( 'ierr <- boundary_kind_cudaf <-- assign_type_2_numero_entree (1) <--- maillage.cuf',1)
 
                 endif
 
                 if(ndo > 0 .and. ndw > 0) then 
 
-                  call assign_type_2<<<grid_wo, tblock_wo>>>(ndwall_d, ndoutput_d,boundary_d,kvol,kfac,ndw, ndo, n1, n2, -2)
+                  !!call assign_type_2<<<grid_wo, tblock_wo>>>(ndwall_d, ndoutput_d,boundary_d,kvol,kfac,ndw, ndo, n1, n2, -2)
+                  call assign_type_2<<<grid_wo, tblock_wo>>>(ndwall_d, ndoutput_d,boundary_d,kvol,kfac,ndw, ndo, n1, n2, -3)
                   call cuda_glerror('ierr <- boundary_kind_cudaf <-- assign_type_2 (2) <--- maillage.cuf',1)
 
                 endif
@@ -2232,8 +2238,8 @@ end subroutine find_neighbour_rect_big
 
         if(boundary(kvol,kfac,1) == -1) then
           id_entree = boundary(kvol,kfac,2)
-          !!long = long + sqrt((coordonnees(n1,1)-coordonnees(n2,1))**2+(coordonnees(n1,2)-coordonnees(n2,2))**2+(coordonnees(n1,3)-coordonnees(n2,3))**2)
-          long_entree(id_entree) = long_entree(id_entree) + sqrt((coordonnees(n1,1)-coordonnees(n2,1))**2+(coordonnees(n1,2)-coordonnees(n2,2))**2+(coordonnees(n1,3)-coordonnees(n2,3))**2)
+          !!long_entree(id_entree) = long_entree(id_entree) + sqrt((coordonnees(n1,1)-coordonnees(n2,1))**2+(coordonnees(n1,2)-coordonnees(n2,2))**2+(coordonnees(n1,3)-coordonnees(n2,3))**2)
+          long_entree(id_entree) = long_entree(id_entree) + sqrt((coordonnees(n1,1)-coordonnees(n2,1))**2+(coordonnees(n1,2)-coordonnees(n2,2))**2)
         end if
       end do
     end do

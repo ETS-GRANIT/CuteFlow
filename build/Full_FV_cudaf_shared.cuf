@@ -347,8 +347,8 @@ subroutine Full_FV
     call cflcond_cudaf<<<grid, tblock>>>(vdlg0_d,deltatmin_d)
     dt_arr = deltatmin_d
     dt = minval(dt_arr)
+    print*,"INITIAL DT ", dt
     call MPI_ALLREDUCE(MPI_IN_PLACE,dt,1,real_kind_mpi,MPI_MIN,MPI_COMM_WORLD, mpi_ierr)
-    !dt_d = dt
     dt_d = 0.1*dt
   endif
   call cuda_glerror('ierr<-cflcond_cudaf (1) <-- Full_FV_cudaf_shared.cuf',1)
