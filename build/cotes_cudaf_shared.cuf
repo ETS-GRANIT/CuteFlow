@@ -38,7 +38,7 @@ attributes(global) subroutine cotes_cudaf3(surf_d, zm_d,gradz_d,vdlg_d)
   real(fp_kind)               :: zero, debitnorm
   real(fp_kind), dimension(2) :: norm
   real(fp_kind), dimension(3) :: flux
-  integer                     :: ti,gi, tj, gj
+  integer                     :: ti,gi, tj, gj, id_entree
   real                        :: cond
   real(fp_kind), shared       :: s1(64,3)
 
@@ -71,7 +71,8 @@ attributes(global) subroutine cotes_cudaf3(surf_d, zm_d,gradz_d,vdlg_d)
 
     ! *** initialisation du flux ***
     flux     = 0.d0
-    kvoisin = boundary_d(gi,nc1)
+    kvoisin = boundary_d(gi,nc1,1)
+    id_entree = boundary_d(gi,nc1,2)
 
     if(nc1 == 1) then 
       s1(ti,1) = vdlg_d(1,gi)
@@ -116,15 +117,12 @@ attributes(global) subroutine cotes_cudaf3(surf_d, zm_d,gradz_d,vdlg_d)
 
       elseif ( inlet_d == 2 ) then   ! inlet_d = 2 = Entree avec debit
         if ( hautl > tolisec_d ) then
-          if (test_d ==7) then 
-            debitnorm = -debitglob_d / long_d 
-          else                        
-            debitnorm = -debitglob_d / long_d
-          endif
+          debitnorm = -debitglob_d(id_entree) / long_entree_d(id_entree)
           flux(1) = debitnorm
           flux(2) = norm(1) * ( debitnorm**2/hautl  + gp_d * hautl*(hautl+zml) )
           flux(3) = norm(2) * ( debitnorm**2/hautl  + gp_d * hautl*(hautl+zml) )
-          debit_entree_arr_d(io_identifier_d(gi)) = (-debitnorm)*ln    
+          debit_entree_arr_d(io_identifier_d(gi),1) = (-debitnorm)*ln    
+          debit_entree_arr_d(io_identifier_d(gi),2) = id_entree
         else
           hautl = tolisec_d             
           flux(1) = 0.d0
@@ -288,7 +286,7 @@ attributes(global) subroutine cotes_cudaf4(surf_d, zm_d,gradz_d,vdlg_d)
   real(fp_kind), dimension(:,:), intent(in)    :: vdlg_d
 
   ! local variables  !remove variables which are not in use, they eat up registers and leads to less no. of concurrent blocks per SM
-  integer               :: i, nc1, nc2, kvoisin, dl,pp, hybrid, model
+  integer               :: i, nc1, nc2, kvoisin, dl,pp, hybrid, model, id_entree
   real(fp_kind)               :: x1, x2, y1, y2, ln 
   real(fp_kind)               :: hautl,vitul,vitvl,hautr,vitur,vitvr,zml,zmr,hul, hvl, hur, hvr
   real(fp_kind)               :: zero, debitnorm
@@ -323,7 +321,8 @@ attributes(global) subroutine cotes_cudaf4(surf_d, zm_d,gradz_d,vdlg_d)
     norm(2) = ( x1 - x2 ) / ln
 
     flux     = 0.d0
-    kvoisin = boundary_d(gi,nc1)
+    kvoisin = boundary_d(gi,nc1,1)
+    id_entree = boundary_d(gi,nc1,2)
 
     if(nc1 == 1) then 
       s1(ti,1) = vdlg_d(1,gi)
@@ -367,15 +366,12 @@ attributes(global) subroutine cotes_cudaf4(surf_d, zm_d,gradz_d,vdlg_d)
         endif
       elseif ( inlet_d == 2 ) then   ! inlet_d = 2 = Entree avec debit
         if ( hautl > tolisec_d ) then
-          if (test_d ==7) then 
-            debitnorm = -debitglob_d / long_d 
-          else                        
-            debitnorm = -debitglob_d / long_d
-          endif
+          debitnorm = -debitglob_d(id_entree) / long_entree_d(id_entree)
           flux(1) = debitnorm
           flux(2) = norm(1) * ( debitnorm**2/hautl  + gp_d * hautl*(hautl+zml) )
           flux(3) = norm(2) * ( debitnorm**2/hautl  + gp_d * hautl*(hautl+zml) )
-          debit_entree_arr_d(io_identifier_d(gi)) = (-debitnorm)*ln    
+          debit_entree_arr_d(io_identifier_d(gi),1) = (-debitnorm)*ln    
+          debit_entree_arr_d(io_identifier_d(gi),2) = id_entree
         else
           hautl = tolisec_d             
           flux(1) = 0.d0
@@ -545,7 +541,7 @@ attributes(device) subroutine upwindmean_cudaf(kvol,kvoisin,surf,vdlg,xupwind,yu
   IF ( ns_d == 3 ) THEN
     hautl = vdlg(1,kvol)
     do i=1,ns_d
-      elemkvol(i) = boundary_d(kvol,i)
+      elemkvol(i) = boundary_d(kvol,i,1)
       if ( elemkvol(i) == -1 .or. elemkvol(i) == -2 ) then ! *** flux entrant ou sortant ***
         surfarea = surf(kvol)
         hautdec  = hautdec + surfarea * hautl

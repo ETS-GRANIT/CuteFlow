@@ -186,7 +186,7 @@ subroutine Full_FV
   integer                     :: stat(MPI_STATUS_SIZE)
   character (10) :: aaa, bbb, no_coupe
   integer :: i, ii, j, p, kk, ss, iel, nd, dl, niter, iter, n, c, nt, n0, som, som1, som2, som3, n_it, nitf, ifant, iaff
-  integer :: evoisin, status, k, l, icor
+  integer :: evoisin, status, k, l, icor, iter_entree, iter_nodes
   integer :: nodjauge, is_solnode
   integer, dimension(30) :: nodjauges
 
@@ -246,12 +246,10 @@ subroutine Full_FV
   !!Allocation des vecteur débits entree/sortie seulement si
   !! le sous domaine contient des noeuds d'entree/sortie
   if (ndi>0) then
-    allocate(debit_entree_arr(ndi+2), debit_entree_arr_d(ndi+2))
-    allocate(vol_tot_entre_arr_d(ndi+2), vol_tot_entre_arr(ndi+2))
+    allocate(debit_entree_arr(ndi-1,2), debit_entree_arr_d(ndi-1,2))
   end if
   if (ndo>0) then
-    allocate(debit_sortie_arr(ndo+2),debit_sortie_arr_d(ndo+2))
-    allocate(vol_tot_sorti_arr_d(ndo+2), vol_tot_sorti_arr(ndo+2))
+    allocate(debit_sortie_arr(ndo-1),debit_sortie_arr_d(ndo-1))
   endif
 
   call cuda_glerror('ierr <- cuda device mem allocation <-- Full_FV_cudaf_shared.cuf',1)
@@ -389,8 +387,9 @@ subroutine Full_FV
     !Initialisation pour la sommation sur le debit dans la routine cote 
     if ( debit_var==1 .and. abs(debit_t(cptdebit,1) - tc) < tolaffiche ) then
       cptdebit = cptdebit + 1
-      debitglob = debit_t(cptdebit-1,2)
+      debitglob(1) = debit_t(cptdebit-1,2)
       debitglob_d = debitglob
+      debitglob_sum = sum(debitglob)
       call cuda_glerror('ierr <- (H->D) data transfer into debitglob_d <-- Full_FV_cudaf_shared.cuf',1)
     endif 
 
@@ -479,9 +478,14 @@ subroutine Full_FV
         debit_sortie  =  debit_sortie + sum(debit_sortie_arr)
       endif
 
-      if(ndi>0) then
+      if(ndi>1) then
         debit_entree_arr  = debit_entree_arr_d
-        debit_entree  =  debit_entree + sum(debit_entree_arr)
+        !En fait on parcours les arretes numérote dans get_io_index
+        do iter_nodes=1,ndi-1
+          !!iter_entree = numero_ndinput(iter_nodes)
+          iter_entree = debit_entree_arr(iter_nodes,2)
+          debit_entree(iter_entree)  =  debit_entree(iter_entree) + debit_entree_arr(iter_nodes,1)
+        end do
       endif
 
       call cuda_glerror('ierr<-(D->H) mem transfer debit_sortie_arr or debit_entree_arr <-- Full_FV_cudaf_shared.cuf',1)
@@ -515,7 +519,9 @@ subroutine Full_FV
     enddo  !!End of loop over time step iterations
 
     if(ndi>0) then
-      debit_entree = debit_entree/niter
+      do iter_entree=1,nombre_input
+        debit_entree(iter_entree) = debit_entree(iter_entree)/niter
+      end do
     endif
     if(ndo>0) then
       debit_sortie = debit_sortie/niter
@@ -523,7 +529,7 @@ subroutine Full_FV
 
     !!Reduce sum of all debits
     if(num_procs>1) then
-      call MPI_ALLREDUCE(MPI_IN_PLACE,debit_entree,1,real_kind_mpi,MPI_SUM,MPI_COMM_WORLD, mpi_ierr)
+      call MPI_ALLREDUCE(MPI_IN_PLACE,debit_entree,nombre_input,real_kind_mpi,MPI_SUM,MPI_COMM_WORLD, mpi_ierr)
       call MPI_ALLREDUCE(MPI_IN_PLACE,debit_sortie,1,real_kind_mpi,MPI_SUM,MPI_COMM_WORLD, mpi_ierr)
     end if
 
@@ -569,13 +575,15 @@ subroutine Full_FV
       print*,'-----------------------------------------------'
       write(*,*) 'nt = ', nt
       print*,' prochain tvideo = ', tvideo(cptvideo), cptvideo
-      print*,debitglob, debit_sortie0, tol_reg_perm, debit_entree, debit_sortie, abs(debit_entree - debit_sortie)/debit_entree
       if (tc < 3600)   print*, 'tc = ', tc, ' Secondes   =>', tc/60,    ' Minutes' 
       if (tc >= 3600)  print*, 'tc = ', tc, ' Secondes   =>', tc/3600,  ' Heures'
       if (tc >= 86400) print*, 'tc = ', tc, ' Secondes   =>', tc/86400, ' Jours'
       print*,''
-      if (debit_var==1) print*, 'debitglob=',debitglob
-      print*, 'debit_entre =', debit_entree, 'M3/S'
+      !!if (debit_var==1) print*, 'debitglob=',debitglob
+
+      do iter_entree=1,nombre_input
+        print*, 'debit_entree ', iter_entree, " = " ,debit_entree(iter_entree)
+      end do
       print*, 'debit_sorti =', debit_sortie, 'M3/S'  
       print*,'-----------------------------------------------'
       iaff = iaff + 1
@@ -674,15 +682,19 @@ subroutine Full_FV
     rewind (ec_sol_elt_t)
     rewind (ec_sol_nd_t)
 
-    if ( debitglob > 0.0 .and. debit_sortie0 > tol_reg_perm ) then
+    debitglob_sum = sum(debitglob)
+    debit_entree_sum = sum(debit_entree)
+    if ( debitglob_sum > 0.0 .and. debit_sortie0 > tol_reg_perm ) then
       !if ( (abs(debit_sortie0 - debit_sortie) < 1.0E-10) .or. (abs(debit_entree - debit_sortie)/debit_entree < tol_reg_perm) ) then
-      if ( abs(debit_entree - debit_sortie)/debit_entree < tol_reg_perm ) then
+      if ( abs(debit_entree_sum - debit_sortie)/debit_entree_sum < tol_reg_perm ) then
         if ((60   <= tc) .and. (tc < 3600))   print*, 'tc = ', tc, ' Secondes   =>', tc/60,    ' Minutes' 
         if ((3600 <= tc) .and. (tc< 86400))  print*, 'tc = ', tc, ' Secondes   =>', tc/3600,  ' Heures'
         if (tc  >= 86400)        print*, 'tc = ', tc, ' Secondes   =>', tc/86400, ' Jours'
         print*,('')
-        print*, 'debit_entre =', debit_entree
-        print*, 'debit_sorti =', debit_sortie
+        do iter_entree=1,nombre_input
+          print*, 'debit_entree ', iter_entree, " = " ,debit_entree(iter_entree)
+        end do
+        print*, 'debit_sortie = ', debit_sortie
         print*, '' 
         print*, 'LE REGIME PERMANENT EST ATTEINT' !THE PERMANENT REGIME IS REACHED
         print*,('================================================================================')
@@ -707,7 +719,7 @@ subroutine Full_FV
     call cpu_time(te2)
 
     if ( mod(nt,freqaffich)==0 ) then
-      print*,debitglob, debit_sortie0, tol_reg_perm, debit_entree, debit_sortie, abs(debit_entree - debit_sortie)/debit_entree
+      !!print*,debitglob, debit_sortie0, tol_reg_perm, debit_entree, debit_sortie, abs(debit_entree - debit_sortie)/debit_entree
       print*, "Performance calculs vs echange mémoire"
       print*, "temps calculs ", te1-tb1
       print*, "temps echange ", te2-te1
@@ -785,10 +797,10 @@ subroutine Full_FV
   deallocate(tvis3d2, tvis2d2, tvisjauge, tvisdom, tvideo)
 
   if(ndi>0) then
-    deallocate(debit_entree_arr, debit_entree_arr_d,vol_tot_entre_arr_d, vol_tot_entre_arr)
+    deallocate(debit_entree_arr, debit_entree_arr_d)
   endif
   if(ndo>0) then
-    deallocate(debit_sortie_arr,debit_sortie_arr_d,vol_tot_sorti_arr_d, vol_tot_sorti_arr)
+    deallocate(debit_sortie_arr,debit_sortie_arr_d)
   endif
 end subroutine Full_FV
 
@@ -1015,7 +1027,7 @@ attributes(global) subroutine update_un_voisin_sec()
     v1 = vdlg_d(1,gi)
     output = 'n'        
     do i=1,ns_d
-      kvoisin = boundary_d(gi,i)
+      kvoisin = boundary_d(gi,i,1)
       if( kvoisin > 0 .and. (vdlg_d(1,kvoisin) <= tolisec_d  .or.   v1 <= tolisec_d) )   output = 'y' 
     enddo
     un_voisin_sec1_d(gi) = output
@@ -1031,15 +1043,11 @@ subroutine get_io_index
   integer :: i, j, k, count
   if(ndi>0) then
     debit_entree_arr = 0.d0
-    vol_tot_entre_arr = 0.d0
     debit_entree_arr_d = debit_entree_arr
-    vol_tot_entre_arr_d = vol_tot_entre_arr
   endif
   if(ndo>0) then
     debit_sortie_arr = 0.d0
-    vol_tot_sorti_arr = 0.d0
     debit_sortie_arr_d = debit_sortie_arr
-    vol_tot_sorti_arr_d = vol_tot_sorti_arr
   endif
 
   call cuda_glerror('ierr <- (H->D) data transfer (1) <-- get_io_index <--- Full_FV_cudaf_shared.cuf ',1)
@@ -1049,7 +1057,7 @@ subroutine get_io_index
   if(ns == 3) then 
     count = 1
     do i = 1, nelt
-      if(boundary(i,1) == -1 .or. boundary(i,2) == -1 .or. boundary(i,3) == -1) then 
+      if(boundary(i,1,1) == -1 .or. boundary(i,2,1) == -1 .or. boundary(i,3,1) == -1) then 
         io_identifier(i) =  count
         count = count + 1
       endif
@@ -1057,7 +1065,7 @@ subroutine get_io_index
 
     count = 1
     do i = 1, nelt
-      if(boundary(i,1) == -2 .or. boundary(i,2) == -2 .or. boundary(i,3) == -2) then 
+      if(boundary(i,1,1) == -2 .or. boundary(i,2,1) == -2 .or. boundary(i,3,1) == -2) then 
         io_identifier(i) =  count
         count = count + 1
       endif
@@ -1067,7 +1075,7 @@ subroutine get_io_index
 
     count = 1
     do i = 1, nelt
-      if(boundary(i,1) == -1 .or. boundary(i,2) == -1 .or. boundary(i,3) == -1 .or. boundary(i,4) == -1) then 
+      if(boundary(i,1,1) == -1 .or. boundary(i,2,1) == -1 .or. boundary(i,3,1) == -1 .or. boundary(i,4,1) == -1) then 
         io_identifier(i) =  count
         count = count + 1
       endif
@@ -1075,7 +1083,7 @@ subroutine get_io_index
 
     count = 1
     do i = 1, nelt
-      if(boundary(i,1) == -2 .or. boundary(i,2) == -2 .or. boundary(i,3) == -2 .or. boundary(i,4) == -2) then 
+      if(boundary(i,1,1) == -2 .or. boundary(i,2,1) == -2 .or. boundary(i,3,1) == -2 .or. boundary(i,4,1) == -2) then 
         io_identifier(i) =  count
         count = count + 1
       endif

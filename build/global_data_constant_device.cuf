@@ -28,7 +28,8 @@ module global_device
   integer, constant:: test_d, iflux_d, limiteur_d, grd_d, visual_d, fricimplic_d, debit_var_d, inlet_d  
   integer, constant:: freqvisual_d, freqaffich_d, freqjauges_d, nbrjauges_d, nbrcoupes_d, densite_coupe_d, instjauges_d, soldomaine_d, n_soldom_d
   integer, constant:: comptvisu_d, cptvis2d_d, cptvis3d_d, cptvideo_d, cptvisjauge_d, cptvisdom_d, cptdebit_d 
-  real(fp_kind), constant:: long_d, critere_arret_d, debitglob_d, h_sortie_d, alfa_d
+  real(fp_kind), constant:: long_d, critere_arret_d, h_sortie_d, alfa_d
+  real(fp_kind), dimension(20), constant:: debitglob_d
   real(fp_kind), constant:: tbase_d, divbase_d, ts_d, tsstab_d, dt_d, cfl_d, tol_d, tolisec_d, tolratio_d, tolaffiche_d, tol_reg_perm_d
   integer, constant:: multi_simul_d, monte_carlo_d
 
@@ -46,16 +47,17 @@ module global_device
   real(fp_kind), constant:: tc_d, cotemin_d, t_reg_perm_d, flux_total_d, debit_n_d, x0_d, vol_tot_entre_d, vol_tot_sorti_d, debit_sortie_d, debit_entree_d, distcote_d
   real(fp_kind), constant:: h0_d, coef_bol_d  ! Pour le problème du bol parabolique(For the problem of the parabolic bowl)
 
-  integer, device, dimension(:)  ,   allocatable :: ndinput_d, numero_ndinput_d, ndoutput_d, ndwall_d, long_entree_d !, i_dry_wet_d
+  integer, device, dimension(:)  ,   allocatable :: ndinput_d, numero_ndinput_d, ndoutput_d, ndwall_d !, i_dry_wet_d
   integer, device, dimension(:, :)  ,   allocatable :: elt_fant_recep_d, elt_fant_envoi_d
-  integer, device, dimension(:,:),   allocatable :: connectivite_d, boundary_d !, ij_wet_dry_d, ij_dry_wet_d, elts_coupes_transv_d, nds_coupes_d
+  integer, device, dimension(:,:),   allocatable :: connectivite_d !, ij_wet_dry_d, ij_dry_wet_d, elts_coupes_transv_d, nds_coupes_d
+  integer, device, dimension(:,:,:),   allocatable :: boundary_d 
   integer, device, dimension(:,:,:),   allocatable :: connectivite_mpi_d
-  real(fp_kind), device, dimension(:)  ,   allocatable :: manning_nd_d, manning_nelt_d
+  real(fp_kind), device, dimension(:)  ,   allocatable :: manning_nd_d, manning_nelt_d, long_entree_d
   real(fp_kind), device, dimension(:,:),   allocatable :: coo_table_elemwise_d, coordonnees_d !, phi_d, phi_h_d, phi_eta_d 
 
   !Device related Variables
   integer, device, allocatable :: io_identifier_d(:)
-  real(fp_kind), device, allocatable :: debit_entree_arr_d(:), x_centroid_d(:), y_centroid_d(:)
+  real(fp_kind), device, allocatable :: debit_entree_arr_d(:,:), x_centroid_d(:), y_centroid_d(:)
   real(fp_kind), device, allocatable :: debit_sortie_arr_d(:) 
   real(fp_kind), device, allocatable :: vol_tot_entre_arr_d(:)
   real(fp_kind), device, allocatable :: vol_tot_sorti_arr_d(:)

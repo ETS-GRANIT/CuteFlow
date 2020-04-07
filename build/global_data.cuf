@@ -46,7 +46,8 @@ module global
   integer :: test, iflux, limiteur, pas_dt, grd, visual, fricimplic, debit_var  
   integer :: freqvisual, freqaffich, freqjauges, nbrjauges, nbrcoupes, densite_coupe, instjauges, soldomaine, n_soldom
   integer :: comptvisu, cptvis2d, cptvis3d, cptvideo, cptvisjauge, cptvisdom, cptdebit 
-  real(fp_kind) :: long, critere_arret, debitglob, h_sortie, alfa
+  real(fp_kind) :: long, critere_arret, debitglob_sum, h_sortie, alfa
+  real(fp_kind), dimension(20) :: debitglob
   real(fp_kind) :: tbase, divbase, ts, tsstab, dt, cfl, tol, tolisec, tolratio, tolaffiche, tol_reg_perm
   real(fp_kind), dimension(10) :: coupe_a, coupe_b, long_coupe
   real(fp_kind), dimension(100000) :: tvis2d , tvis3d 
@@ -92,15 +93,17 @@ module global
   integer :: nelt_fant_recep_bloc, nelt_fant_envoi_bloc
   integer :: nelt_entree, nelt_sortie, n_Q, tc_init, start
 
-  real(fp_kind) :: tc, cotemin, t_reg_perm, flux_total, debit_n, x0, vol_tot_entre, vol_tot_sorti, debit_sortie,debit_sortie0, debit_entree, distcote
+  real(fp_kind) :: tc, cotemin, t_reg_perm, flux_total, debit_n, x0, vol_tot_entre, vol_tot_sorti, debit_sortie,debit_sortie0, debit_entree_sum, distcote
+  real(fp_kind), dimension(20) :: debit_entree
   real(fp_kind) :: h0, coef_bol  ! Pour le problème du bol parabolique 
 
   !real(fp_kind), dimension(200000)             :: tvis3d2 , tvis2d2, tvisjauge, tvisdom, tvideo
-  real(fp_kind), dimension(:), allocatable             :: tvis3d2 , tvis2d2, tvisjauge, tvisdom, tvideo
-  integer, dimension(:)  ,   allocatable :: ndinput, ndoutput, ndwall, i_dry_wet, nbr_nds_coupes, numero_ndinput, long_entree
+  real(fp_kind), dimension(:), allocatable             :: tvis3d2 , tvis2d2, tvisjauge, tvisdom, tvideo, long_entree
+  integer, dimension(:)  ,   allocatable :: ndinput, ndoutput, ndwall, i_dry_wet, nbr_nds_coupes, numero_ndinput
   integer, dimension(:,:), allocatable :: elt_fant_recep, elt_fant_envoi
   integer, dimension(:,:), allocatable :: elt_fant_recep_bloc, elt_fant_envoi_bloc
-  integer, dimension(:,:),   allocatable :: connectivite, boundary, ij_wet_dry, ij_dry_wet, elts_coupes_transv, nds_coupes
+  integer, dimension(:,:),   allocatable :: connectivite, ij_wet_dry, ij_dry_wet, elts_coupes_transv, nds_coupes
+  integer, dimension(:,:,:),   allocatable :: boundary
   real(fp_kind), dimension(:)  ,   allocatable :: flux_interface, manning_nd, manning_nelt
   real(fp_kind), dimension(:,:),   allocatable :: coo_table_elemwise, coordonnees, phi, phi_h, phi_eta, phi_eta_tild, phi_hu, phi_hv, phi_u, phi_v, phij_u, phij_v, phi_h_eta
   real(fp_kind), dimension(:,:),   allocatable :: a, a0, a01, resred, Mpk1_hu, Mpk1_hv, vdlg_moy_snap
@@ -123,7 +126,7 @@ module global
 
   type(cudaDeviceProp)                    :: prop
 
-  real(fp_kind), allocatable :: debit_entree_arr(:), x_centroid(:), y_centroid(:)
+  real(fp_kind), allocatable :: debit_entree_arr(:,:), x_centroid(:), y_centroid(:)
   real(fp_kind), allocatable :: debit_sortie_arr(:)
   real(fp_kind), allocatable :: vol_tot_entre_arr(:)
   real(fp_kind), allocatable :: vol_tot_sorti_arr(:)

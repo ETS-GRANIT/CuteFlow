@@ -221,7 +221,7 @@ subroutine stock_coupe2D(solh, soleta, solhu, solu)
     write(valtemps,'(f18.3)') tc
   endif
 
-  write(debit_tot,'(f8.3)') debitglob
+  write(debit_tot,'(f8.3)') debitglob_sum
   write(coef_frot,'(f6.3)') manning
 
   if (start == 1) then                
@@ -242,7 +242,7 @@ subroutine stock_coupe2D(solh, soleta, solhu, solu)
     enddo
 
   else
-    write(debit_tot,'(f12.3)') debitglob
+    write(debit_tot,'(f12.3)') debitglob_sum
     write(coef_frot,'(f8.3)') manning
     do j=1,nbrcoupes
       write(no_coupe,'(i2)') j            !
@@ -331,8 +331,9 @@ subroutine ouv_fichiers(vdlg, vdlg1, zm)
     close(11)
     cptdebit = 2
     cptdebit_d = cptdebit
-    debitglob = debit_t(cptdebit-1,2)
+    debitglob(1) = debit_t(cptdebit-1,2)
     debitglob_d = debitglob
+    debitglob_sum = sum(debitglob)
   endif
   
   !! Ouverture du fichier de stockage des solutions 2D  (Opening the 2D solution storage file)
