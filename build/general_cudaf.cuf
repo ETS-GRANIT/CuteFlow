@@ -326,6 +326,7 @@ program general
     vdlg0_d = vdlg0
     vdlg01_d = vdlg01
     call cuda_glerror('ierr <- data transfer to (vdlg0_d  and vdlg01_d) (H->D) {if(solinit == 1)} <-- general_cudaf.cuf',1)
+  else
     call cond_initial_cudaf<<<grid, tblock>>>(zm_d, vdlg0_d, vdlg01_d, visio_d)
     visio = visio_d
     call cuda_glerror('ierr <- cond_initial_cudaf <-- general_cudaf.cuf',1)

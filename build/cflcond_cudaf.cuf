@@ -33,6 +33,7 @@ attributes(global) subroutine cflcond_cudaf(solut_d, deltatmin_d)
       normvites = sqrt(vitessu**2 + vitessv**2)
       vitessmax = max( min_vmax, (normvites + sqrt(gp_d * abs(hauteur))))
       deltatmin_d(gi) = min( cfl_d * cotemin_d/vitessmax, dt1)
+      !!print*, "INSIDE ",  gi, hauteur, cotemin_d, vitessmax, deltatmin_d(gi)
     endif
   endif   
 end subroutine cflcond_cudaf

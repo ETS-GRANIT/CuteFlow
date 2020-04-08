@@ -214,6 +214,7 @@ subroutine lect_const_mail
   endif
 
   !!calcul de la longueur de l'entree
+  long_entree = 0.
   if(ndi > 0) then 
     call calcul_long_entree
   end if
