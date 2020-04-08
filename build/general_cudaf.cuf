@@ -44,6 +44,12 @@ program general
       real(fp_kind), dimension(:,:), intent(inout):: ut_d, visio_d, ut1_d
     end subroutine cond_initial_cudaf
 
+    attributes(global) subroutine assign_sec_as_wall(vdlg_d)
+      use precision_m
+      use global_device
+      real(fp_kind), intent(in) :: vdlg_d(:,:)
+    end subroutine assign_sec_as_wall
+
     subroutine cond_initial2(ut1,ut)
       use precision_m
       use global
@@ -245,210 +251,128 @@ program general
     enddo
   endif
 
-  if (multi_simul == 0) then
-    !! Calculation of the area and the gradient term z of each element
-    tblock = dim3(64, 1, 1)
-    grid   = dim3(ceiling(real(nelt)/real(tblock%x)), 1, 1)
-    call check_gridlim(tblock, grid, 'err <- inside if (multi_simul ==0) then <-- general_cudaf.cuf (1)')
+  !! Calculation of the area and the gradient term z of each element
+  tblock = dim3(64, 1, 1)
+  grid   = dim3(ceiling(real(nelt)/real(tblock%x)), 1, 1)
+  call check_gridlim(tblock, grid, 'err <- inside if (multi_simul ==0) then <-- general_cudaf.cuf (1)')
 
-    call surfzmgradz_cudaf<<<grid, tblock>>>(valxpente_d,bathyx0_d,surf_d,zm_d,gradz_d,gradz2_d)
-    call cuda_glerror('ierr <- surfzmgradz_cudaf <-- general_cudaf.cuf',1)
+  call surfzmgradz_cudaf<<<grid, tblock>>>(valxpente_d,bathyx0_d,surf_d,zm_d,gradz_d,gradz2_d)
+  call cuda_glerror('ierr <- surfzmgradz_cudaf <-- general_cudaf.cuf',1)
 
-    zm      = zm_d
-    surf    = surf_d
-    gradz   = gradz_d
-    gradz2  = gradz2_d
-    call cuda_glerror('ierr <- (D->H) mem transfer surf, zm, etc <-- general_cudaf.cuf',1)
+  zm      = zm_d
+  surf    = surf_d
+  gradz   = gradz_d
+  gradz2  = gradz2_d
+  call cuda_glerror('ierr <- (D->H) mem transfer surf, zm, etc <-- general_cudaf.cuf',1)
 
-    maxheight = maxval(zm)
-    write(*,*) 'The max height of the bathymetry is : ', maxheight
-    write(*,*) '======================================================================'
-    write(*,*) 'Mesh Parameters'
-    write(*,*) '======================================================================'
-    write(*,*) 'meshfile            = ', meshfile 
-    write(*,*) 'ALEAT               = ', ALEAT
-    write(*,*) 'MAIL                = ', MAIL
-    write(*,*) 'elt_bound           = ', elt_bound
+  maxheight = maxval(zm)
+  write(*,*) 'The max height of the bathymetry is : ', maxheight
+  write(*,*) '======================================================================'
+  write(*,*) 'Mesh Parameters'
+  write(*,*) '======================================================================'
+  write(*,*) 'meshfile            = ', meshfile 
+  write(*,*) 'ALEAT               = ', ALEAT
+  write(*,*) 'MAIL                = ', MAIL
+  write(*,*) 'elt_bound           = ', elt_bound
 
-    write(*,*) '======================================================================'
-    write(*,*) 'Initial Parameters'
-    write(*,*) '======================================================================'
-    write(*,*) 'H_AMONT             = ', H_AMONT 
-    write(*,*) 'U_AMONT             = ', U_AMONT
-    write(*,*) 'V_AMONT             = ', V_AMONT
-    write(*,*) 'H_AVAL              = ', H_AVAL
-    write(*,*) 'U_AVAL              = ', U_AVAL
-    write(*,*) 'V_AVAL              = ', V_AVAL 
+  write(*,*) '======================================================================'
+  write(*,*) 'Initial Parameters'
+  write(*,*) '======================================================================'
+  write(*,*) 'H_AMONT             = ', H_AMONT 
+  write(*,*) 'U_AMONT             = ', U_AMONT
+  write(*,*) 'V_AMONT             = ', V_AMONT
+  write(*,*) 'H_AVAL              = ', H_AVAL
+  write(*,*) 'U_AVAL              = ', U_AVAL
+  write(*,*) 'V_AVAL              = ', V_AVAL 
 
-    write(*,*) '======================================================================'
-    write(*,*) 'Simulation Parameters'
-    write(*,*) '======================================================================'  
-    write(*,*) 'Test                =', test
-    write(*,*) 'iflux               =', iflux
-    write(*,*) 'limiteur            =', limiteur
-    write(*,*) 'debitglob           =', debitglob
-    write(*,*) 'H_SORTIE            =', H_SORTIE
-    write(*,*) 'Fricimplic          =', fricimplic
-    write(*,*) 'freqjauges          =', freqjauges
-    write(*,*) 'instjauges          =', instjauges
-    write(*,*) 'nbrjauges           =', nbrjauges
-    write(*,*) 'nbrcoupes           =', nbrcoupes
-    write(*,*) 'soldomaine          =', soldomaine
-    write(*,*) 'n_soldom            =', n_soldom
-    write(*,*) 'video               =', video
-    write(*,*) 'n_video             =', n_video
-    write(*,*) 'alfa                =', alfa
-    write(*,*) 'tol_reg_perm        =', tol_reg_perm
-    write(*,*) 'tol                 =', tol
-    write(*,*) 'tolisec             =', tolisec
-    write(*,*) 'tolratio            =', tolratio
-    write(*,*) 'tolaffiche          =', tolaffiche
-    write(*,*) 'freqaffich          =', freqaffich
-    write(*,*) '======================================================================'
-    write(*,*) '======================================================================'
+  write(*,*) '======================================================================'
+  write(*,*) 'Simulation Parameters'
+  write(*,*) '======================================================================'  
+  write(*,*) 'Test                =', test
+  write(*,*) 'iflux               =', iflux
+  write(*,*) 'limiteur            =', limiteur
+  write(*,*) 'debitglob           =', debitglob
+  write(*,*) 'H_SORTIE            =', H_SORTIE
+  write(*,*) 'Fricimplic          =', fricimplic
+  write(*,*) 'freqjauges          =', freqjauges
+  write(*,*) 'instjauges          =', instjauges
+  write(*,*) 'nbrjauges           =', nbrjauges
+  write(*,*) 'nbrcoupes           =', nbrcoupes
+  write(*,*) 'soldomaine          =', soldomaine
+  write(*,*) 'n_soldom            =', n_soldom
+  write(*,*) 'video               =', video
+  write(*,*) 'n_video             =', n_video
+  write(*,*) 'alfa                =', alfa
+  write(*,*) 'tol_reg_perm        =', tol_reg_perm
+  write(*,*) 'tol                 =', tol
+  write(*,*) 'tolisec             =', tolisec
+  write(*,*) 'tolratio            =', tolratio
+  write(*,*) 'tolaffiche          =', tolaffiche
+  write(*,*) 'freqaffich          =', freqaffich
+  write(*,*) '======================================================================'
+  write(*,*) '======================================================================'
 
-    !! Initialisation a zero des differents vecteurs
-    vdlg0              = zero
-    vdlg01             = zero
-    vdlg               = zero
-    vdlg1              = zero
-    elts_coupes_transv = zero
+  !! Initialisation a zero des differents vecteurs
+  vdlg0              = zero
+  vdlg01             = zero
+  vdlg               = zero
+  vdlg1              = zero
+  elts_coupes_transv = zero
 
-    vdlg0_d  = vdlg0
+  vdlg0_d  = vdlg0
+  vdlg01_d = vdlg01
+  vdlg_d   = vdlg
+  vdlg1_d  = vdlg1
+  call cuda_glerror('ierr <- data transfer to (vdlg0_d  and vdlg01_d) <-- general_cudaf.cuf',1)
+
+  !! Application des conditions initiales
+  if (solinit==1) then
+    !! Start the calculations from an initial solution (ex steady state)
+    call cond_initial2(vdlg0,vdlg01) 
+    vdlg0_d = vdlg0
     vdlg01_d = vdlg01
-    vdlg_d   = vdlg
-    vdlg1_d  = vdlg1
-    call cuda_glerror('ierr <- data transfer to (vdlg0_d  and vdlg01_d) <-- general_cudaf.cuf',1)
-
-    !! Application des conditions initiales
-    if (solinit==1) then
-      !! Start the calculations from an initial solution (ex steady state)
-      call cond_initial2(vdlg0,vdlg01) 
-      vdlg0_d = vdlg0
-      vdlg01_d = vdlg01
-      call cuda_glerror('ierr <- data transfer to (vdlg0_d  and vdlg01_d) (H->D) {if(solinit == 1)} <-- general_cudaf.cuf',1)
-    else
-      call cond_initial_cudaf<<<grid, tblock>>>(zm_d, vdlg0_d, vdlg01_d, visio_d)
-      visio = visio_d
-      call cuda_glerror('ierr <- cond_initial_cudaf <-- general_cudaf.cuf',1)
-    endif               
-
-    call mise_a_jr_zone_seche_cudaf<<<grid, tblock>>>(zm_d,vdlg0_d, vdlg01_d)
-    call cuda_glerror('ierr <- mise_a_jr_zone_seche_cudaf <-- general_cudaf.cuf',1)
-
-    !! Calcul de la solution initiale sur les noeuds
-    valtemps = '0.0'
-
-    vdlg0 = vdlg0_d
-    vdlg01 = vdlg01_d
-    call cuda_glerror('ierr <- data_tansfer(D-->H) to vdlg0 <-- general_cudaf.cuf',1)
-    call sol_nodes(vdlg0,surf,zm,sh0,she0,shu0,shv0,su0,sv0)
-
-    !!  Storage for postraitement with possibility of animation (Tecplot)
-    if (video == 1) then             
-      start=1
-      !call tecplot_export (she0, sh0, shu0, shv0)
-      !call paraview_export (she0, sh0, shu0, shv0, 0)
-    endif
-
-    !! Storage solution for 2D slices
-    if (nbrcoupes > 0 ) then
-      start=1
-      call stock_coupe2D(she0, sh0, shu0, su0)
-    endif
-
-    !! Initialisation du temps et calcul de dt via la CFL
-    tc = 0.00
-    tc_d = tc
-
-    !! Preparation du nombre d'iterations concernant la discretisation en temps
-    nt = 0 !! Time step iteration counter
-
-    !! FULL FINITE VOLUME
-    write(*,*) '***** FULL_FV *****'
-    call Full_FV 
-  elseif (multi_simul == 1) then
-    !! Calcul de la surface et du terme gradient z de chaque élément
-    tblock = dim3(64, 1, 1)
-    grid   = dim3(ceiling(real(nelt)/real(tblock%x)), 1, 1)
-    call check_gridlim(tblock, grid, 'err <- inside elseif (multi_simul == 1) then <-- general_cudaf.cuf (1)')
-
-    call surfzmgradz_cudaf<<<grid, tblock>>>(valxpente_d,bathyx0_d,surf_d,zm_d,gradz_d,gradz2_d)
-    call cuda_glerror('ierr <- surfzmgradz_cudaf <-- general_cudaf.cuf ',1)
-
-    zm      = zm_d
-    surf    = surf_d
-    gradz   = gradz_d
-    gradz2  = gradz2_d
-    call cuda_glerror('ierr <- (D->H) mem transfer to surf, zm, <-- general_cudaf.cuf ',1)
-
-    if (nbrcoupes > 0) then 
-      write(valtemps,'(f12.3)') ts
-      solfileMC = trim(adjustl(genrtest)) // 'FV-MC' // trim(adjustl(valtemps)) // 's.dat'
-      open(unit=3000,file=solfileMC,status="unknown")
-    endif
-
-    open(unit=3001,file='INPUT_MONTE_CARLO.dat',status="unknown")
-    read(3001,*) n_MC
-
-    do i_MC = 1, n_MC
-      write(i_MC_char,*) i_MC
-      vdlg0              = zero
-      vdlg01             = zero
-      vdlg               = zero
-      vdlg1              = zero
-      elts_coupes_transv = zero
-
-      vdlg0_d  = vdlg0
-      vdlg01_d = vdlg01
-      vdlg_d   = vdlg
-      vdlg1_d  = vdlg1
-
-      call cuda_glerror('ierr <- data transfer to (vdlg0_d  and vdlg01_d) <-- general_cudaf.cuf',1)  
-      print*,''
-      print*,'========================================================================='
-      print*,''
-      print*, 'Scenario Numero : ', i_MC
-      print*,''
-      print*,'========================================================================='
-      print*,''   
-      read(3001,*) debitglob, H_AMONT, H_AVAL, manning
-
-      debitglob_d = debitglob
-      h_amont_d   = H_AMONT
-      h_aval_d    = H_AVAL 
-      manning_d   = manning
-
-      call cuda_glerror('ierr->(H->D) data transfer of h_amont_d, manning_d, etc',1)
-      
-      !! Application des conditions initiales
-      call cond_initial_cudaf<<<grid, tblock>>>(zm_d, vdlg0_d, vdlg01_d, visio_d)
-      visio = visio_d
-      call cuda_glerror('ierr  <- cond_initial_cudaf <-- general_cudaf.cuf',1)               
-
-      call mise_a_jr_zone_seche_cudaf<<<grid, tblock>>>(zm_d,vdlg0_d, vdlg01_d)
-      call cuda_glerror('ierr <- mise_a_jr_zone_seche_cudaf <-- general_cudaf.cuf',1)
-
-      !! Initialisation du temps et calcul de dt via la CFL
-      open(unit=1000,file='TempsSimule_FV.txt',status="unknown")
-
-      tc = 0.d0
-      tc_d = tc
-
-      !! Preparation du nombre d'iterations concernant la discretisation en temps
-      print*, 'Debut de la boucle sur le temps'
-      nt = 0 !! Time step iteration counter
-
-      !! FULL FINITE VOLUME
-      call Full_FV
-
-      close(507)
-      close(508)
-
-    enddo ! de i_MC=1,n_MC
+    call cuda_glerror('ierr <- data transfer to (vdlg0_d  and vdlg01_d) (H->D) {if(solinit == 1)} <-- general_cudaf.cuf',1)
   else
-    print*, 'Valeur du Parametrs multi_simul inconvenable'
+    call cond_initial_cudaf<<<grid, tblock>>>(zm_d, vdlg0_d, vdlg01_d, visio_d)
+    call assign_sec_as_wall<<<grid, tblock>>>(vdlg0_d)
+    visio = visio_d
+    call cuda_glerror('ierr <- cond_initial_cudaf <-- general_cudaf.cuf',1)
+  endif               
+
+  call mise_a_jr_zone_seche_cudaf<<<grid, tblock>>>(zm_d,vdlg0_d, vdlg01_d)
+  call cuda_glerror('ierr <- mise_a_jr_zone_seche_cudaf <-- general_cudaf.cuf',1)
+
+  !! Calcul de la solution initiale sur les noeuds
+  valtemps = '0.0'
+
+  vdlg0 = vdlg0_d
+  vdlg01 = vdlg01_d
+  call cuda_glerror('ierr <- data_tansfer(D-->H) to vdlg0 <-- general_cudaf.cuf',1)
+  call sol_nodes(vdlg0,surf,zm,sh0,she0,shu0,shv0,su0,sv0)
+
+  !!  Storage for postraitement with possibility of animation (Tecplot)
+  if (video == 1) then             
+    start=1
+    !call tecplot_export (she0, sh0, shu0, shv0)
+    !call paraview_export (she0, sh0, shu0, shv0, 0)
   endif
+
+  !! Storage solution for 2D slices
+  if (nbrcoupes > 0 ) then
+    start=1
+    call stock_coupe2D(she0, sh0, shu0, su0)
+  endif
+
+  !! Initialisation du temps et calcul de dt via la CFL
+  tc = 0.00
+  tc_d = tc
+
+  !! Preparation du nombre d'iterations concernant la discretisation en temps
+  nt = 0 !! Time step iteration counter
+
+  !! FULL FINITE VOLUME
+  write(*,*) '***** FULL_FV *****'
+  call Full_FV 
 
   close(ec_solj_h)
   close(ec_solj_u)

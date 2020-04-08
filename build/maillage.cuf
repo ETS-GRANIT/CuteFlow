@@ -1246,7 +1246,6 @@ end if
 
 end subroutine find_neighbour_big
 
-
 subroutine boundary_kind_cudaf
   !
   ! ======================================================================
@@ -1454,6 +1453,33 @@ integer, value :: kvol, kfac
         check = boundary_d(kvol, kfac)
       end subroutine check_assign
 
+
+    attributes (global) subroutine assign_sec_as_wall(vdlg_d)
+      !!si maille voisine sechees alors voisin wall
+      use precision_m
+      use global_device
+
+      implicit none
+      real(fp_kind), intent(in) :: vdlg_d(:,:)
+
+      integer :: ti,gi,kfac, kvoisin
+
+
+      ti = threadIdx%x
+      gi = (blockIdx%x - 1)*blockDim%x + ti
+
+      if(gi <= nelt_d) then
+        do kfac=1,ns_d
+          kvoisin = boundary_d(gi,kfac)
+          if (kvoisin>0)then  
+            if(vdlg_d(1,kvoisin)<tolisec_d) then
+              boundary_d(gi,kfac) = -3
+            end if
+          end if
+        end do
+      end if
+
+    end subroutine assign_sec_as_wall
 
       attributes (global) subroutine assign_type_1(ndiow_d, boundary_d, kvol, kfac, nd, n1, n2, id)
       implicit none
