@@ -32,8 +32,36 @@ attributes(global) subroutine cflcond_cudaf(solut_d, deltatmin_d)
       vitessv = solut_d(3,gi) / hauteur
       normvites = sqrt(vitessu**2 + vitessv**2)
       vitessmax = max( min_vmax, (normvites + sqrt(gp_d * abs(hauteur))))
-      deltatmin_d(gi) = min( cfl_d * cotemin_d/vitessmax, dt1)
-      !!print*, "INSIDE ",  gi, hauteur, cotemin_d, vitessmax, deltatmin_d(gi)
+      deltatmin_d(gi) = min( cfl_d * cotemin_arr_d(gi)/vitessmax, dt1)
+    else
+      deltatmin_d(gi) = dt1
     endif
   endif   
 end subroutine cflcond_cudaf
+
+attributes(global) subroutine cflcond_sec_cudaf(solut_d, deltatmin_d, dt_d)
+  !!Met le pas de temps minimal des mailles mouillées dans toutes les mailles seches
+
+  use precision_m
+  use global_device
+
+  implicit none
+
+  real(fp_kind), dimension(:,:), intent(in)     :: solut_d
+  real(fp_kind), intent(inout)                  :: deltatmin_d(:)
+  real(fp_kind), intent(in)                     :: dt_d
+
+  integer                     :: i, j
+  real(fp_kind)               :: hauteur
+  integer                     :: ti,gi
+
+  ti = threadIdx%x
+  gi = (blockIdx%x - 1)*blockDim%x + ti
+
+  if(gi <= nelt_d-nelt_fant_recep_d) then
+    hauteur = solut_d(1,gi)
+    if ( hauteur <= tolisec_d ) then
+      deltatmin_d(gi) = 1e-2*dt_d
+    endif
+  endif   
+end subroutine cflcond_sec_cudaf

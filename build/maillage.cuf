@@ -117,6 +117,8 @@ subroutine lect_const_mail
 
   integer                     :: i, nc, kvol, nc1, nc2, ierr
   real(fp_kind)               :: x1, x2, y1, y2, ln, errf
+  integer                     :: nc3
+  real(fp_kind)               :: x3, y3, p, ca, cb, cc, aire
   type(cudaEvent)             :: startEvent , stopEvent
   real(fp_kind)               :: start_cpu, stop_cpu, errf1, errf2, errf3
   real                        :: time_cuda
@@ -243,23 +245,51 @@ subroutine lect_const_mail
   distcote_d = distcote
   call cuda_glerror('ierr <- (h->d) data transfer to distcote_d <-- maillage.cuf',1)
 
-  !! calcul de la longueur caracteristique pour le calcul du pas de temps via la cfl
+  !! Calcul de la longueur caracteristique pour le calcul du pas de temps via la cfl
+  allocate(cotemin_arr(nelt), cotemin_arr_d(nelt))
   cotemin = 1000000.
   do kvol=1,nelt  ! *** boucle sur les éléments ***
-    do i=1,ns !*** boucle sur les cotés de l'élément ***
-      nc1 = connectivite(kvol,i)
-      if ( i < ns ) then
-        nc2 = connectivite(kvol,i+1)
-      else
-        nc2 = connectivite(kvol,1)  
-      endif
+    !!si triangle cotemin = rayon cercle inscrit
+    if(ns==3) then
+      nc1 = connectivite(kvol,1)
+      nc2 = connectivite(kvol,2)
+      nc3 = connectivite(kvol,3)
+
       x1 = coordonnees(nc1,1)
-      x2 = coordonnees(nc2,1)
       y1 = coordonnees(nc1,2)
+
+      x2 = coordonnees(nc2,1)
       y2 = coordonnees(nc2,2)
-      ln = sqrt( (x2 - x1)**2 + (y2 - y1)**2 )
-      cotemin = min(cotemin,ln)
-    enddo
+
+      x3 = coordonnees(nc3,1)
+      y3 = coordonnees(nc3,2)
+
+      ca = sqrt((x1-x2)**2+(y1-y2)**2)
+      cb = sqrt((x2-x3)**2+(y2-y3)**2)
+      cc = sqrt((x3-x1)**2+(y3-y1)**2)
+
+      p = (ca + cb+ cc)/2.
+
+      aire = sqrt(p*(p-ca)*(p-cb)*(p-cc))
+ 
+      cotemin_arr(kvol) = 0.5*aire/p
+      cotemin = min(cotemin,cotemin_arr(kvol))
+    else
+      do i=1,ns !*** boucle sur les cotés de l'élément ***
+        nc1 = connectivite(kvol,i)
+        if ( i < ns ) then
+          nc2 = connectivite(kvol,i+1)
+        else
+          nc2 = connectivite(kvol,1)  
+        endif
+        x1 = coordonnees(nc1,1)
+        x2 = coordonnees(nc2,1)
+        y1 = coordonnees(nc1,2)
+        y2 = coordonnees(nc2,2)
+        ln = sqrt( (x2 - x1)**2 + (y2 - y1)**2 )
+        cotemin = min(cotemin,ln)
+      enddo
+    end if
   enddo
 
   if ( ns == 3 ) then
@@ -1322,7 +1352,6 @@ end if
 
 end subroutine find_neighbour_big
 
-
 subroutine boundary_kind_cudaf
   !
   ! ======================================================================
@@ -1575,6 +1604,33 @@ integer, value :: kvol, kfac
       end if
 
     end subroutine assign_type_1_numero_entree
+
+    attributes (global) subroutine assign_sec_as_wall(vdlg_d)
+      !!si maille voisine sechees alors voisin wall
+      use precision_m
+      use global_device
+
+      implicit none
+      real(fp_kind), intent(in) :: vdlg_d(:,:)
+
+      integer :: ti,gi,kfac, kvoisin
+
+
+      ti = threadIdx%x
+      gi = (blockIdx%x - 1)*blockDim%x + ti
+
+      if(gi <= nelt_d) then
+        do kfac=1,ns_d
+          kvoisin = boundary_d(gi,kfac)
+          if (kvoisin>0)then  
+            if(vdlg_d(1,kvoisin)<tolisec_d) then
+              boundary_d(gi,kfac) = -3
+            end if
+          end if
+        end do
+      end if
+
+    end subroutine assign_sec_as_wall
 
       attributes (global) subroutine assign_type_1(ndiow_d, boundary_d, kvol, kfac, nd, n1, n2, id)
       implicit none

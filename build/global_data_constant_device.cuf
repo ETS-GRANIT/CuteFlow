@@ -45,6 +45,7 @@ module global_device
   integer, constant:: nelt_entree_d, nelt_sortie_d, n_Q_d, tc_init_d, start_d
 
   real(fp_kind), constant:: tc_d, cotemin_d, t_reg_perm_d, flux_total_d, debit_n_d, x0_d, vol_tot_entre_d, vol_tot_sorti_d, debit_sortie_d, debit_entree_d, distcote_d
+  real(fp_kind), device, allocatable :: cotemin_arr_d(:) 
   real(fp_kind), constant:: h0_d, coef_bol_d  ! Pour le problème du bol parabolique(For the problem of the parabolic bowl)
 
   integer, device, dimension(:)  ,   allocatable :: ndinput_d, numero_ndinput_d, ndoutput_d, ndwall_d !, i_dry_wet_d

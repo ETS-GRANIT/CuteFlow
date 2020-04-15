@@ -201,7 +201,11 @@ program general
   tc_init_d        = tc_init
 
   !! Construction / lecture  et  stockage du maillage 
+
   call lect_const_mail
+
+  cotemin_arr_d = cotemin_arr
+  call cuda_glerror('ierr <-- cotemin_arr_d = cotemin_arr',1)
 
   !! Allocation des matrices et vecteurs
   allocate( visio(ndim+1,nelt), visio_d( ndim+1,nelt) )
@@ -287,6 +291,7 @@ program general
   write(*,*) 'Test                =', test
   write(*,*) 'iflux               =', iflux
   write(*,*) 'limiteur            =', limiteur
+  write(*,*) 'debitglob           =', debitglob
   write(*,*) 'H_SORTIE            =', H_SORTIE
   write(*,*) 'Fricimplic          =', fricimplic
   write(*,*) 'freqjauges          =', freqjauges
@@ -401,6 +406,7 @@ program general
   deallocate(manning_nelt, manning_nd)
   deallocate(elts_coupes_transv)
   deallocate(manning_nelt_d, manning_nd_d)
+  deallocate(cotemin_arr, cotemin_arr_d)
 
   if(nelt_fant_envoi>1) then
     deallocate(elt_fant_envoi,elt_fant_recep)
