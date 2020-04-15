@@ -1,20 +1,3 @@
-//Programme pour découper un maillage en plusieurs sous-domaines
-//On utilise la librairie metis pour attribuer chaque maille du maillage
-//d'origine à un sous domaine.
-//On va ensuite rajouter a chaque sous domaine une couche de mailles "fantomes" (overlapping)
-//pour faciliter les échanges mémoires dans le code suivant.
-//Il y a plusieurs étapes de renumérotation et de mise a jour d'une table de correspondance
-//entre les numérotations locales et globales.
-
-//Utilisation: ./split_mesh fichier_maillages nombre_sous_domaines
-
-//En sortie le programme génère des fichiers de mailles de la forme [0-9]_fichier_mailles
-//qui correspondent chacun à un sous domaine et son les fichiers a donne au code CUTEFLOW
-//Le programme génère aussi les fichiers liens_nodes et liens_elems qui contiennent simplement
-//une correspondance entre la numérotation locale dans le sous domaine et la numérotation
-//globale. Ces fichiers sont utilisé dans split_solution par exemple.
-
-
 #include "metis.h"
 #include <iostream>
 #include <fstream>
@@ -25,7 +8,7 @@
 
 using namespace std;
 
-void lecture(ifstream &mesh, vector<vector<double> > &nodes, vector<vector<double> > &elems,idx_t *&eind, idx_t *&eptr, vector<int> &entreNodes, vector<int> &numEntreNodes, vector<int> &sortieNodes, vector<int> &wallNodes, int &nombreEntre){
+void lecture(bool multi_entree, ifstream &mesh, vector<vector<double> > &nodes, vector<vector<double> > &elems,idx_t *&eind, idx_t *&eptr, vector<int> &entreNodes, vector<int> &numEntreNodes, vector<int> &sortieNodes, vector<int> &wallNodes, int &nombreEntre){
 
   int i, nNodes, nElems, nSortie, nEntre, nWall;
   string str;
@@ -63,16 +46,33 @@ void lecture(ifstream &mesh, vector<vector<double> > &nodes, vector<vector<doubl
   }
   getline(mesh, str);
   getline(mesh, str);
-  mesh >> nEntre >> nombreEntre;
+  if(multi_entree){
+    mesh >> nEntre >> nombreEntre;
+  }
+  else{
+    mesh >> nEntre;
+    nombreEntre=1;
+  }
   cout << "Lecture noeuds entree " << nEntre << endl;
   i=0;
   int dum;
   vector<int> dum_v(2);
-  while(i<nEntre){
-    mesh >> dum_v[0] >> dum_v[1];
-    entreNodes.push_back(dum_v[0]);
-    numEntreNodes.push_back(dum_v[1]);
-    i++;
+  if(multi_entree){
+    while(i<nEntre){
+      mesh >> dum_v[0] >> dum_v[1];
+      entreNodes.push_back(dum_v[0]);
+      numEntreNodes.push_back(dum_v[1]);
+      i++;
+    }
+  }
+  else{
+    while(i<nEntre){
+      mesh >> dum_v[0];
+      dum_v[1] = 1; //unique entrée numéro 1
+      entreNodes.push_back(dum_v[0]);
+      numEntreNodes.push_back(dum_v[1]);
+      i++;
+    }
   }
   getline(mesh, str);
   getline(mesh, str);
@@ -604,15 +604,18 @@ int main(int argc, char* argv[]){
   idx_t objval, nParts;
   ifstream mesh;
   string fileName;
+  bool multi_entree=1;
 
-  if(argc < 3){
-    cout << "Utilisation : ./split_mesh fichier_de_maillage nombre_de_sous_domaines" << endl;
+  if(argc < 4){
+    cout << "Utilisation : ./split_mesh fichier_de_maillage nombre_de_sous_domaines multi_entree" << endl;
+    cout << "multi_entree=1 uniquement si le maillage a découper posséde plusieurs entrées" << endl;
     return(0);
   }
   else{
     fileName = argv[1];
     mesh.open(argv[1]);
     nParts = atoi(argv[2]);
+    multi_entree = atoi(argv[3]);
   }
 
   int n, i, nNodes, nElems, ncom(1), nombreEntre;
@@ -631,7 +634,7 @@ int main(int argc, char* argv[]){
   cout << fixed;
 
   //Lecture du maillage
-  lecture(mesh, nodes, elems, eind, eptr, entreNodes, numEntreNodes, sortieNodes, wallNodes, nombreEntre);
+  lecture(multi_entree, mesh, nodes, elems, eind, eptr, entreNodes, numEntreNodes, sortieNodes, wallNodes, nombreEntre);
   mesh.close();
 
 
