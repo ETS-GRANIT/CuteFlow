@@ -1621,10 +1621,10 @@ integer, value :: kvol, kfac
 
       if(gi <= nelt_d) then
         do kfac=1,ns_d
-          kvoisin = boundary_d(gi,kfac)
+          kvoisin = boundary_d(gi,kfac,1)
           if (kvoisin>0)then  
             if(vdlg_d(1,kvoisin)<tolisec_d) then
-              boundary_d(gi,kfac) = -3
+              boundary_d(gi,kfac,1) = -3
             end if
           end if
         end do
