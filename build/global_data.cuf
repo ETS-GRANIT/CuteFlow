@@ -53,7 +53,7 @@ module global
   real(fp_kind), dimension(100000) :: tvis2d , tvis3d 
   real(fp_kind), dimension(100) :: xjauges , yjauges
   integer :: n_video, base_unique, nonlin, video, dim, k_base
-  integer :: multi_simul, monte_carlo
+  integer :: multi_simul, monte_carlo, is_dry_as_wall
 
   namelist/datasimul/ test, nom_test, iflux, limiteur, fricimplic, timedisc, & 
     & inlet,debit_var, debitglob, loi_debitglob, h_sortie, &
@@ -61,7 +61,8 @@ module global
     & grd, visual, freqvisual, freqaffich, freqjauges, instjauges, &
     & nbrjauges, xjauges, yjauges, nbrcoupes, densite_coupe, coupe_a, coupe_b, long_coupe,  &
     & tvis2d, tvis3d, soldomaine, n_soldom, video, n_video, alfa, &
-    & dim, multi_simul, monte_carlo
+    & dim, multi_simul, monte_carlo, &
+    & is_dry_as_wall
 
   !! Input pour l'analyse stochastiqu
   character (2)  :: key, genrelt

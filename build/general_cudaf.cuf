@@ -44,11 +44,11 @@ program general
       real(fp_kind), dimension(:,:), intent(inout):: ut_d, visio_d, ut1_d
     end subroutine cond_initial_cudaf
 
-    attributes(global) subroutine assign_sec_as_wall(vdlg_d)
+    attributes(global) subroutine assign_dry_as_wall(vdlg_d)
       use precision_m
       use global_device
       real(fp_kind), intent(in) :: vdlg_d(:,:)
-    end subroutine assign_sec_as_wall
+    end subroutine assign_dry_as_wall
 
     subroutine cond_initial2(ut1,ut)
       use precision_m
@@ -334,7 +334,9 @@ program general
     call cuda_glerror('ierr <- data transfer to (vdlg0_d  and vdlg01_d) (H->D) {if(solinit == 1)} <-- general_cudaf.cuf',1)
   else
     call cond_initial_cudaf<<<grid, tblock>>>(zm_d, vdlg0_d, vdlg01_d, visio_d)
-    call assign_sec_as_wall<<<grid, tblock>>>(vdlg0_d)
+    if(is_dry_as_wall==1) then
+      call assign_dry_as_wall<<<grid, tblock>>>(vdlg0_d)
+    end if
     visio = visio_d
     call cuda_glerror('ierr <- cond_initial_cudaf <-- general_cudaf.cuf',1)
   endif               

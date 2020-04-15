@@ -1654,7 +1654,7 @@ integer, value :: kvol, kfac
 
   end subroutine assign_type_2
 
-  attributes (global) subroutine assign_sec_as_wall(vdlg_d)
+  attributes (global) subroutine assign_dry_as_wall(vdlg_d)
   !!si maille voisine sechees alors voisin wall
   use precision_m
   use global_device
@@ -1679,7 +1679,7 @@ integer, value :: kvol, kfac
     end do
   end if
 
-  end subroutine assign_sec_as_wall
+  end subroutine assign_dry_as_wall
 
 
   subroutine construct_coo_table_elemwise
