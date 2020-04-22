@@ -61,7 +61,7 @@ attributes(global) subroutine cflcond_sec_cudaf(solut_d, deltatmin_d, dt_d)
   if(gi <= nelt_d-nelt_fant_recep_d) then
     hauteur = solut_d(1,gi)
     if ( hauteur <= tolisec_d ) then
-      deltatmin_d(gi) = 1e-2*dt_d
+      deltatmin_d(gi) = 1e-3*dt_d*cotemin_d/cotemin_arr_d(gi)
     endif
   endif   
 end subroutine cflcond_sec_cudaf

@@ -72,6 +72,15 @@ subroutine Full_FV
       integer, value :: niter, iter
     end subroutine copy_2d_1
 
+    attributes(global) subroutine copy_2d_1_local_time_step(vdlg1_d, vdlg01_d, resj_d, niter, iter, dt_d, nelt_d, deltatmin_d)
+      use precision_m
+      real(fp_kind), intent(inout) :: vdlg1_d(:,:), vdlg01_d(:,:)
+      real(fp_kind), intent(in) :: resj_d(:,:), dt_d
+      real(fp_kind), intent(inout)                  :: deltatmin_d(:)
+      integer, intent(in) :: nelt_d
+      integer, value :: niter, iter
+    end subroutine copy_2d_1_local_time_step
+
     attributes(global) subroutine copy_into_res_d(niter_d,nelt_d)
       use precision_m
       use main_prog_variables
@@ -411,7 +420,6 @@ subroutine Full_FV
     !Début de la boucle sur les iterations du schema temporel
     do iter=1,niter
       if ( niter == 1 ) then          ! *** Euler ***
-        !!call copy_2d<<<grid_copy, block_copy>>>(vdlg1_d, vdlg01_d, nelt_d-nelt_fant_recep_d)
         call copy_2d<<<grid_copy, block_copy>>>(vdlg1_d, vdlg01_d, nelt_d)
         call cuda_glerror('ierr<-copy_2d{if(niter == 1)} <-- Full_FV_cudaf_shared.cuf',1)
 
@@ -428,8 +436,11 @@ subroutine Full_FV
           call cuda_glerror('ierr<-mise_a_jr_zone_seche_cudaf{if(niter == 2, iter == 1)} <-- Full_FV_cudaf_shared.cuf',1)
 
         else
-          !!call copy_2d_1<<<grid_copy, block_copy>>>(vdlg1_d, vdlg01_d, res1_d, niter, iter, dt_d, nelt_d-nelt_fant_recep_d)
-          call copy_2d_1<<<grid_copy, block_copy>>>(vdlg1_d, vdlg01_d, res1_d, niter, iter, dt_d, nelt_d,deltatmin_d)
+          if(local_time_step) then
+            call copy_2d_1_local_time_step<<<grid_copy, block_copy>>>(vdlg1_d, vdlg01_d, res1_d, niter, iter, dt_d, nelt_d,deltatmin_d)
+          else
+            call copy_2d_1<<<grid_copy, block_copy>>>(vdlg1_d, vdlg01_d, res1_d, niter, iter, dt_d, nelt_d,deltatmin_d)
+          end if
           call cuda_glerror('ierr<-copy_2d_1{if(niter == 2 iter == 2)} <-- Full_FV_cudaf_shared.cuf',1)
 
           call mise_a_jr_zone_seche_cudaf<<<grid, tblock>>>(zm_d, vdlg_d, vdlg1_d)
@@ -446,24 +457,33 @@ subroutine Full_FV
           call cuda_glerror('ierr<-mise_a_jr_zone_seche_cudaf{if(niter == 4, iter == 1)} <-- Full_FV_cudaf_shared.cuf',1)
 
         elseif ( iter == 2 ) then
-          !!call copy_2d_1<<<grid_copy, block_copy>>>(vdlg1_d, vdlg01_d, res1_d, niter, iter, dt_d, nelt_d-nelt_fant_recep_d)
-          call copy_2d_1<<<grid_copy, block_copy>>>(vdlg1_d, vdlg01_d, res1_d, niter, iter, dt_d, nelt_d, deltatmin_d)
+          if(local_time_step) then
+            call copy_2d_1_local_time_step<<<grid_copy, block_copy>>>(vdlg1_d, vdlg01_d, res1_d, niter, iter, dt_d, nelt_d, deltatmin_d)
+          else
+            call copy_2d_1<<<grid_copy, block_copy>>>(vdlg1_d, vdlg01_d, res1_d, niter, iter, dt_d, nelt_d, deltatmin_d)
+          end if
           call cuda_glerror('ierr<-copy_2d_1{if(niter == 4, iter == 2)} <-- Full_FV_cudaf_shared.cuf',1)
 
           call mise_a_jr_zone_seche_cudaf<<<grid, tblock>>>(zm_d, vdlg_d, vdlg1_d)
           call cuda_glerror('ierr<-mise_a_jr_zone_seche_cudaf{if(niter == 4, iter == 2)} <-- Full_FV_cudaf_shared.cuf',1)
 
         elseif ( iter == 3 ) then
-          !!call copy_2d_1<<<grid_copy, block_copy>>>(vdlg1_d, vdlg01_d, res2_d, niter, iter, dt_d, nelt_d-nelt_fant_recep_d)
-          call copy_2d_1<<<grid_copy, block_copy>>>(vdlg1_d, vdlg01_d, res2_d, niter, iter, dt_d, nelt_d,deltatmin_d)
+          if(local_time_step) then
+            call copy_2d_1_local_time_step<<<grid_copy, block_copy>>>(vdlg1_d, vdlg01_d, res2_d, niter, iter, dt_d, nelt_d,deltatmin_d)
+          else
+            call copy_2d_1<<<grid_copy, block_copy>>>(vdlg1_d, vdlg01_d, res2_d, niter, iter, dt_d, nelt_d,deltatmin_d)
+          end if
           call cuda_glerror('ierr<-copy_2d_1{if(niter == 4, iter== 3)} <-- Full_FV_cudaf_shared.cuf',1)
 
           call mise_a_jr_zone_seche_cudaf<<<grid, tblock>>>(zm_d, vdlg_d, vdlg1_d)
           call cuda_glerror('ierr<-mise_a_jr_zone_seche_cudaf{if(niter == 4, iter == 3)} <-- Full_FV_cudaf_shared.cuf',1)
 
         else
-          !!call copy_2d_1<<<grid_copy, block_copy>>>(vdlg1_d, vdlg01_d, res3_d, niter, iter, dt_d, nelt_d-nelt_fant_recep_d)
-          call copy_2d_1<<<grid_copy, block_copy>>>(vdlg1_d, vdlg01_d, res3_d, niter, iter, dt_d, nelt_d,deltatmin_d)
+          if(local_time_step) then
+            call copy_2d_1_local_time_step<<<grid_copy, block_copy>>>(vdlg1_d, vdlg01_d, res3_d, niter, iter, dt_d, nelt_d,deltatmin_d)
+          else
+            call copy_2d_1<<<grid_copy, block_copy>>>(vdlg1_d, vdlg01_d, res3_d, niter, iter, dt_d, nelt_d,deltatmin_d)
+          end if
           call cuda_glerror('ierr<-copy_2d_1{if(niter == 4, iter== 4)} <-- Full_FV_cudaf_shared.cuf',1)
 
           call mise_a_jr_zone_seche_cudaf<<<grid, tblock>>>(zm_d, vdlg_d, vdlg1_d)
@@ -552,7 +572,11 @@ subroutine Full_FV
     call cuda_glerror('ierr<-copy_into_res_d  <-- Full_FV_cudaf_shared.cuf',1)
 
     ! *** solution à la fin du pas avec traitement de la zone seche ***
-    call copy_2d_1<<<grid_copy, block_copy>>>(vdlg1_d, vdlg01_d, res_d, 2, 2, dt_d, nelt_d, deltatmin_d)
+    if(local_time_step) then
+      call copy_2d_1_local_time_step<<<grid_copy, block_copy>>>(vdlg1_d, vdlg01_d, res_d, 2, 2, dt_d, nelt_d, deltatmin_d)
+    else
+      call copy_2d_1<<<grid_copy, block_copy>>>(vdlg1_d, vdlg01_d, res_d, 2, 2, dt_d, nelt_d, deltatmin_d)
+    end if
     call cuda_glerror('ierr<-copy_2d_1 <-- Full_FV_cudaf_shared.cuf',1)
 
     ! *** mise a jour de la zone seche ***
@@ -841,7 +865,7 @@ attributes(global) subroutine copy_2d(a,b,n)
 
 end subroutine copy_2d
 
-attributes(global) subroutine copy_2d_1(vdlg1_d, vdlg01_d, resj_d, niter, iter, dt_d, nelt_d,deltatmin_d)
+attributes(global) subroutine copy_2d_1_local_time_step(vdlg1_d, vdlg01_d, resj_d, niter, iter, dt_d, nelt_d,deltatmin_d)
   use precision_m
   real(fp_kind), intent(inout) :: vdlg1_d(:,:), vdlg01_d(:,:)
   real(fp_kind), intent(in) :: resj_d(:,:), dt_d
@@ -855,24 +879,38 @@ attributes(global) subroutine copy_2d_1(vdlg1_d, vdlg01_d, resj_d, niter, iter, 
   ti = threadIdx%x
   gi = (blockIdx%x - 1)*blockDim%x + ti
 
-  !!if(gi <= nelt_d) then
   if(gi <= nelt_d-nelt_fant_recep_d) then
-
     if(niter == 2 .and. iter == 2) then 
-
-      !vdlg1_d(:,gi) = vdlg01_d(:,gi) + dt_d * resj_d(:,gi)
       vdlg1_d(:,gi) = vdlg01_d(:,gi) + deltatmin_d(gi) * resj_d(:,gi)
-
     elseif(niter == 4 .and. (iter == 2 .or. iter == 3)) then 
-
-      ! vdlg1_d(:,gi) = vdlg01_d(:,gi) + dt_d * resj_d(:,gi)/2
       vdlg1_d(:,gi) = vdlg01_d(:,gi) + deltatmin_d(gi) * resj_d(:,gi)/2
-
     elseif(niter == 4 .and. iter == 4) then 
-
-      ! vdlg1_d(:,gi) = vdlg01_d(:,gi) + dt_d * resj_d(:,gi)
       vdlg1_d(:,gi) = vdlg01_d(:,gi) + deltatmin_d(gi) * resj_d(:,gi)
+    endif
+  endif
 
+end subroutine copy_2d_1_local_time_step
+
+attributes(global) subroutine copy_2d_1(vdlg1_d, vdlg01_d, resj_d, niter, iter, dt_d, nelt_d,deltatmin_d)
+  use precision_m
+  real(fp_kind), intent(inout) :: vdlg1_d(:,:), vdlg01_d(:,:)
+  real(fp_kind), intent(in) :: resj_d(:,:), dt_d
+  real(fp_kind), intent(in)                  :: deltatmin_d(:)
+  integer, intent(in) :: nelt_d
+  integer, value :: niter, iter
+
+  integer :: ti,gi
+
+  ti = threadIdx%x
+  gi = (blockIdx%x - 1)*blockDim%x + ti
+
+  if(gi <= nelt_d-nelt_fant_recep_d) then
+    if(niter == 2 .and. iter == 2) then 
+      vdlg1_d(:,gi) = vdlg01_d(:,gi) + dt_d * resj_d(:,gi)
+    elseif(niter == 4 .and. (iter == 2 .or. iter == 3)) then 
+      vdlg1_d(:,gi) = vdlg01_d(:,gi) + dt_d * resj_d(:,gi)/2
+    elseif(niter == 4 .and. iter == 4) then 
+      vdlg1_d(:,gi) = vdlg01_d(:,gi) + dt_d * resj_d(:,gi)
     endif
   endif
 
@@ -889,19 +927,12 @@ attributes(global) subroutine copy_into_res_d(niter_d,nelt_d)
   gi = (blockIdx%x - 1)*blockDim%x + thi
 
   if (gi <= nelt_d) then
-    !!if (gi <= nelt_d-nelt_fant_recep_d) then
     if ( niter_d == 1 ) then          ! *** Euler ***
-      !
       res_d(:,gi) = res1_d(:,gi)
-      !
     elseif ( niter_d == 2 ) then      ! *** Second order ***
-      !
       res_d(:,gi) = (res1_d(:,gi) + res2_d(:,gi) ) / 2
-      !
     elseif ( niter_d == 4 ) then      ! *** Runge-kutta ***
-      !
       res_d(:,gi) = (res1_d(:,gi) + 2 * res2_d(:,gi) + 2 * res3_d(:,gi) + res4_d(:,gi)) / 6
-      !
     endif
   endif
 
