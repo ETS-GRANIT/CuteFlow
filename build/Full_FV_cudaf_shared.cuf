@@ -367,11 +367,11 @@ subroutine Full_FV
     dt_arr = deltatmin_d
     dt = minval(dt_arr)
     call MPI_ALLREDUCE(MPI_IN_PLACE,dt,1,real_kind_mpi,MPI_MIN,MPI_COMM_WORLD, mpi_ierr)
-    dt_d = 0.1*dt
+    !dt_d = 0.1*dt
     dt_d = dt
 
     !!setting local time step in dry cells according to dt_d
-    if(local_time_step) then
+    if(local_time_step==1) then
       call cflcond_sec_cudaf<<<grid, tblock>>>(vdlg_d, deltatmin_d, dt_d)
     end if
   endif
@@ -593,9 +593,9 @@ subroutine Full_FV
       end if
 
       !!On diminue le pas de temps au début
-      if ( nt < 20000 ) then
-        dt = 0.1*dt
-      end if
+      ! if ( nt < 20000 ) then
+        ! dt = 0.1*dt
+      ! end if
 
       dt_d = dt
       call cflcond_sec_cudaf<<<grid, tblock>>>(vdlg_d,deltatmin_d, dt_d)
