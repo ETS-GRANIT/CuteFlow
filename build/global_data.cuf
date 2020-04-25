@@ -25,10 +25,10 @@ module global
   !! Variables donnees du maillage
   character(len=60)       :: meshfile
   integer                 :: aleat, mail, mtri, nnx, nny, numerot, zcolumn
-  integer                 :: ncel, elt_bound, multi_entree
+  integer                 :: ncel, elt_bound, multi_entree, multi_sortie
   integer, dimension(20)  :: elts
 
-  namelist/datamesh/ aleat, mail, mtri, nnx, nny, meshfile, elt_bound, numerot, zcolumn, ncel, elts, multi_entree
+  namelist/datamesh/ aleat, mail, mtri, nnx, nny, meshfile, elt_bound, numerot, zcolumn, ncel, elts, multi_entree, multi_sortie
 
   !! Variables donnees initiales
   character(len=200)  :: fich_sol_init
@@ -46,8 +46,8 @@ module global
   integer :: test, iflux, limiteur, pas_dt, grd, visual, fricimplic, debit_var  
   integer :: freqvisual, freqaffich, freqjauges, nbrjauges, nbrcoupes, densite_coupe, instjauges, soldomaine, n_soldom
   integer :: comptvisu, cptvis2d, cptvis3d, cptvideo, cptvisjauge, cptvisdom, cptdebit 
-  real(fp_kind) :: long, critere_arret, debitglob_sum, h_sortie, alfa
-  real(fp_kind), dimension(20) :: debitglob
+  real(fp_kind) :: long, critere_arret, debitglob_sum, alfa
+  real(fp_kind), dimension(20) :: debitglob, h_sortie
   real(fp_kind) :: tbase, divbase, ts, tsstab, dt, cfl, tol, tolisec, tolratio, tolaffiche, tol_reg_perm
   real(fp_kind), dimension(10) :: coupe_a, coupe_b, long_coupe
   real(fp_kind), dimension(100000) :: tvis2d , tvis3d 
@@ -88,7 +88,7 @@ module global
   real,    parameter :: tolisec2=1.e-6, tolhfriction=1.e-4
 
   integer :: n_seq_base     
-  integer :: nelt, nnt, ns, ndi, ndo, ndw, correction, prediction, nbase, nbase_h, nbase_eta, nbase_eta_tild, nbase_hu, nbase_hv, nbase_u, nbase_v, maxdimbase, nombre_input
+  integer :: nelt, nnt, ns, ndi, ndo, ndw, correction, prediction, nbase, nbase_h, nbase_eta, nbase_eta_tild, nbase_hu, nbase_hv, nbase_u, nbase_v, maxdimbase, nombre_input, nombre_output
   integer :: nelt_loc, nnt_loc
   integer :: nelt_fant_recep, nelt_fant_envoi
   integer :: nelt_fant_recep_bloc, nelt_fant_envoi_bloc
@@ -100,7 +100,7 @@ module global
 
   !real(fp_kind), dimension(200000)             :: tvis3d2 , tvis2d2, tvisjauge, tvisdom, tvideo
   real(fp_kind), dimension(:), allocatable             :: tvis3d2 , tvis2d2, tvisjauge, tvisdom, tvideo, long_entree, cotemin_arr
-  integer, dimension(:)  ,   allocatable :: ndinput, ndoutput, ndwall, i_dry_wet, nbr_nds_coupes, numero_ndinput
+  integer, dimension(:)  ,   allocatable :: ndinput, ndoutput, ndwall, i_dry_wet, nbr_nds_coupes, numero_ndinput, numero_ndoutput
   integer, dimension(:,:), allocatable :: elt_fant_recep, elt_fant_envoi
   integer, dimension(:,:), allocatable :: elt_fant_recep_bloc, elt_fant_envoi_bloc
   integer, dimension(:,:),   allocatable :: connectivite, ij_wet_dry, ij_dry_wet, elts_coupes_transv, nds_coupes

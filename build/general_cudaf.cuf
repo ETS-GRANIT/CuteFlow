@@ -291,8 +291,6 @@ program general
   write(*,*) 'Test                =', test
   write(*,*) 'iflux               =', iflux
   write(*,*) 'limiteur            =', limiteur
-  write(*,*) 'debitglob           =', debitglob
-  write(*,*) 'H_SORTIE            =', H_SORTIE
   write(*,*) 'Fricimplic          =', fricimplic
   write(*,*) 'freqjauges          =', freqjauges
   write(*,*) 'instjauges          =', instjauges
@@ -309,10 +307,16 @@ program general
   write(*,*) 'tolratio            =', tolratio
   write(*,*) 'tolaffiche          =', tolaffiche
   write(*,*) 'freqaffich          =', freqaffich
+  write(*,*) 'dry_as_wall         =', is_dry_as_wall
+  write(*,*) 'local time step     =', local_time_step
   write(*,*) 'nombre entree       =', nombre_input
   do af_input=1,nombre_input
     write(*,*) 'debitglob       ', af_input, " = ", debitglob(af_input)
     write(*,*) 'longueur entree ', af_input, " = ", long_entree(af_input)
+  end do
+  write(*,*) 'nombre sortie       =', nombre_output
+  do af_input=1,nombre_output
+    write(*,*) 'H_SORTIE        ', af_input, " = ", h_sortie(af_input)
   end do
   write(*,*) '======================================================================'
   write(*,*) '======================================================================'

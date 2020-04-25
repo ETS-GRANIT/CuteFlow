@@ -632,14 +632,30 @@ subroutine lec_mail_tri_mpi
 
   !! table des noeuds de la sortie :
   read(lec_mesh,*) tarati
-  read(lec_mesh,*) ndo
-  print*,"id ", my_id, ", ", ndo, " noeuds sortie"
-  if (ndo>0) then
-    allocate(ndoutput(ndo))
-    allocate(ndoutput_d(ndo))
-    do i=1,ndo
-      read(lec_mesh,*) ndoutput(i)
-    enddo
+  if(multi_sortie==0) then
+    read(lec_mesh,*) ndo
+    nombre_output = 1
+    if (ndo>0) then
+      allocate(numero_ndoutput(ndo))
+      allocate(numero_ndoutput_d(ndo))
+      allocate(ndoutput(ndo))
+      allocate(ndoutput_d(ndo))
+      do i=1,ndo
+        read(lec_mesh,*) ndoutput(i)
+        numero_ndoutput(i) = 1
+      enddo
+    end if
+  else
+    if(ndo>0) then
+      read(lec_mesh,*) ndo, nombre_output
+      allocate(numero_ndoutput(ndo))
+      allocate(numero_ndoutput_d(ndo))
+      allocate(ndoutput(ndo))
+      allocate(ndoutput_d(ndo))
+      do i=1,ndo
+        read(lec_mesh,*) ndoutput(i), numero_ndoutput(i)
+      enddo
+    endif
   endif
 
   !! table des noeuds de la frontière solide :
@@ -822,13 +838,30 @@ subroutine lec_mail_tri
 
   !! table des noeuds de la sortie :
   read(lec_mesh,*) tarati
-  read(lec_mesh,*) ndo
-  if (ndo>0) then
-    allocate(ndoutput(ndo))
-    allocate(ndoutput_d(ndo))
-    do i=1,ndo
-      read(lec_mesh,*) ndoutput(i)
-    enddo
+  if(multi_sortie==0) then
+    read(lec_mesh,*) ndo
+    nombre_output=1
+    if (ndo>0) then
+      allocate(numero_ndoutput(ndo))
+      allocate(numero_ndoutput_d(ndo))
+      allocate(ndoutput(ndo))
+      allocate(ndoutput_d(ndo))
+      do i=1,ndo
+        read(lec_mesh,*) ndoutput(i)
+        numero_ndoutput(i) = 1
+      enddo
+    end if
+  else
+    read(lec_mesh,*) ndo, nombre_output
+    if(ndo>0) then
+      allocate(numero_ndoutput(ndo))
+      allocate(numero_ndoutput_d(ndo))
+      allocate(ndoutput(ndo))
+      allocate(ndoutput_d(ndo))
+      do i=1,ndo
+        read(lec_mesh,*) ndoutput(i), numero_ndoutput(i)
+      enddo
+    endif
   endif
 
   !! table des noeuds de la frontière solide :
@@ -1391,12 +1424,12 @@ subroutine boundary_kind_cudaf
     integer, intent(in) :: ndiow_d(:)
   end subroutine assign_type_1
 
-    attributes (global) subroutine assign_type_1_numero_entree(ndiow_d, numero_ndinput_d, boundary_d, kvol, kfac, nd, n1, n2, id)
+    attributes (global) subroutine assign_type_1_numero(ndiow_d, numero_ndinput_d, boundary_d, kvol, kfac, nd, n1, n2, id)
     implicit none
     integer, intent(inout) :: boundary_d(:,:,:)
     integer, value :: kvol, kfac, nd, n1, n2, id
     integer, intent(in) :: ndiow_d(:), numero_ndinput_d(:)
-  end subroutine assign_type_1_numero_entree
+  end subroutine assign_type_1_numero
 
   attributes (global) subroutine assign_type_2(ndwall_d, ndio_d, boundary_d, kvol, kfac, ndw, nd, n1, n2, id)
   implicit none
@@ -1499,7 +1532,7 @@ integer, value :: kvol, kfac
                 if(ndi > 0) then 
 
                   call assign_type_1<<<grid_i, tblock_i>>>(ndinput_d,boundary_d,kvol,kfac, ndi, n1, n2, -1)
-                  call assign_type_1_numero_entree<<<grid_i, tblock_i>>>(ndinput_d, numero_ndinput_d, boundary_d,kvol,kfac, ndi, n1, n2, -1)
+                  call assign_type_1_numero<<<grid_i, tblock_i>>>(ndinput_d, numero_ndinput_d, boundary_d,kvol,kfac, ndi, n1, n2, -1)
                   call cuda_glerror('ierr <- boundary_kind_cudaf <-- assign_type_1 (1) <-- maillage.cuf',1)
 
                   call check_assign<<<1,1>>>(check, kvol, kfac)
@@ -1513,6 +1546,7 @@ integer, value :: kvol, kfac
                 if(ndo > 0) then 
 
                   call assign_type_1<<<grid_o, tblock_o>>>(ndoutput_d,boundary_d,kvol,kfac, ndo, n1, n2, -2)
+                  call assign_type_1_numero<<<grid_o, tblock_o>>>(ndoutput_d,numero_ndoutput_d,boundary_d,kvol,kfac, ndo, n1, n2, -2)
                   call cuda_glerror('ierr <- boundary_kind_cudaf <-- assign_type_1 (2) <-- maillage.cuf',1)
 
                   call check_assign<<<1,1>>>(check, kvol, kfac)
@@ -1579,7 +1613,7 @@ integer, value :: kvol, kfac
       end subroutine check_assign
 
 
-      attributes (global) subroutine assign_type_1_numero_entree(ndiow_d, numero_ndinput_d, boundary_d, kvol, kfac, nd, n1, n2, id)
+      attributes (global) subroutine assign_type_1_numero(ndiow_d, numero_ndinput_d, boundary_d, kvol, kfac, nd, n1, n2, id)
       implicit none
       integer, intent(inout) :: boundary_d(:,:,:)
       integer, value :: kvol, kfac, nd, n1, n2, id
@@ -1603,34 +1637,7 @@ integer, value :: kvol, kfac
 
       end if
 
-    end subroutine assign_type_1_numero_entree
-
-    attributes (global) subroutine assign_sec_as_wall(vdlg_d)
-      !!si maille voisine sechees alors voisin wall
-      use precision_m
-      use global_device
-
-      implicit none
-      real(fp_kind), intent(in) :: vdlg_d(:,:)
-
-      integer :: ti,gi,kfac, kvoisin
-
-
-      ti = threadIdx%x
-      gi = (blockIdx%x - 1)*blockDim%x + ti
-
-      if(gi <= nelt_d) then
-        do kfac=1,ns_d
-          kvoisin = boundary_d(gi,kfac,1)
-          if (kvoisin>0)then  
-            if(vdlg_d(1,kvoisin)<tolisec_d) then
-              boundary_d(gi,kfac,1) = -3
-            end if
-          end if
-        end do
-      end if
-
-    end subroutine assign_sec_as_wall
+    end subroutine assign_type_1_numero
 
       attributes (global) subroutine assign_type_1(ndiow_d, boundary_d, kvol, kfac, nd, n1, n2, id)
       implicit none
