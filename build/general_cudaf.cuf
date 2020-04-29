@@ -50,6 +50,12 @@ program general
       real(fp_kind), intent(in) :: vdlg_d(:,:)
     end subroutine assign_dry_as_wall
 
+        attributes (global) subroutine set_unset_as_wall()
+            use precision_m
+            use global_device
+            implicit none
+        end subroutine set_unset_as_wall
+
     subroutine cond_initial2(ut1,ut)
       use precision_m
       use global
@@ -346,6 +352,8 @@ program general
     if(is_dry_as_wall==1) then
       call assign_dry_as_wall<<<grid, tblock>>>(vdlg0_d)
     end if
+    !!Fix non walls
+    call set_unset_as_wall<<<grid, tblock>>>()
     visio = visio_d
     call cuda_glerror('ierr <- cond_initial_cudaf <-- general_cudaf.cuf',1)
   endif               
