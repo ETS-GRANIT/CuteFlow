@@ -116,19 +116,19 @@ attributes(global) subroutine cotes_cudaf3(surf_d, zm_d,gradz_d,vdlg_d)
         endif
 
       elseif ( inlet_d == 2 ) then   ! inlet_d = 2 = Entree avec debit
-        if ( hautl > tolisec_d ) then
+        ! if ( hautl > tolisec_d ) then
           debitnorm = -debitglob_d(id_entree) / long_entree_d(id_entree)
           flux(1) = debitnorm
           flux(2) = norm(1) * ( debitnorm**2/hautl  + gp_d * hautl*(hautl+zml) )
           flux(3) = norm(2) * ( debitnorm**2/hautl  + gp_d * hautl*(hautl+zml) )
           debit_entree_arr_d(io_identifier_d(gi),1) = (-debitnorm)*ln    
           debit_entree_arr_d(io_identifier_d(gi),2) = id_entree
-        else
-          hautl = tolisec_d             
-          flux(1) = 0.d0
-          flux(2) = norm(1) * gp_d * hautl*(hautl+zml)
-          flux(3) = norm(2) * gp_d * hautl*(hautl+zml)
-        endif
+        ! else
+        !   hautl = tolisec_d             
+        !   flux(1) = 0.d0
+        !   flux(2) = norm(1) * gp_d * hautl*(hautl+zml)
+        !   flux(3) = norm(2) * gp_d * hautl*(hautl+zml)
+        ! endif
       else
         write(*,*) 'donnee inlet_d non convenable'
       endif
@@ -365,19 +365,19 @@ attributes(global) subroutine cotes_cudaf4(surf_d, zm_d,gradz_d,vdlg_d)
           flux(3) = norm(2) * ( hautl * vitul**2 + gp_d * hautl*(hautl+zml) ) + norm(1) * hautl * vitul * vitvl
         endif
       elseif ( inlet_d == 2 ) then   ! inlet_d = 2 = Entree avec debit
-        if ( hautl > tolisec_d ) then
+        ! if ( hautl > tolisec_d ) then
           debitnorm = -debitglob_d(id_entree) / long_entree_d(id_entree)
           flux(1) = debitnorm
           flux(2) = norm(1) * ( debitnorm**2/hautl  + gp_d * hautl*(hautl+zml) )
           flux(3) = norm(2) * ( debitnorm**2/hautl  + gp_d * hautl*(hautl+zml) )
           debit_entree_arr_d(io_identifier_d(gi),1) = (-debitnorm)*ln    
           debit_entree_arr_d(io_identifier_d(gi),2) = id_entree
-        else
-          hautl = tolisec_d             
-          flux(1) = 0.d0
-          flux(2) = norm(1) * gp_d * hautl*(hautl+zml)
-          flux(3) = norm(2) * gp_d * hautl*(hautl+zml)
-        endif
+        ! else
+        !   hautl = tolisec_d             
+        !   flux(1) = 0.d0
+        !   flux(2) = norm(1) * gp_d * hautl*(hautl+zml)
+        !   flux(3) = norm(2) * gp_d * hautl*(hautl+zml)
+        ! endif
       else
         write(*,*) 'donnee inlet_d non convenable'
       endif

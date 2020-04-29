@@ -220,7 +220,7 @@ subroutine Full_FV
   type(dim3 )                             :: grid, tblock, grid_nodes, tblock_nodes, grid11, tblock11, grids, tblocks,block_copy, grid_copy 
   real(fp_kind)                           :: time_start, time_stop, tb1, tb2, te1, te2
   real(fp_kind)                           :: errf, errf1, errf2, errf3, errf4, errf5
-  integer                                 :: ierr
+  integer                                 :: ierr, cond_reg_perm 
   real                                    :: time_cuda
   type(cudaEvent)                         :: startEvent , stopEvent
 
@@ -240,6 +240,7 @@ subroutine Full_FV
   nt          = 0 
 
   comptvisu   = 0
+  cond_reg_perm  = 0
   cptvis2d    = 1
   cptvis3d    = 1
   cptvisjauge = 1
@@ -367,7 +368,7 @@ subroutine Full_FV
     dt_arr = deltatmin_d
     dt = minval(dt_arr)
     call MPI_ALLREDUCE(MPI_IN_PLACE,dt,1,real_kind_mpi,MPI_MIN,MPI_COMM_WORLD, mpi_ierr)
-    !dt_d = 0.1*dt
+    dt_d = 0.1*dt
     dt_d = dt
 
     !!setting local time step in dry cells according to dt_d
@@ -593,9 +594,9 @@ subroutine Full_FV
       end if
 
       !!On diminue le pas de temps au début
-      ! if ( nt < 20000 ) then
-        ! dt = 0.1*dt
-      ! end if
+      if ( nt < 20000 ) then
+        dt = 0.1*dt
+      end if
 
       dt_d = dt
       call cflcond_sec_cudaf<<<grid, tblock>>>(vdlg_d,deltatmin_d, dt_d)
@@ -728,27 +729,33 @@ subroutine Full_FV
 
     debitglob_sum = sum(debitglob)
     debit_entree_sum = sum(debit_entree)
-    if ( debitglob_sum > 0.0 .and. debit_sortie0 > tol_reg_perm ) then
+    !if ( debitglob_sum > 0.0 .and. debit_sortie0 > tol_reg_perm ) then
       !if ( (abs(debit_sortie0 - debit_sortie) < 1.0E-10) .or. (abs(debit_entree - debit_sortie)/debit_entree < tol_reg_perm) ) then
       if ( abs(debit_entree_sum - debit_sortie)/debit_entree_sum < tol_reg_perm ) then
-        if ((60   <= tc) .and. (tc < 3600))   print*, 'tc = ', tc, ' Secondes   =>', tc/60,    ' Minutes' 
-        if ((3600 <= tc) .and. (tc< 86400))  print*, 'tc = ', tc, ' Secondes   =>', tc/3600,  ' Heures'
-        if (tc  >= 86400)        print*, 'tc = ', tc, ' Secondes   =>', tc/86400, ' Jours'
-        print*,('')
-        do iter_entree=1,nombre_input
-          print*, 'debit_entree ', iter_entree, " = " ,debit_entree(iter_entree)
-        end do
-        print*, 'debit_sortie = ', debit_sortie
-        print*, '' 
-        print*, 'LE REGIME PERMANENT EST ATTEINT' !THE PERMANENT REGIME IS REACHED
-        print*,('================================================================================')
+        cond_reg_perm = cond_reg_perm + 1
+        if( cond_reg_perm > 1000) then
 
-        t_reg_perm = tc
-        tc   = tc + ts  ! pour sortir de la boucle while !to exit the while loop
-        tc_d = tc
-        call cuda_glerror('ierr <- tc_d = tc (2) <-- Full_FV_cudaf_shared.cuf',1)
+          if ((60   <= tc) .and. (tc < 3600))   print*, 'tc = ', tc, ' Secondes   =>', tc/60,    ' Minutes' 
+          if ((3600 <= tc) .and. (tc< 86400))  print*, 'tc = ', tc, ' Secondes   =>', tc/3600,  ' Heures'
+          if (tc  >= 86400)        print*, 'tc = ', tc, ' Secondes   =>', tc/86400, ' Jours'
+          print*,('')
+          do iter_entree=1,nombre_input
+            print*, 'debit_entree ', iter_entree, " = " ,debit_entree(iter_entree)
+          end do
+          print*, 'debit_sortie = ', debit_sortie
+          print*, '' 
+          print*, 'LE REGIME PERMANENT EST ATTEINT' !THE PERMANENT REGIME IS REACHED
+          print*,('================================================================================')
+
+          t_reg_perm = tc
+          tc   = tc + ts  ! pour sortir de la boucle while !to exit the while loop
+          tc_d = tc
+          call cuda_glerror('ierr <- tc_d = tc (2) <-- Full_FV_cudaf_shared.cuf',1)
+        end if
+      else
+        cond_reg_perm = 0
       endif
-    endif
+    !endif
 
     debit_sortie0 = debit_sortie
 

@@ -1606,7 +1606,7 @@ integer, value :: kvol, kfac
         integer, intent(out) :: check
         integer, value :: kvol, kfac
 
-        check = boundary_d(kvol, kfac,1)
+        check = boundary_d(kvol, kfac, 1)
       end subroutine check_assign
 
 
