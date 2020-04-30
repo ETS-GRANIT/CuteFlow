@@ -22,6 +22,21 @@ void lecture_restart(ifstream &file, double &tsol, vector<vector<double> > &sol)
   sol.pop_back();
 }
 
+void lecture_par_noeud(ifstream &file, double &tsol, vector<vector<double> > &sol){
+  //Lecture des fichiers de solution sur le domaine complet
+  //pour les fichier txt avec 8 colonnes
+
+  string str;
+  vector<double> v(8);
+
+  file >> tsol;
+  while(!file.eof()){
+    file >> v[0] >> v[1] >> v[2] >> v[3] >> v[4] >> v[5] >> v[6];
+    sol.push_back(v);
+  }
+  sol.pop_back();
+}
+
 void lecture_3d(ifstream &file, vector<vector<double> > &sol){
   //Lecture des fichiers de solution sur le domaine complet
   //pour les fichier txt avec 8 colonnes
@@ -79,7 +94,7 @@ int main(int argc, char* argv[]){
   string fileName, mode;
 
   if(argc < 4){
-    cout << "Utilisation : ./merge_solutions {restart|sol2d|sol3d} nom_de_base_fichiers_a_combiner nombre_de_fichiers" << endl;
+    cout << "Utilisation : ./merge_solutions {restart|sol2d|sol3d|noeud} nom_de_base_fichiers_a_combiner nombre_de_fichiers" << endl;
     return(0);
   }
 
@@ -87,7 +102,7 @@ int main(int argc, char* argv[]){
   fileName = argv[2];
   nParts = atoi(argv[3]);
 
-  if((mode!="restart")and(mode!="sol2d")and(mode!="sol3d")){
+  if((mode!="restart")and(mode!="sol2d")and(mode!="sol3d")and(mode!="noeud")){
     cout << "Utilisation : ./merge_solutions {restart|sol2d|sol3d} nom_de_base_fichiers_a_combiner nombre_de_fichiers" << endl;
     return(0);
   }
@@ -99,6 +114,7 @@ int main(int argc, char* argv[]){
   ifstream file;
 
   int taille = 0;
+  double dum;
   vector<double> tsol(nParts, 0);
   vector<vector<vector<double> > > sol(nParts, vector<vector<double>>());
 
@@ -113,10 +129,14 @@ int main(int argc, char* argv[]){
       lecture_restart(file, tsol[p], sol[p]);
     }
     else if(mode == "sol2d"){
-      lecture_3d(file, sol[p]);
+      lecture_2d(file, sol[p]);
     }
     else if(mode == "sol3d"){
-      lecture_2d(file, sol[p]);
+      lecture_3d(file, sol[p]);
+    }
+    else if(mode == "noeud"){
+      cout << "lecture par noeud" << endl;
+      lecture_par_noeud(file, tsol[p], sol[p]);
     }
     file.close();
     taille += sol[p].size();
@@ -162,7 +182,7 @@ int main(int argc, char* argv[]){
   outfile << fixed ;
   outfile.precision(6);
 
-  if(mode == "restart"){
+  if((mode == "restart")or(mode == "noeud")){
     outfile << "    " << tsol[0] << endl;
   }
   int i=0;
@@ -176,6 +196,9 @@ int main(int argc, char* argv[]){
     }
     else if(mode == "sol3d"){
       outfile << "      " << (int) sol[p][lien[i][0]][0] << "       " << sol[p][lien[i][0]][1] << "       " << sol[p][lien[i][0]][2] << "       " << sol[p][lien[i][0]][3]<< "      " << sol[p][lien[i][0]][4] << "       " << sol[p][lien[i][0]][5] << "       " << sol[p][lien[i][0]][6] << "       " << sol[p][lien[i][0]][7] << endl;
+    }
+    else if(mode == "noeud"){
+      outfile << sol[p][lien[i][0]][0] << "\t" << sol[p][lien[i][0]][1] << "\t" << sol[p][lien[i][0]][2] << "\t" << sol[p][lien[i][0]][3]<< "\t" << sol[p][lien[i][0]][4] << "\t" << sol[p][lien[i][0]][5] << "\t" << sol[p][lien[i][0]][6] << "\t" << endl;
     }
     i++;
   } 

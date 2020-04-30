@@ -344,6 +344,7 @@ program general
   if (solinit==1) then
     !! Start the calculations from an initial solution (ex steady state)
     call cond_initial2(vdlg0,vdlg01) 
+    call set_unset_as_wall<<<grid, tblock>>>()
     vdlg0_d = vdlg0
     vdlg01_d = vdlg01
     call cuda_glerror('ierr <- data transfer to (vdlg0_d  and vdlg01_d) (H->D) {if(solinit == 1)} <-- general_cudaf.cuf',1)
