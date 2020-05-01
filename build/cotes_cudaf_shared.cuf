@@ -32,10 +32,10 @@ attributes(global) subroutine cotes_cudaf3(surf_d, zm_d,gradz_d,vdlg_d)
   real(fp_kind), dimension(:,:), intent(in)    :: gradz_d  ! remove it if not used
   real(fp_kind), dimension(:,:), intent(in)    :: vdlg_d
 
-  integer               :: i, nc1, nc2, kvoisin, dl,pp, hybrid, model
-  real(fp_kind)               :: x1, x2, y1, y2, ln 
+  integer               :: i, nc1, nc2, kvoisin, dl,pp, hybrid, model, nc3
+  real(fp_kind)               :: x1, x2, y1, y2, ln, x3, y3
   real(fp_kind)               :: hautl,vitul,vitvl,hautr,vitur,vitvr,zml,zmr,hul, hvl, hur, hvr
-  real(fp_kind)               :: zero, debitnorm
+  real(fp_kind)               :: zero, debitnorm, orient
   real(fp_kind), dimension(2) :: norm
   real(fp_kind), dimension(3) :: flux
   integer                     :: ti,gi, tj, gj, id_entree
@@ -57,6 +57,8 @@ attributes(global) subroutine cotes_cudaf3(surf_d, zm_d,gradz_d,vdlg_d)
     nc1 = tj
     cond = merge(1,0, nc1 == ns_d)
     nc2 = int((nc1 - ns_d + 1)*cond + (nc1 + 1)*(1-cond))
+    cond = merge(1,0, nc2 == ns_d)
+    nc3 = int((nc2 - ns_d + 1)*cond + (nc2 + 1)*(1-cond))
 
     x1 = coo_table_elemwise_d(gi, 3*nc1-2)
     y1 = coo_table_elemwise_d(gi, 3*nc1-1)
@@ -64,10 +66,19 @@ attributes(global) subroutine cotes_cudaf3(surf_d, zm_d,gradz_d,vdlg_d)
     x2 = coo_table_elemwise_d(gi, 3*nc2-2)
     y2 = coo_table_elemwise_d(gi, 3*nc2-1) 
 
+    x3 = coo_table_elemwise_d(gi, 3*nc3-2)
+    y3 = coo_table_elemwise_d(gi, 3*nc3-1) 
+
     ln = sqrt( (x2 - x1)**2 + (y2 - y1)**2 )
 
     norm(1) = ( y2 - y1 ) / ln
     norm(2) = ( x1 - x2 ) / ln
+
+    orient = norm(1)*((x1+x2)/2.-(x1+x2+x3)/3.) + norm(2)*((y1+y2)/2.-(y1+y2+y3)/3.)
+    if(orient < 0.) then
+      norm(1) = ( y1 - y2 ) / ln
+      norm(2) = ( x2 - x1 ) / ln
+    end if
 
     ! *** initialisation du flux ***
     flux     = 0.d0
@@ -116,28 +127,33 @@ attributes(global) subroutine cotes_cudaf3(surf_d, zm_d,gradz_d,vdlg_d)
         endif
 
       elseif ( inlet_d == 2 ) then   ! inlet_d = 2 = Entree avec debit
-        ! if ( hautl > tolisec_d ) then
+        if ( hautl > tolisec_d ) then
           debitnorm = -debitglob_d(id_entree) / long_entree_d(id_entree)
           flux(1) = debitnorm
           flux(2) = norm(1) * ( debitnorm**2/hautl  + gp_d * hautl*(hautl+zml) )
           flux(3) = norm(2) * ( debitnorm**2/hautl  + gp_d * hautl*(hautl+zml) )
           debit_entree_arr_d(io_identifier_d(gi),1) = (-debitnorm)*ln    
           debit_entree_arr_d(io_identifier_d(gi),2) = id_entree
-        ! else
-        !   hautl = tolisec_d             
-        !   flux(1) = 0.d0
-        !   flux(2) = norm(1) * gp_d * hautl*(hautl+zml)
-        !   flux(3) = norm(2) * gp_d * hautl*(hautl+zml)
-        ! endif
+        else
+          hautl = tolisec_d             
+          flux(1) = 0.d0
+          flux(2) = norm(1) * gp_d * hautl*(hautl+zml)
+          flux(3) = norm(2) * gp_d * hautl*(hautl+zml)
+        endif
       else
         write(*,*) 'donnee inlet_d non convenable'
       endif
     endif
 
     if ( kvoisin == -2 ) then ! *** flux sortant ***
-      if ( vitul > 0.d0 .and. vitul/sqrt(gp_d*hautl) < 1.d0 ) then
-        hautl = h_sortie_d(id_entree) - zml
-        if ( hautl > tolisec_d ) then
+      if ( hautl > tolisec_d ) then
+        if ( vitul > 0.d0 .and. vitul/sqrt(gp_d*hautl) < 1.d0 ) then
+          hautl = h_sortie_d(id_entree) - zml
+          flux(1) = hautl * vitul
+          flux(2) = norm(1) * ( hautl * vitul**2 + gp_d * hautl*(hautl+zml) ) - norm(2) * hautl * vitul * vitvl
+          flux(3) = norm(2) * ( hautl * vitul**2 + gp_d * hautl*(hautl+zml) ) + norm(1) * hautl * vitul * vitvl
+        else if ( vitul < 0.d0 .and. -vitul/sqrt(gp_d*hautl) > 1.d0 ) then
+          hautl = h_sortie_d(id_entree) - zml
           flux(1) = hautl * vitul
           flux(2) = norm(1) * ( hautl * vitul**2 + gp_d * hautl*(hautl+zml) ) - norm(2) * hautl * vitul * vitvl
           flux(3) = norm(2) * ( hautl * vitul**2 + gp_d * hautl*(hautl+zml) ) + norm(1) * hautl * vitul * vitvl
@@ -150,13 +166,9 @@ attributes(global) subroutine cotes_cudaf3(surf_d, zm_d,gradz_d,vdlg_d)
         flux(1) = 0.d0
         flux(2) = norm(1) * gp_d * hautl*(hautl+zml)
         flux(3) = norm(2) * gp_d * hautl*(hautl+zml)
-      endif
+      end if
 
-      if ( vitul > 0.d0)  then 
-        debit_sortie_arr_d(io_identifier_d(gi))  = flux(1)*ln
-      else
-        debit_sortie_arr_d(io_identifier_d(gi))  = 0.d0
-      endif
+      debit_sortie_arr_d(io_identifier_d(gi))  = flux(1)*ln
     endif
 
     if ( kvoisin == -3 ) then  ! *** flux de mur ***
