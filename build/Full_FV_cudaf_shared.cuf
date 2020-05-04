@@ -23,6 +23,15 @@ subroutine Full_FV
       implicit none
     end subroutine get_io_index
 
+    subroutine volume_total(vdlg,total_volume)
+      use precision_m
+      use global
+      use m_param
+      implicit none
+      real(fp_kind), intent(in) :: vdlg(:,:)
+      real(fp_kind), intent(out) :: total_volume
+    end subroutine volume_total
+
     attributes(global) subroutine cflcond_cudaf(solut_d, deltatmin_d)
       use precision_m
       use global_device 
@@ -136,6 +145,7 @@ subroutine Full_FV
       real(fp_kind), dimension(:), intent(inout)  :: soleta,solh,solhu,solhv,solu,solv
     end subroutine sol_nodes
 
+
     attributes(global) subroutine source_cudaf(vdlg_d,surf_d,zm_d,gradz_d,deltatmin_d)
       use precision_m
       use global_device
@@ -211,7 +221,7 @@ subroutine Full_FV
 
   real(fp_kind) :: v, r, uinf, flux, s, xyc, xiel, yiel, coupe_y, distjaugm1, distjaug, dt1, sizecheck
   real(fp_kind) :: x, d, t, dtime, tcm, xc, yc, hauteur, newhaut, xnorm, zero, delta_debit0,delta_debit,deb_entre,deb_sorti,delta_eta
-  real(fp_kind) :: volume_entre,volume_sorti, delta_volume, volume_total, volume0, volume1, volume2,vol_tot_init, delta_volume_tot, delta_sol_tot, som_dtres_tot
+  real(fp_kind) :: volume_entre,volume_sorti, delta_volume, total_volume, volume0, volume1, volume2,vol_tot_init, delta_volume_tot, delta_sol_tot, som_dtres_tot
   real(fp_kind) :: h_output0, h_output, tc_arret, h_max, t_h_max, t_h_moy, scal, scal1, scal2, scal3, aux, som_Q_coupe
 
   real(fp_kind), dimension(2)  :: greta, grhaut
@@ -395,7 +405,7 @@ subroutine Full_FV
   write(*,*) 'Loop over time starts' 
   iaff = 0
   do while ( (tc - ts + 2*tol ) < tol )
-  !!do while ( nt < 5 )
+  !do while ( nt < 5 )
   !!do while ( nt < 100 )
 
     call cpu_time(tb1)
@@ -599,7 +609,9 @@ subroutine Full_FV
       end if
 
       dt_d = dt
-      call cflcond_sec_cudaf<<<grid, tblock>>>(vdlg_d,deltatmin_d, dt_d)
+      if(local_time_step==1) then
+        call cflcond_sec_cudaf<<<grid, tblock>>>(vdlg_d, deltatmin_d, dt_d)
+      end if
     endif
     call cuda_glerror('ierr<-cflcond_cudaf (2) <-- Full_FV_cudaf_shared.cuf',1)
 
@@ -630,7 +642,10 @@ subroutine Full_FV
       iaff = iaff + 1
 
       !Sauvegarde de la solution a enlever
-      !vdlg = vdlg_d
+      vdlg = vdlg_d
+      call volume_total(vdlg, total_volume)
+      call MPI_ALLREDUCE(MPI_IN_PLACE,total_volume,1,real_kind_mpi,MPI_SUM,MPI_COMM_WORLD, mpi_ierr)
+      print*,"VOLUME TOTAL ", total_volume, " M3"
       !call sol_nodes(vdlg,surf,zm,sh0,she0,shu0,shv0,su0,sv0)
       !call paraview_export (she0, sh0, shu0, shv0, nt)
     endif
@@ -733,7 +748,7 @@ subroutine Full_FV
       !if ( (abs(debit_sortie0 - debit_sortie) < 1.0E-10) .or. (abs(debit_entree - debit_sortie)/debit_entree < tol_reg_perm) ) then
       if ( abs(debit_entree_sum - debit_sortie)/debit_entree_sum < tol_reg_perm ) then
         cond_reg_perm = cond_reg_perm + 1
-        if( cond_reg_perm > 1000) then
+        if( cond_reg_perm > 100000) then
 
           if ((60   <= tc) .and. (tc < 3600))   print*, 'tc = ', tc, ' Secondes   =>', tc/60,    ' Minutes' 
           if ((3600 <= tc) .and. (tc< 86400))  print*, 'tc = ', tc, ' Secondes   =>', tc/3600,  ' Heures'
@@ -810,7 +825,7 @@ subroutine Full_FV
     call bluekenue_export (she0, sh0, shu0, shv0)
     call paraview_export (she0, sh0, shu0, shv0, -1)
 
-    !STORAGE OF FINAL SOLUTIONS IN ALL NODES OF THE DOMAIN (For restarting)
+    !STORAGE OF FINAL SOLUTIONS IN ALL ELEMENTS OF THE DOMAIN (For restarting)
     write(ec_sol_elt_final,*) tc                        
     do i=1,nelt
       write(ec_sol_elt_final,'(4f16.6)') vdlg(1,i), vdlg1(1,i), vdlg1(2,i), vdlg1(3,i)
@@ -1042,6 +1057,34 @@ attributes(global) subroutine calcul_residue_ele_cudaf(surf_d, resj_d)
   endif
 
 end subroutine calcul_residue_ele_cudaf
+
+subroutine volume_total(vdlg,total_volume)
+  use precision_m
+  use global
+  use m_param
+
+  implicit none
+
+  real(fp_kind), intent(in) :: vdlg(:,:)
+  real(fp_kind), intent(out) :: total_volume
+
+  integer :: kvol
+  real(fp_kind) :: aire, x1, x2, y1, y2, x3, y3
+
+
+  total_volume = 0.
+  do kvol=1,nelt-nelt_fant_recep
+    x1 = coo_table_elemwise(kvol,1)
+    y1 = coo_table_elemwise(kvol,2)
+    x2 = coo_table_elemwise(kvol,4)
+    y2 = coo_table_elemwise(kvol,5)
+    x3 = coo_table_elemwise(kvol,7)
+    y3 = coo_table_elemwise(kvol,8)
+    aire = abs((x2-x1)*(y3-y1)-(y2-y1)*(x3-x1))/2.
+    total_volume = total_volume + vdlg(1,kvol)*aire
+  end do
+
+end subroutine volume_total
 
 attributes(global) subroutine init_vdlg(vdlg_d, vdlg1_d,  zm_d)
   use precision_m

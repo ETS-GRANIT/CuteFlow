@@ -231,7 +231,7 @@ subroutine lect_const_mail
 
   call construct_coo_table_elemwise
 
-  deallocate(coo_table_elemwise, x_centroid, y_centroid)
+  !deallocate(coo_table_elemwise, x_centroid, y_centroid)
 
   !! distance cote entre 1er et 2eme noeuds ***
   premnoeud = connectivite(1,1)
@@ -2349,7 +2349,7 @@ end subroutine find_neighbour_rect_big
     ti = threadidx%x
     gi = (blockidx%x - 1)*blockdim%x + ti
 
-    if(gi <= nelt_d) then
+    if(gi <= nelt_d-nelt_fant_recep_d) then
       !Il faudrait enlever la boucle et multiplier les threads par ns_d
       do ki=1,ns_d
         if(boundary_d(gi,ki,1) == gi) then
