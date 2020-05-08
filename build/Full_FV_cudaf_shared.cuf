@@ -855,11 +855,11 @@ subroutine Full_FV
 
   deallocate(resc_d,res_d, res1_d)
   deallocate(sourcfric_d)
-  deallocate(dt_arr, deltatmin_d)
-  deallocate(cotemin_arr, cotemin_arr_d)
+  deallocate(deltatmin_d)
   deallocate(un_voisin_sec1_d)
   deallocate(afm1_d)
   deallocate(res1)
+  deallocate(coo_table_elemwise, x_centroid, y_centroid)
 
   deallocate(tvis3d2, tvis2d2, tvisjauge, tvisdom, tvideo)
 
