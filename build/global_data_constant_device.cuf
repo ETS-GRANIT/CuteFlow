@@ -63,5 +63,5 @@ module global_device
   real(fp_kind), device, allocatable :: vol_tot_entre_arr_d(:)
   real(fp_kind), device, allocatable :: vol_tot_sorti_arr_d(:)
 
-  real(fp_kind), device, dimension(:,:),   allocatable :: afm1_d, sourcfric_d,resc_d
+  real(fp_kind), device, dimension(:,:),   allocatable :: afm1_d, sourcfric_d,resc_d, sourcbath_d
 end module global_device
