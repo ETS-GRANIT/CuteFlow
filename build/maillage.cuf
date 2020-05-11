@@ -289,9 +289,7 @@ subroutine lect_const_mail
     end if
   enddo
 
-  if ( ns == 3 ) then
-    cotemin = cotemin / 3.
-  else
+  if(ns/=3) then
     cotemin = cotemin / 2.
   endif
 
