@@ -388,17 +388,15 @@ subroutine Full_FV
     dt_arr = deltatmin_d
     dt = minval(dt_arr)
     call MPI_ALLREDUCE(MPI_IN_PLACE,dt,1,real_kind_mpi,MPI_MIN,MPI_COMM_WORLD, mpi_ierr)
-    dt_d = 0.1*dt
     dt_d = dt
 
-    !!setting local time step in dry cells according to dt_d
+    !!Setting local time step in dry cells according to dt_d
     if(local_time_step==1) then
       call cflcond_sec_cudaf<<<grid, tblock>>>(vdlg_d, deltatmin_d, dt_d)
     end if
   endif
   call cuda_glerror('ierr<-cflcond_cudaf (1) <-- Full_FV_cudaf_shared.cuf',1)
 
-  !!time for rought performance overview
   call cpu_time(ti)
 
   debit_sortie0 = 0.d0
@@ -415,8 +413,8 @@ subroutine Full_FV
   write(*,*) 'Loop over time starts' 
   iaff = 0
   do while ( (tc - ts + 2*tol ) < tol )
-  !do while ( nt < 5 )
-  !!do while ( nt < 100 )
+    !do while ( nt < 5 )
+    !!do while ( nt < 100 )
 
     call cpu_time(tb1)
 
@@ -444,8 +442,10 @@ subroutine Full_FV
         call copy_2d<<<grid_copy, block_copy>>>(vdlg1_d, vdlg01_d, nelt_d)
         call cuda_glerror('ierr<-copy_2d{if(niter == 1)} <-- Full_FV_cudaf_shared.cuf',1)
 
-        call mise_a_jr_zone_seche_cudaf<<<grid, tblock>>>(zm_d, vdlg_d, vdlg1_d)
-        call cuda_glerror('ierr<-mise_a_jr_zone_seche_cudaf{if(niter == 1)} <-- Full_FV_cudaf_shared.cuf',1)
+        if(iflux==1) then
+          call mise_a_jr_zone_seche_cudaf<<<grid, tblock>>>(zm_d, vdlg_d, vdlg1_d)
+          call cuda_glerror('ierr<-mise_a_jr_zone_seche_cudaf{if(niter == 1)} <-- Full_FV_cudaf_shared.cuf',1)
+        endif
 
       elseif ( niter == 2 ) then      ! *** Second ordre ***
         if ( iter == 1 ) then
@@ -453,8 +453,10 @@ subroutine Full_FV
           call copy_2d<<<grid_copy, block_copy>>>(vdlg1_d, vdlg01_d, nelt_d)
           call cuda_glerror('ierr<-copy_2d{if(niter == 2, iter == 1)} <-- Full_FV_cudaf_shared.cuf',1)
 
-          call mise_a_jr_zone_seche_cudaf<<<grid, tblock>>>(zm_d, vdlg_d, vdlg1_d)
-          call cuda_glerror('ierr<-mise_a_jr_zone_seche_cudaf{if(niter == 2, iter == 1)} <-- Full_FV_cudaf_shared.cuf',1)
+          if(iflux==1) then
+            call mise_a_jr_zone_seche_cudaf<<<grid, tblock>>>(zm_d, vdlg_d, vdlg1_d)
+            call cuda_glerror('ierr<-mise_a_jr_zone_seche_cudaf{if(niter == 2, iter == 1)} <-- Full_FV_cudaf_shared.cuf',1)
+          endif
 
         else
           if(local_time_step) then
@@ -464,8 +466,10 @@ subroutine Full_FV
           end if
           call cuda_glerror('ierr<-copy_2d_1{if(niter == 2 iter == 2)} <-- Full_FV_cudaf_shared.cuf',1)
 
-          call mise_a_jr_zone_seche_cudaf<<<grid, tblock>>>(zm_d, vdlg_d, vdlg1_d)
-          call cuda_glerror('ierr<-mise_a_jr_zone_seche_cudaf{if(niter == 2,  iter == 2)} <-- Full_FV_cudaf_shared.cuf',1)
+          if(iflux==1) then
+            call mise_a_jr_zone_seche_cudaf<<<grid, tblock>>>(zm_d, vdlg_d, vdlg1_d)
+            call cuda_glerror('ierr<-mise_a_jr_zone_seche_cudaf{if(niter == 2,  iter == 2)} <-- Full_FV_cudaf_shared.cuf',1)
+          endif
         endif
 
       elseif ( niter == 4 ) then      ! *** Runge-kutta ***
@@ -474,8 +478,10 @@ subroutine Full_FV
           call copy_2d<<<grid_copy, block_copy>>>(vdlg1_d, vdlg01_d, nelt_d)
           call cuda_glerror('ierr<-copy_2d{if(niter == 4, iter == 1)} <-- Full_FV_cudaf_shared.cuf',1)
 
-          call mise_a_jr_zone_seche_cudaf<<<grid, tblock>>>(zm_d, vdlg_d, vdlg1_d)
-          call cuda_glerror('ierr<-mise_a_jr_zone_seche_cudaf{if(niter == 4, iter == 1)} <-- Full_FV_cudaf_shared.cuf',1)
+          if(iflux==1) then
+            call mise_a_jr_zone_seche_cudaf<<<grid, tblock>>>(zm_d, vdlg_d, vdlg1_d)
+            call cuda_glerror('ierr<-mise_a_jr_zone_seche_cudaf{if(niter == 4, iter == 1)} <-- Full_FV_cudaf_shared.cuf',1)
+          end if
 
         elseif ( iter == 2 ) then
           if(local_time_step) then
@@ -485,8 +491,10 @@ subroutine Full_FV
           end if
           call cuda_glerror('ierr<-copy_2d_1{if(niter == 4, iter == 2)} <-- Full_FV_cudaf_shared.cuf',1)
 
-          call mise_a_jr_zone_seche_cudaf<<<grid, tblock>>>(zm_d, vdlg_d, vdlg1_d)
-          call cuda_glerror('ierr<-mise_a_jr_zone_seche_cudaf{if(niter == 4, iter == 2)} <-- Full_FV_cudaf_shared.cuf',1)
+          if(iflux==1) then
+            call mise_a_jr_zone_seche_cudaf<<<grid, tblock>>>(zm_d, vdlg_d, vdlg1_d)
+            call cuda_glerror('ierr<-mise_a_jr_zone_seche_cudaf{if(niter == 4, iter == 2)} <-- Full_FV_cudaf_shared.cuf',1)
+          end if
 
         elseif ( iter == 3 ) then
           if(local_time_step) then
@@ -496,8 +504,10 @@ subroutine Full_FV
           end if
           call cuda_glerror('ierr<-copy_2d_1{if(niter == 4, iter== 3)} <-- Full_FV_cudaf_shared.cuf',1)
 
-          call mise_a_jr_zone_seche_cudaf<<<grid, tblock>>>(zm_d, vdlg_d, vdlg1_d)
-          call cuda_glerror('ierr<-mise_a_jr_zone_seche_cudaf{if(niter == 4, iter == 3)} <-- Full_FV_cudaf_shared.cuf',1)
+          if(iflux==1) then
+            call mise_a_jr_zone_seche_cudaf<<<grid, tblock>>>(zm_d, vdlg_d, vdlg1_d)
+            call cuda_glerror('ierr<-mise_a_jr_zone_seche_cudaf{if(niter == 4, iter == 3)} <-- Full_FV_cudaf_shared.cuf',1)
+          end if
 
         else
           if(local_time_step) then
@@ -507,8 +517,10 @@ subroutine Full_FV
           end if
           call cuda_glerror('ierr<-copy_2d_1{if(niter == 4, iter== 4)} <-- Full_FV_cudaf_shared.cuf',1)
 
-          call mise_a_jr_zone_seche_cudaf<<<grid, tblock>>>(zm_d, vdlg_d, vdlg1_d)
-          call cuda_glerror('ierr<-mise_a_jr_zone_seche_cudaf{if(niter == 4, iter == 4)} <-- Full_FV_cudaf_shared.cuf',1)
+          if(iflux==1) then
+            call mise_a_jr_zone_seche_cudaf<<<grid, tblock>>>(zm_d, vdlg_d, vdlg1_d)
+            call cuda_glerror('ierr<-mise_a_jr_zone_seche_cudaf{if(niter == 4, iter == 4)} <-- Full_FV_cudaf_shared.cuf',1)
+          end if
         endif
       endif
 
@@ -607,9 +619,11 @@ subroutine Full_FV
     end if
     call cuda_glerror('ierr<-copy_2d_1 <-- Full_FV_cudaf_shared.cuf',1)
 
-    ! *** mise a jour de la zone seche ***
-    call mise_a_jr_zone_seche_cudaf<<<grid, tblock>>>(zm_d, vdlg_d, vdlg1_d)
-    call cuda_glerror('mise_a_jr_zone_seche_cudaf(2) <-- Full_FV_cudaf_shared.cuf',1)
+    ! Mise a jour de la zone seche requis uniquement pour iflux==1 (zoka)
+    if(iflux==1) then
+      call mise_a_jr_zone_seche_cudaf<<<grid, tblock>>>(zm_d, vdlg_d, vdlg1_d)
+      call cuda_glerror('mise_a_jr_zone_seche_cudaf(2) <-- Full_FV_cudaf_shared.cuf',1)
+    endif
 
     ! *** Calcul du pas de temps via la CFL ***
     if ( pas_dt == 2 )  then
@@ -618,11 +632,6 @@ subroutine Full_FV
       dt = minval(dt_arr)
       if(num_procs>1) then
         call MPI_ALLREDUCE(MPI_IN_PLACE,dt,1,real_kind_mpi,MPI_MIN,MPI_COMM_WORLD, mpi_ierr)
-      end if
-
-      !!On diminue le pas de temps au début
-      if ( nt < 20000 ) then
-        dt = 0.1*dt
       end if
 
       dt_d = dt
@@ -762,31 +771,31 @@ subroutine Full_FV
     debitglob_sum = sum(debitglob)
     debit_entree_sum = sum(debit_entree)
     !if ( debitglob_sum > 0.0 .and. debit_sortie0 > tol_reg_perm ) then
-      !if ( (abs(debit_sortie0 - debit_sortie) < 1.0E-10) .or. (abs(debit_entree - debit_sortie)/debit_entree < tol_reg_perm) ) then
-      if ( abs(debit_entree_sum - debit_sortie)/debit_entree_sum < tol_reg_perm ) then
-        cond_reg_perm = cond_reg_perm + 1
-        if( cond_reg_perm > 100000) then
+    !if ( (abs(debit_sortie0 - debit_sortie) < 1.0E-10) .or. (abs(debit_entree - debit_sortie)/debit_entree < tol_reg_perm) ) then
+    if ( abs(debit_entree_sum - debit_sortie)/debit_entree_sum < tol_reg_perm ) then
+      cond_reg_perm = cond_reg_perm + 1
+      if( cond_reg_perm > 100000) then
 
-          if ((60   <= tc) .and. (tc < 3600))   print*, 'tc = ', tc, ' Secondes   =>', tc/60,    ' Minutes' 
-          if ((3600 <= tc) .and. (tc< 86400))  print*, 'tc = ', tc, ' Secondes   =>', tc/3600,  ' Heures'
-          if (tc  >= 86400)        print*, 'tc = ', tc, ' Secondes   =>', tc/86400, ' Jours'
-          print*,('')
-          do iter_entree=1,nombre_input
-            print*, 'debit_entree ', iter_entree, " = " ,debit_entree(iter_entree)
-          end do
-          print*, 'debit_sortie = ', debit_sortie
-          print*, '' 
-          print*, 'LE REGIME PERMANENT EST ATTEINT' !THE PERMANENT REGIME IS REACHED
-          print*,('================================================================================')
+        if ((60   <= tc) .and. (tc < 3600))   print*, 'tc = ', tc, ' Secondes   =>', tc/60,    ' Minutes' 
+        if ((3600 <= tc) .and. (tc< 86400))  print*, 'tc = ', tc, ' Secondes   =>', tc/3600,  ' Heures'
+        if (tc  >= 86400)        print*, 'tc = ', tc, ' Secondes   =>', tc/86400, ' Jours'
+        print*,('')
+        do iter_entree=1,nombre_input
+          print*, 'debit_entree ', iter_entree, " = " ,debit_entree(iter_entree)
+        end do
+        print*, 'debit_sortie = ', debit_sortie
+        print*, '' 
+        print*, 'LE REGIME PERMANENT EST ATTEINT' !THE PERMANENT REGIME IS REACHED
+        print*,('================================================================================')
 
-          t_reg_perm = tc
-          tc   = tc + ts  ! pour sortir de la boucle while !to exit the while loop
-          tc_d = tc
-          call cuda_glerror('ierr <- tc_d = tc (2) <-- Full_FV_cudaf_shared.cuf',1)
-        end if
-      else
-        cond_reg_perm = 0
-      endif
+        t_reg_perm = tc
+        tc   = tc + ts  ! pour sortir de la boucle while !to exit the while loop
+        tc_d = tc
+        call cuda_glerror('ierr <- tc_d = tc (2) <-- Full_FV_cudaf_shared.cuf',1)
+      end if
+    else
+      cond_reg_perm = 0
+    endif
     !endif
 
     debit_sortie0 = debit_sortie
@@ -857,7 +866,7 @@ subroutine Full_FV
         if (sh0(i)<=tolisec) aux=0.0
         if ( abs( coordonnees(i,2) - coupe_y ) <= distcote/densite_coupe  ) &
           !!ajouté le i ici
-          write(3002,'(I10,5f16.6)') i, coordonnees(i,1), sh0(i)-she0(i), she0(i), sh0(i), shu0(i)
+        write(3002,'(I10,5f16.6)') i, coordonnees(i,1), sh0(i)-she0(i), she0(i), sh0(i), shu0(i)
 
         !! Stockage de la solution finale par scenario dans tout le domaine 
         !! pour l'analyse statistique
