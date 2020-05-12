@@ -155,8 +155,10 @@ attributes(global) subroutine cotes_cudaf3_riadh(surf_d, zm_d,gradz_d,vdlg_d)
 
       zij = max(zml,zmr)
       hijet = hautl + zml - zij
+      hijet = max(0.0D0, hijet)
+
       hjiet = hautr + zmr - zij
-      
+      hjiet = max(0.0D0, hjiet)
 
       hur   = vdlg_d(2,kvoisin)  ! this is very  inefficient global memory access, can be done may be by shared memory
       hvr   = vdlg_d(3,kvoisin)  ! this is very  inefficient global memory access, can be done may be by shared memory
@@ -165,7 +167,7 @@ attributes(global) subroutine cotes_cudaf3_riadh(surf_d, zm_d,gradz_d,vdlg_d)
       vitvr = ( hvr * norm(1) - hur * norm(2) ) / hautr
 
       !call solver_Riemann_cudaf_riadh(gi,kvoisin,surf_d,norm,vdlg_d,hautl,vitul,vitvl,hautr,vitur,vitvr,zml,zmr,hybrid,flux,ln,pp)
-      call solver_Riemann_cudaf_riadh(gi,kvoisin,surf_d,norm,vdlg_d,max(0.0D0,hijet),vitul,vitvl,max(0.0D0,hjiet),vitur,vitvr,zml,zmr,hybrid,flux,ln,pp)
+      call solver_Riemann_cudaf_riadh(gi,kvoisin,surf_d,norm,vdlg_d,hijet,vitul,vitvl,hjiet,vitur,vitvr,zml,zmr,hybrid,flux,ln,pp)
 
     endif ! de ( kvoisin > 0. )
 

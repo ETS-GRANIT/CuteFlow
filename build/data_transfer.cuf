@@ -107,6 +107,7 @@ subroutine global_data_transfer
   tol_reg_perm_d  = tol_reg_perm
   multi_simul_d   = multi_simul
   monte_carlo_d   = monte_carlo
+  local_time_step_d = local_time_step
 
   !! Input for stochastic analysis
   w_d                 =w

@@ -135,8 +135,12 @@ attributes(global) subroutine source_cudaf(vdlg_d,surf_d,zm_d,gradz_d,deltatmin_
           ! tempa  = real(q1**(-4.d0/3.d0))
           ! dtgn2h = dt_d / 2.d0 * gp_d * manning*manning*tempa
           !
-          !!dtgn2h = dt_d / 2.d0 * gp_d * manning*manning*q1**(-4.d0/3.d0)
-          dtgn2h = deltatmin_d(gi) / 2.d0 * gp_d * manning*manning*q1**(-4.d0/3.d0)
+
+          if(local_time_step_d) then
+            dtgn2h = deltatmin_d(gi) / 2.d0 * gp_d * manning*manning*q1**(-4.d0/3.d0)
+          else
+            dtgn2h = dt_d / 2.d0 * gp_d * manning*manning*q1**(-4.d0/3.d0)
+          end if
 
           af(1,1) = 1.d0
           af(1,2) = 0.d0
@@ -180,8 +184,11 @@ attributes(global) subroutine source_cudaf(vdlg_d,surf_d,zm_d,gradz_d,deltatmin_
           ! tempa  = real(q1**(-4.d0/3.d0))
           ! beta = - dt_d* gp_d * manning*manning * normvit * tempa
 
-          !!beta = - dt_d* gp_d * manning*manning * normvit * q1**(-4.d0/3.d0)
-          beta = - deltatmin_d(gi) * gp_d * manning*manning * normvit * q1**(-4.d0/3.d0)
+          if(local_time_step_d) then
+            beta = - deltatmin_d(gi) * gp_d * manning*manning * normvit * q1**(-4.d0/3.d0)
+          else
+            beta = - dt_d* gp_d * manning*manning * normvit * q1**(-4.d0/3.d0)
+          end if
 
           af(1,1) = 1.d0
           af(1,2) = 0.d0

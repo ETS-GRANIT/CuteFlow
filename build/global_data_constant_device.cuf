@@ -25,7 +25,7 @@ module global_device
   real(fp_kind), constant            :: xplan_d, yplan_d, zplan_d, xpoint_d, ypoint_d, h_point_d
 
   !! Simulation variables
-  integer, constant:: test_d, iflux_d, limiteur_d, grd_d, visual_d, fricimplic_d, debit_var_d, inlet_d  
+  integer, constant:: test_d, iflux_d, limiteur_d, grd_d, visual_d, fricimplic_d, debit_var_d, inlet_d, local_time_step_d
   integer, constant:: freqvisual_d, freqaffich_d, freqjauges_d, nbrjauges_d, nbrcoupes_d, densite_coupe_d, instjauges_d, soldomaine_d, n_soldom_d
   integer, constant:: comptvisu_d, cptvis2d_d, cptvis3d_d, cptvideo_d, cptvisjauge_d, cptvisdom_d, cptdebit_d 
   real(fp_kind), constant:: long_d, critere_arret_d, alfa_d
