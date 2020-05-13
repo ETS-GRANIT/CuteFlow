@@ -168,8 +168,8 @@ program general
   type(cudaEvent) :: startEvent , stopEvent
 
   call MPI_INIT(mpi_ierr)
-  call MPI_COMM_RANK (MPI_COMM_WORLD, my_id, mpi_ierr)
-  call MPI_COMM_SIZE (MPI_COMM_WORLD, num_procs, mpi_ierr)
+  call MPI_COMM_RANK (MPI_COMM_WORLD, mpi_process_id, mpi_ierr)
+  call MPI_COMM_SIZE (MPI_COMM_WORLD, num_mpi_process, mpi_ierr)
 
   !! Setting proper GPU device for each MPI process
   !! ierr = cudaDeviceReset()
@@ -178,7 +178,7 @@ program general
   ierr = cudaGetDeviceProperties (prop , 0)
   call cuda_glerror('ierr <- cudaGetDeviceProperties <-- general_cudaf.cuf)',1)
 
-  write(*,"('Device name:',a, 'thread id : ', i1)") trim(prop%name), my_id
+  write(*,"('Device name:',a, 'thread id : ', i1)") trim(prop%name), mpi_process_id
   write(*,"('Compute capability : ',i1,'.',i1)") prop%major, prop%minor
 
   gridylim = 65535
@@ -193,7 +193,7 @@ program general
   call global_data_transfer
 
   !! Preparation of solution file names: solfile2d and solfile3d ****
-  write(genrtest, "(I2)") my_id
+  write(genrtest, "(I2)") mpi_process_id
 
   !! Initization of the iteration counters
   comptvisu        = 0

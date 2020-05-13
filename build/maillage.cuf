@@ -158,13 +158,13 @@ subroutine lect_const_mail
 
       call cuda_glerror('ierr <- memory allocation in boundary_d <-- (aleat = 1, mail == 2) <--- maillage.cuf',1)
     else
-      print*,my_id, ' lecture du maillage en cours'
-      if(num_procs>1) then
+      print*,mpi_process_id, ' lecture du maillage en cours'
+      if(num_mpi_process>1) then
         call lec_mail_tri_mpi
       else
         call lec_mail_tri
       end if
-      print*,my_id, ' lecture du maillage reussie'
+      print*,mpi_process_id, ' lecture du maillage reussie'
 
       allocate(boundary(nelt,3,2), boundary_d(nelt,3,2))
       call cuda_glerror('ierr <- memory allocation in boundary_d <-- (aleat = 1, mail == 2) <--- maillage.cuf',1)
@@ -300,46 +300,24 @@ subroutine lect_const_mail
 end subroutine lect_const_mail
 
 subroutine lec_donnees
-  ! ======================================================================
-  !     lec_donnees = lecture des données (terrain, maillage, initiales, simulation)
-  !     auteur : youssef loukili  granit etsmtl
-  !     version : 1.0  ;  may 12 2003
-  ! ======================================================================
 
   use precision_m
   use global
   use m_param
 
   implicit none
-  character(len=42) prefix 
 
-  open(lu_fich,file='donneefich.txt',form='formatted',status='old')
-  read(lu_fich,nml=datafich)
+  character(len=42) mpi_process_id_string
+  write (mpi_process_id_string, "(i2,a1)") mpi_process_id, "_"
+
+  open(lu_fich,file='donnees.txt',form='formatted',status='old')
+  read(lu_fich,nml=donnees_namelist)
   close(lu_fich)
 
-  open(lu_ter,file=fichter,form='formatted',status='old')
-  read(lu_ter,nml=datafield)
-  close(lu_ter)
+  !! Ajout du numéro de process MPI en préfixe des fichiers de maillage et de solution initiale
+  meshfile = trim(mpi_process_id_string)//trim(meshfile)
+  fich_sol_init = trim(mpi_process_id_string)//trim(fich_sol_init)
 
-  open(lu_mail,file=fichmai,form='formatted',status='old')
-  read(lu_mail,nml=datamesh)
-  close(lu_mail)
-
-  !! on rajoute le préfixe devant le nom du fichier de maillage
-  write (prefix, "(i2,a1)") my_id, "_"
-  meshfile = trim(prefix)//trim(meshfile)
-
-  open(lu_init,file=fichini,form='formatted',status='old')
-  read(lu_init,nml=datainit)
-  close(lu_init)
-
-  !! on rajoute le préfixe devant le nom du fichier de sol init
-  write (prefix, "(i2,a1)") my_id, "_"
-  fich_sol_init = trim(prefix)//trim(fich_sol_init)
-
-  open(lu_simul,file=fichsim,form='formatted',status='old')
-  read(lu_simul,nml=datasimul)
-  close(lu_simul)
 end subroutine lec_donnees
 
 subroutine lec_mail_bol
@@ -554,7 +532,7 @@ subroutine lec_mail_tri_mpi
   !! table des coordonnees :
   read(lec_mesh,*) tarati
   read(lec_mesh,*) nnt
-  print*,"id ", my_id, ", ", nnt, " nodes"
+  print*,"id ", mpi_process_id, ", ", nnt, " nodes"
   allocate(coordonnees(nnt,3), manning_nd(nnt))
 
   if (numerot == 1 .and. zcolumn == 0 ) then
@@ -580,7 +558,7 @@ subroutine lec_mail_tri_mpi
   !! table de connectivité :
   read(lec_mesh,*) tarati
   read(lec_mesh,*) nelt
-  print*,"id ", my_id, ", ", nelt, " elems"
+  print*,"id ", mpi_process_id, ", ", nelt, " elems"
   allocate(connectivite(nelt,3), manning_nelt(nelt))
 
   if (numerot == 1 ) then
@@ -656,7 +634,7 @@ subroutine lec_mail_tri_mpi
   !! table des noeuds de la frontière solide :
   read(lec_mesh,*) tarati
   read(lec_mesh,*) ndw
-  print*,"id ", my_id, ", ", ndw, " noeuds de murs"
+  print*,"id ", mpi_process_id, ", ", ndw, " noeuds de murs"
   if (ndw>0) then
     allocate(ndwall(ndw))
     allocate(ndwall_d(ndw))
@@ -668,7 +646,7 @@ subroutine lec_mail_tri_mpi
   !! table des mailles fantomes a recep:
   read(lec_mesh,*) tarati
   read(lec_mesh,*) nelt_fant_recep
-  print*,"id ", my_id, ", ", nelt_fant_recep, " mailles fantomes a recep"
+  print*,"id ", mpi_process_id, ", ", nelt_fant_recep, " mailles fantomes a recep"
   if (nelt_fant_recep>0) then
     allocate(elt_fant_recep(nelt_fant_recep,3))
     do i=1,nelt_fant_recep
@@ -679,7 +657,7 @@ subroutine lec_mail_tri_mpi
   !! table des mailles fantomes a envoyer:
   read(lec_mesh,*) tarati
   read(lec_mesh,*) nelt_fant_envoi
-  print*,"id ", my_id, ", ", nelt_fant_envoi, " mailles fantomes a envoyer"
+  print*,"id ", mpi_process_id, ", ", nelt_fant_envoi, " mailles fantomes a envoyer"
   if (nelt_fant_envoi>0) then
     allocate(elt_fant_envoi(nelt_fant_envoi,3))
     do i=1,nelt_fant_envoi
@@ -690,7 +668,7 @@ subroutine lec_mail_tri_mpi
   !! table des mailles fantomes à receptionner par bloc
   read(lec_mesh,*) tarati
   read(lec_mesh,*) nelt_fant_recep_bloc
-  print*,"id ", my_id, ", ", nelt_fant_recep_bloc, " bloc fantomes a receptionner"
+  print*,"id ", mpi_process_id, ", ", nelt_fant_recep_bloc, " bloc fantomes a receptionner"
   if (nelt_fant_recep_bloc>0) then
     allocate(elt_fant_recep_bloc(nelt_fant_recep_bloc,3))
     do i=1,nelt_fant_recep_bloc
@@ -702,7 +680,7 @@ subroutine lec_mail_tri_mpi
   !! table des mailles fantomes à envoyer par bloc
   read(lec_mesh,*) tarati
   read(lec_mesh,*) nelt_fant_envoi_bloc
-  print*,"id ", my_id, ", ", nelt_fant_envoi_bloc, " bloc fantomes a envoyer"
+  print*,"id ", mpi_process_id, ", ", nelt_fant_envoi_bloc, " bloc fantomes a envoyer"
   if (nelt_fant_envoi_bloc>0) then
     allocate(elt_fant_envoi_bloc(nelt_fant_envoi_bloc,3))
     do i=1,nelt_fant_envoi_bloc

@@ -9,18 +9,14 @@ module global
   use cudafor
 
   !! Variables MPI
-  integer :: my_id, num_procs, mpi_ierr
-
-  !! Noms des fichiers de donnees ***************
-  character(len=30)   :: fichter, fichmai, fichini, fichsim, fichinput
-  namelist/datafich/ fichter, fichmai, fichini, fichsim, fichinput
+  integer :: mpi_process_id, num_mpi_process, mpi_ierr
 
   !! Variables donnees du terrain
   character(len=6)    :: limiteN, limiteS, limiteW, limiteE
   character(len=3)    :: bathy_reel
   integer             :: pente, friction
   real(fp_kind)             :: lcx, lcy, valxpente, bathyx0, step, xstep, gp, manning, z_min_correction
-  namelist/datafield/ lcx, lcy, pente, valxpente, bathyx0, bathy_reel, step, xstep, gp, z_min_correction, friction,manning, limiteN, limiteS, limiteW, limiteE
+
 
   !! Variables donnees du maillage
   character(len=60)       :: meshfile
@@ -28,7 +24,6 @@ module global
   integer                 :: ncel, elt_bound, multi_entree, multi_sortie
   integer, dimension(20)  :: elts
 
-  namelist/datamesh/ aleat, mail, mtri, nnx, nny, meshfile, elt_bound, numerot, zcolumn, ncel, elts, multi_entree, multi_sortie
 
   !! Variables donnees initiales
   character(len=200)  :: fich_sol_init
@@ -36,8 +31,6 @@ module global
   real(fp_kind)             :: h_amont, u_amont, v_amont, h_aval, u_aval, v_aval
   real(fp_kind)             :: h_point, xplan, yplan, zplan, xpoint, ypoint
   real(fp_kind)             :: xcenter, ycenter, xgate, rayon, x1eqbar, x2eqbar, y1eqbar, y2eqbar
-  namelist/datainit/ h_amont, u_amont, v_amont, h_aval, u_aval, v_aval, & 
-    & xgate, xcenter, ycenter, rayon, eqlin_barrage, x1eqbar, x2eqbar, y1eqbar, y2eqbar, plan, h_point, xplan, yplan, zplan, xpoint, ypoint, solinit, fich_sol_init
 
   !! Variables donnees de simulation
   character(len=10)   :: timedisc
@@ -55,7 +48,21 @@ module global
   integer :: n_video, base_unique, nonlin, video, dim, k_base
   integer :: multi_simul, monte_carlo, is_dry_as_wall, local_time_step
 
-  namelist/datasimul/ test, nom_test, iflux, limiteur, fricimplic, timedisc, & 
+  !! Construction de la namelist pour la lecture du fichier de donnee
+  namelist/donnees_namelist/ &
+
+    !! Ancien donneeter
+    & lcx, lcy, pente, valxpente, bathyx0, bathy_reel, step, xstep, gp, z_min_correction, friction,manning, limiteN, limiteS, limiteW, limiteE, & 
+
+    !! Ancien donneemai
+    & aleat, mail, mtri, nnx, nny, meshfile, elt_bound, numerot, zcolumn, ncel, elts, multi_entree, multi_sortie, &
+
+    !! Ancien donneeini
+    & h_amont, u_amont, v_amont, h_aval, u_aval, v_aval, & 
+    & xgate, xcenter, ycenter, rayon, eqlin_barrage, x1eqbar, x2eqbar, y1eqbar, y2eqbar, plan, h_point, xplan, yplan, zplan, xpoint, ypoint, solinit, fich_sol_init, &
+
+    !! Ancien donneesim
+    & test, nom_test, iflux, limiteur, fricimplic, timedisc, & 
     & inlet,debit_var, debitglob, loi_debitglob, h_sortie, &
     & tbase, divbase, ts, dt, pas_dt, cfl, tol_reg_perm, tol, tolisec, tolratio, tolaffiche, & 
     & grd, visual, freqvisual, freqaffich, freqjauges, instjauges, &
