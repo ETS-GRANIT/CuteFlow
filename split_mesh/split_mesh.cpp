@@ -8,7 +8,7 @@
 
 using namespace std;
 
-void lecture(bool multi_entree, ifstream &mesh, vector<vector<double> > &nodes, vector<vector<double> > &elems,idx_t *&eind, idx_t *&eptr, vector<int> &entreNodes, vector<int> &numEntreNodes, vector<int> &sortieNodes, vector<int> &wallNodes, int &nombreEntre){
+void lecture(bool multi_entree, bool multi_sortie, ifstream &mesh, vector<vector<double> > &nodes, vector<vector<double> > &elems,idx_t *&eind, idx_t *&eptr, vector<int> &entreNodes, vector<int> &numEntreNodes, vector<int> &sortieNodes, vector<int> &numSortieNodes, vector<int> &wallNodes, int &nombreEntre, int &nombreSortie){
 
   int i, nNodes, nElems, nSortie, nEntre, nWall;
   string str;
@@ -76,13 +76,31 @@ void lecture(bool multi_entree, ifstream &mesh, vector<vector<double> > &nodes, 
   }
   getline(mesh, str);
   getline(mesh, str);
-  mesh >> nSortie;
+  if(multi_sortie){
+    mesh >> nSortie >> nombreSortie;
+  }
+  else{
+    mesh >> nSortie;
+    nombreSortie=1;
+  }
   cout << "Lecture noeuds sortie " << nSortie << endl;
   i=0;
-  while(i<nSortie){
-    mesh >> dum;
-    sortieNodes.push_back(dum);
-    i++;
+  if(multi_sortie){
+    while(i<nSortie){
+      mesh >> dum_v[0] >> dum_v[1];
+      sortieNodes.push_back(dum_v[0]);
+      numSortieNodes.push_back(dum_v[1]);
+      i++;
+    }
+  }
+  else{
+    while(i<nSortie){
+      mesh >> dum_v[0];
+      dum_v[1] = 1; //unique sortie numero 1
+      sortieNodes.push_back(dum_v[0]);
+      numSortieNodes.push_back(dum_v[1]);
+      i++;
+    }
   }
   getline(mesh, str);
   getline(mesh, str);
@@ -145,7 +163,7 @@ void ecritureFantGnuplot(int n, vector<vector<double> > &nodes, vector<vector<do
   out_mesh.close();
 }
 
-void ecriture(string fileName, int n, vector<vector<double> > &nodes, vector<vector<double> > &elems, vector<int> &new_entreNodes, vector<int> &new_numEntreNodes, vector<int> &new_sortieNodes, vector<int> &new_wallNodes, vector<vector<int> > &fantElemsRecep, vector<vector<int> > &fantElemsEnvoi, vector<vector<int> > &infoEnvoi, vector<vector<int> > &infoRecep, int &nombreEntre){
+void ecriture(bool multi_sortie, bool multi_entree, string fileName, int n, vector<vector<double> > &nodes, vector<vector<double> > &elems, vector<int> &new_entreNodes, vector<int> &new_numEntreNodes, vector<int> &new_sortieNodes, vector<int> &new_numSortieNodes, vector<int> &new_wallNodes, vector<vector<int> > &fantElemsRecep, vector<vector<int> > &fantElemsEnvoi, vector<vector<int> > &infoEnvoi, vector<vector<int> > &infoRecep, int &nombreEntre, int &nombreSortie){
 
   int i, nNodes, nElems;
   nNodes = nodes.size();
@@ -176,19 +194,37 @@ void ecriture(string fileName, int n, vector<vector<double> > &nodes, vector<vec
   }
 
   out_mesh << "Noeuds d'entre" << endl;
-  out_mesh << new_entreNodes.size() << " " << nombreEntre << endl;
   i=0;
-  while(i<new_entreNodes.size()){
-    out_mesh << new_entreNodes[i] <<  " " << new_numEntreNodes[i] << endl ;
-    i++; 
+  if(multi_entree){
+    out_mesh << new_entreNodes.size() << " " << nombreEntre << endl;
+    while(i<new_entreNodes.size()){
+      out_mesh << new_entreNodes[i] <<  " " << new_numEntreNodes[i] << endl ;
+      i++; 
+    }
+  }
+  else{
+    out_mesh << new_entreNodes.size() << endl;
+    while(i<new_entreNodes.size()){
+      out_mesh << new_entreNodes[i] << endl ;
+      i++; 
+    }
   }
 
   out_mesh << "Noeuds de sortie" << endl;
-  out_mesh << new_sortieNodes.size() << endl;
   i=0;
-  while(i<new_sortieNodes.size()){
-    out_mesh << new_sortieNodes[i] << endl ;
-    i++; 
+  if(multi_sortie){
+    out_mesh << new_sortieNodes.size() <<  " " << nombreSortie << endl;
+    while(i<new_sortieNodes.size()){
+      out_mesh << new_sortieNodes[i] << " " << new_numSortieNodes[i] << endl ;
+      i++; 
+    }
+  }
+  else{
+    out_mesh << new_sortieNodes.size() << endl;
+    while(i<new_sortieNodes.size()){
+      out_mesh << new_sortieNodes[i] << endl ;
+      i++; 
+    }
   }
 
   out_mesh << "Noeuds de murs" << endl;
@@ -425,7 +461,7 @@ void fantome(int nParts, vector<vector<double> > &nodes, vector<vector<double> >
   }
 }
 
-void boundary(int nParts, vector<vector<double> > &nodes, vector<vector<double> > &elems, vector<vector<vector<double> > > &newNodes, vector<vector<vector<double> > > &newElems, vector<int> &sortieNodes, vector<int> &entreNodes, vector<int> &numEntreNodes, vector<int> &wallNodes, vector<vector<int> > &new_sortieNodes,vector<vector<int> > &new_entreNodes, vector<vector<int> > &new_numEntreNodes, vector<vector<int> > &new_wallNodes,vector<vector<int> > &nLTG,vector<vector<int> > &nGTL,vector<vector<int> > &eLTG,vector<vector<int> > &eGTL){
+void boundary(int nParts, vector<vector<double> > &nodes, vector<vector<double> > &elems, vector<vector<vector<double> > > &newNodes, vector<vector<vector<double> > > &newElems, vector<int> &sortieNodes, vector<int> &numSortieNodes, vector<int> &entreNodes, vector<int> &numEntreNodes, vector<int> &wallNodes, vector<vector<int> > &new_sortieNodes, vector<vector<int> > &new_numSortieNodes,vector<vector<int> > &new_entreNodes, vector<vector<int> > &new_numEntreNodes, vector<vector<int> > &new_wallNodes,vector<vector<int> > &nLTG,vector<vector<int> > &nGTL,vector<vector<int> > &eLTG,vector<vector<int> > &eGTL){
   
   for(int p=0;p<nParts;p++){
     for(int i=0;i<newNodes[p].size();i++){
@@ -438,6 +474,7 @@ void boundary(int nParts, vector<vector<double> > &nodes, vector<vector<double> 
       for(int j=0;j<sortieNodes.size();j++){
         if(nLTG[p][i] == sortieNodes[j]){
           new_sortieNodes[p].push_back(i+1);
+          new_numSortieNodes[p].push_back(numSortieNodes[j]);
         }
       }
       for(int j=0;j<wallNodes.size();j++){
@@ -604,11 +641,13 @@ int main(int argc, char* argv[]){
   idx_t objval, nParts;
   ifstream mesh;
   string fileName;
-  bool multi_entree=1;
+  bool multi_entree=0;
+  bool multi_sortie=0;
 
-  if(argc < 4){
-    cout << "Utilisation : ./split_mesh fichier_de_maillage nombre_de_sous_domaines multi_entree" << endl;
+  if(argc < 5){
+    cout << "Utilisation : ./split_mesh fichier_de_maillage nombre_de_sous_domaines multi_entrees multi_sorties" << endl;
     cout << "multi_entree=1 uniquement si le maillage a découper posséde plusieurs entrées" << endl;
+    cout << "multi_sortie=1 uniquement si le maillage a découper posséde plusieurs sorties" << endl;
     return(0);
   }
   else{
@@ -616,13 +655,14 @@ int main(int argc, char* argv[]){
     mesh.open(argv[1]);
     nParts = atoi(argv[2]);
     multi_entree = atoi(argv[3]);
+    multi_sortie = atoi(argv[4]);
   }
 
-  int n, i, nNodes, nElems, ncom(1), nombreEntre;
+  int n, i, nNodes, nElems, ncom(1), nombreEntre, nombreSortie;
   int new_nElems, new_nNodes;
-  vector<int> entreNodes, sortieNodes, wallNodes, numEntreNodes;
+  vector<int> entreNodes, sortieNodes, wallNodes, numEntreNodes, numSortieNodes;
   vector<vector<int> > new_entreNodes(nParts), new_numEntreNodes(nParts);
-  vector<vector<int> > new_sortieNodes(nParts);
+  vector<vector<int> > new_sortieNodes(nParts), new_numSortieNodes(nParts);
   vector<vector<int> > new_wallNodes(nParts);
   vector<vector<double> > nodes, elems;
   vector<vector<double> > dummy;
@@ -634,7 +674,7 @@ int main(int argc, char* argv[]){
   cout << fixed;
 
   //Lecture du maillage
-  lecture(multi_entree, mesh, nodes, elems, eind, eptr, entreNodes, numEntreNodes, sortieNodes, wallNodes, nombreEntre);
+  lecture(multi_sortie, multi_entree, mesh, nodes, elems, eind, eptr, entreNodes, numEntreNodes, sortieNodes, numSortieNodes, wallNodes, nombreEntre, nombreSortie);
   mesh.close();
 
 
@@ -671,14 +711,13 @@ int main(int argc, char* argv[]){
   fantome(nParts, nodes, elems, newNodes, newElems, epart, fantElemsRecep, fantElemsEnvoi, nLTG, nGTL, eLTG, eGTL);
 
   cout << "Traitement des noeuds d'entrée sortie et murs" << endl;
-  boundary(nParts, nodes, elems, newNodes, newElems, sortieNodes, entreNodes, numEntreNodes, wallNodes, new_sortieNodes, new_entreNodes, new_numEntreNodes, new_wallNodes, nLTG, nGTL, eLTG, eGTL);
+  boundary(nParts, nodes, elems, newNodes, newElems, sortieNodes, numSortieNodes, entreNodes, numEntreNodes, wallNodes, new_sortieNodes, new_numSortieNodes, new_entreNodes, new_numEntreNodes, new_wallNodes, nLTG, nGTL, eLTG, eGTL);
 
   cout << "Renumerotation des mailles à envoyer" << endl;
   renum(nParts, newElems, newElemsCopie, fantElemsRecep, fantElemsEnvoi, eLTG, eGTL, eLTGCopie, eGTLCopie);
   newElems = newElemsCopie;
   eLTG = eLTGCopie;
   eGTL = eGTLCopie;
-
 
   cout << "Génération des informations send/recp" << endl;
   genInfoSendRecv(nParts, fantElemsEnvoi, fantElemsRecep, infoEnvoi, infoRecep);
@@ -689,7 +728,7 @@ int main(int argc, char* argv[]){
     cout << "Part " << p << ", " << fantElemsRecep[p].size() << " mailles à recep et " << fantElemsEnvoi[p].size() << " à envoyer." << endl;
     ecritureGnuplot(p, newNodes[p], newElems[p]);
     //ecritureFantGnuplot(p,newNodes[p], newElems[p], new_entreNodes[p], new_sortieNodes[p], new_wallNodes[p], fantElemsRecep[p], fantElemsEnvoi[p]);
-    ecriture(fileName, p,newNodes[p], newElems[p], new_entreNodes[p], new_numEntreNodes[p], new_sortieNodes[p], new_wallNodes[p], fantElemsRecep[p], fantElemsEnvoi[p],infoEnvoi[p], infoRecep[p], nombreEntre);
+    ecriture(multi_sortie, multi_entree, fileName, p,newNodes[p], newElems[p], new_entreNodes[p], new_numEntreNodes[p], new_sortieNodes[p], new_numSortieNodes[p], new_wallNodes[p], fantElemsRecep[p], fantElemsEnvoi[p],infoEnvoi[p], infoRecep[p], nombreEntre, nombreSortie);
     ecritureLiens(p, nLTG[p], eLTG[p]);
   }
 
