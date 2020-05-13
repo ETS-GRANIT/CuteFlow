@@ -203,6 +203,19 @@ subroutine Full_FV
       real(fp_kind), dimension(:), intent(inout)  :: soleta, solh, solhu, solhv
     end subroutine paraview_export
 
+    subroutine basic_export(vdlg1, solh, soleta, solhu, solhv, ci, id)
+
+      use precision_m
+      use global
+      use m_param
+
+      implicit none
+
+      integer, intent(in) :: id, ci
+      real(fp_kind), dimension(:), intent(in)  :: soleta, solh, solhu, solhv
+      real(fp_kind), dimension(:,:), intent(in)  :: vdlg1
+    end subroutine basic_export
+
     subroutine tecplot_export(solh, soleta, solhu, solhv)
       use precision_m
       use global
@@ -354,6 +367,7 @@ subroutine Full_FV
   !!Ajout sauvegarde solution initiale a enlever
   vdlg = vdlg_d
   call paraview_export(she0, sh0, shu0, shv0, 0)
+  call basic_export (vdlg1, she0, sh0, shu0, shv0, 0, 0)
   ! *** beginning of the loop on the temporal scheme iterations ***
   tblock = dim3(128, 1, 1)
   grid   = dim3(ceiling(real(nelt)/real(tblock%x)), 1, 1)
@@ -733,38 +747,38 @@ subroutine Full_FV
         start=0
         !call tecplot_export (she0, sh0, shu0, shv0)
         call paraview_export (she0, sh0, shu0, shv0, cptvideo)
+        call basic_export (vdlg1, she0, sh0, shu0, shv0, cptvideo, 0)
         cptvideo = cptvideo + 1
       endif
     endif
 
     !STOCKAGE DE SOLUTIONS INTERMEDIAIRES  (Pour redemarrage)
-    if (multi_simul ==0) then 
-      if(soldomaine==1 .and. abs( tc - tvisdom(cptvisdom) ) <= tolaffiche) then
+    if(soldomaine==1 .and. abs( tc - tvisdom(cptvisdom) ) <= tolaffiche) then
 
-        if(is_solnode == 0) then 
-          vdlg = vdlg_d
-          call cuda_glerror('ierr<- (D->H) data_transfer into vdlg(3)',1)
+      if(is_solnode == 0) then 
+        vdlg = vdlg_d
+        call cuda_glerror('ierr<- (D->H) data_transfer into vdlg(3)',1)
 
-          call sol_nodes(vdlg,surf,zm,sh0,she0,shu0,shv0,su0,sv0)
-          is_solnode = 1
-        endif
-
-        vdlg1 = vdlg1_d
-        call cuda_glerror('ierr<- (D->H) data_transfer into vdlg1{if(soldomaine == 1 ... )} <-- Full_FV_cudaf_shared.cuf',1)
-
-        write(ec_sol_elt_t,*) tc                        
-        do iel=1,nelt
-          write(ec_sol_elt_t,'(4f16.6)') vdlg(1,iel), vdlg1(1,iel), vdlg1(2,iel), vdlg1(3,iel)
-        enddo
-
-        write(ec_sol_nd_t,*) tc
-        do nd=1,nnt
-          write(ec_sol_nd_t,'(7f16.6)')  coordonnees(nd,1),coordonnees(nd,2),sh0(nd)-she0(nd),she0(nd),sh0(nd),shu0(nd),shv0(nd)
-        enddo
-
-        cptvisdom = cptvisdom + 1
+        call sol_nodes(vdlg,surf,zm,sh0,she0,shu0,shv0,su0,sv0)
+        is_solnode = 1
       endif
+
+      vdlg1 = vdlg1_d
+      call cuda_glerror('ierr<- (D->H) data_transfer into vdlg1{if(soldomaine == 1 ... )} <-- Full_FV_cudaf_shared.cuf',1)
+
+      write(ec_sol_elt_t,*) tc                        
+      do iel=1,nelt
+        write(ec_sol_elt_t,'(4f16.6)') vdlg(1,iel), vdlg1(1,iel), vdlg1(2,iel), vdlg1(3,iel)
+      enddo
+
+      write(ec_sol_nd_t,*) tc
+      do nd=1,nnt
+        write(ec_sol_nd_t,'(7f16.6)')  coordonnees(nd,1),coordonnees(nd,2),sh0(nd)-she0(nd),she0(nd),sh0(nd),shu0(nd),shv0(nd)
+      enddo
+
+      cptvisdom = cptvisdom + 1
     endif
+
     rewind (ec_sol_elt_t)
     rewind (ec_sol_nd_t)
 
@@ -850,6 +864,7 @@ subroutine Full_FV
     vdlg = vdlg_d
     call bluekenue_export (she0, sh0, shu0, shv0)
     call paraview_export (she0, sh0, shu0, shv0, -1)
+    call basic_export (vdlg1, she0, sh0, shu0, shv0, -1, 0)
 
     !STORAGE OF FINAL SOLUTIONS IN ALL ELEMENTS OF THE DOMAIN (For restarting)
     write(ec_sol_elt_final,*) tc                        

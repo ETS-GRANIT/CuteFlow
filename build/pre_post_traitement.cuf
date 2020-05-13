@@ -623,6 +623,44 @@ subroutine bluekenue_export(solh, soleta, solhu, solhv)
 
 end subroutine bluekenue_export
 
+subroutine basic_export(vdlg1, solh, soleta, solhu, solhv, ci, id)
+
+  use precision_m
+  use global
+  use m_param
+
+  implicit none
+
+  integer, intent(in) :: id, ci
+  real(fp_kind), dimension(:), intent(in)  :: soleta, solh, solhu, solhv
+  real(fp_kind), dimension(:,:), intent(in)  :: vdlg1
+
+  integer :: nd, iel
+
+  if(ci==-1) then
+    write(valtemps,*) "Final"
+  else
+    write(valtemps,'(I20)') ci
+  end if
+
+  if(id==0 .or. id==2) then 
+    solfile_basic = trim(adjustl(trim(genrtest)))//'_sol_nodes_'//trim(adjustl(trim(valtemps)))//adjustl(trim('.txt'))
+    open(unit=ec_sol_basic_nd,file=solfile_basic,status="unknown")
+      do nd=1,nnt
+        write(ec_sol_basic_nd,'(f16.6)') soleta(nd)
+      end do
+    close(ec_sol_basic_nd)
+  else if(id==1 .or. id==2) then 
+    solfile_basic = trim(adjustl(trim(genrtest)))//'_sol_elems_'//trim(adjustl(trim(valtemps)))//adjustl(trim('.txt'))
+    open(unit=ec_sol_basic_elt,file=solfile_basic,status="unknown")
+      do iel=1,nelt
+        write(ec_sol_basic_elt,'(f16.6)') vdlg1(1,iel)
+      end do
+    close(ec_sol_basic_elt)
+  end if
+
+end subroutine basic_export
+
 subroutine paraview_export(solh, soleta, solhu, solhv, ci)
   ! ==============================================================================
   !     paraview_export == Exporte dans un fichier vtk pour postraitement avec paraview
