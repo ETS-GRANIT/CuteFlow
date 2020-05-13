@@ -300,13 +300,17 @@ void lecture_mesh(ifstream &mesh, vector<vector<double> > &nodes, vector<vector<
 
 int main(int argc, char* argv[]){
 
-
   vector<vector<double> > nodes;
   vector<vector<int> > elems;
   vector<double> manning, debits, hauteurs;
   vector<int> entreNodes, sortieNodes, numEntreNodes;
 
   cout << fixed;
+
+  if(argc < 3){
+    cout << "Utilisation : ./split_mesh fichier.mesh fichier.slc" << endl;
+    return(0);
+  }
 
   ifstream slc(argv[2]);
   lecture_slc(slc, entreNodes, numEntreNodes, sortieNodes, 8);
@@ -325,7 +329,7 @@ int main(int argc, char* argv[]){
 
   gnuplot_entree_sorties(nodes, 7, entreNodes, numEntreNodes, sortieNodes);
 
-  ofstream out("RDP.txt");
+  ofstream out("output_mesh.txt");
   ecriture(out, nodes, elems, manning, entreNodes, numEntreNodes, sortieNodes, 7, 1);
   out.close();
   return(0);
