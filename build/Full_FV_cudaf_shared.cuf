@@ -244,7 +244,7 @@ subroutine Full_FV
   real(fp_kind) :: v, r, uinf, flux, s, xyc, xiel, yiel, coupe_y, distjaugm1, distjaug, dt1, sizecheck
   real(fp_kind) :: x, d, t, dtime, tcm, xc, yc, hauteur, newhaut, xnorm, zero, delta_debit0,delta_debit,deb_entre,deb_sorti,delta_eta
   real(fp_kind) :: volume_entre,volume_sorti, delta_volume, total_volume, volume0, volume1, volume2,vol_tot_init, delta_volume_tot, delta_sol_tot, som_dtres_tot
-  real(fp_kind) :: h_output0, h_output, tc_arret, h_max, t_h_max, t_h_moy, scal, scal1, scal2, scal3, aux, som_Q_coupe
+  real(fp_kind) :: h_output0, h_output, tc_arret, h_max, t_h_max, t_h_moy, scal, scal1, scal2, scal3, som_Q_coupe
 
   real(fp_kind), dimension(2)  :: greta, grhaut
   real(fp_kind) :: d2, t2, dtime2, tcm2
@@ -364,10 +364,7 @@ subroutine Full_FV
     write(*,*) 'choix de timedisc non valide'
   endif
   call cuda_glerror('ierr <- (H->D) data transfer into niter_d <-- Full_FV_cudaf_shared.cuf',1)
-  !!Ajout sauvegarde solution initiale a enlever
-  vdlg = vdlg_d
-  call paraview_export(she0, sh0, shu0, shv0, 0)
-  call basic_export (vdlg1, she0, sh0, shu0, shv0, 0, 0)
+
   ! *** beginning of the loop on the temporal scheme iterations ***
   tblock = dim3(128, 1, 1)
   grid   = dim3(ceiling(real(nelt)/real(tblock%x)), 1, 1)
@@ -397,18 +394,19 @@ subroutine Full_FV
   endif    
 
   !!Initial dt exchange
-  if ( pas_dt == 2 )  then
-    call cflcond_cudaf<<<grid, tblock>>>(vdlg0_d,deltatmin_d)
-    dt_arr = deltatmin_d
-    dt = minval(dt_arr)
-    call MPI_ALLREDUCE(MPI_IN_PLACE,dt,1,real_kind_mpi,MPI_MIN,MPI_COMM_WORLD, mpi_ierr)
-    dt_d = dt
-
-    !!Setting local time step in dry cells according to dt_d
-    if(local_time_step==1) then
-      call cflcond_sec_cudaf<<<grid, tblock>>>(vdlg_d, deltatmin_d, dt_d)
-    end if
+  call cflcond_cudaf<<<grid, tblock>>>(vdlg0_d,deltatmin_d)
+  dt_arr = deltatmin_d
+  dt = minval(dt_arr)
+  if(dt<1e-14) then
+    dt = 1e-8
   endif
+  call MPI_ALLREDUCE(MPI_IN_PLACE,dt,1,real_kind_mpi,MPI_MIN,MPI_COMM_WORLD, mpi_ierr)
+  dt_d = dt
+
+  !!Setting local time step in dry cells according to dt_d
+  if(local_time_step==1) then
+    call cflcond_sec_cudaf<<<grid, tblock>>>(vdlg_d, deltatmin_d, dt_d)
+  end if
   call cuda_glerror('ierr<-cflcond_cudaf (1) <-- Full_FV_cudaf_shared.cuf',1)
 
   call cpu_time(ti)
@@ -547,13 +545,13 @@ subroutine Full_FV
       call update_un_voisin_sec<<<grid11, tblock11>>>()
       call cuda_glerror('ierr<-update_un_voisin_sec <-- Full_FV_cudaf_shared.cuf',1)
 
-        if(iflux==1) then
-          call cotes_cudaf3<<<grids, tblocks>>>(surf_d,zm_d,gradz_d,vdlg_d)
-        else if (iflux==2) then
-          call cotes_cudaf3_riadh<<<grids, tblocks>>>(surf_d,zm_d,gradz_d,vdlg_d)
-        else
-          print*,"Mauvaise valeur de iflux"
-        end if
+      if(iflux==1) then
+        call cotes_cudaf3<<<grids, tblocks>>>(surf_d,zm_d,gradz_d,vdlg_d)
+      else if (iflux==2) then
+        call cotes_cudaf3_riadh<<<grids, tblocks>>>(surf_d,zm_d,gradz_d,vdlg_d)
+      else
+        print*,"Mauvaise valeur de iflux"
+      end if
 
 
       call cuda_glerror('ierr<-cotes_cudaf <-- Full_FV_cudaf_shared.cuf',1)
@@ -635,23 +633,22 @@ subroutine Full_FV
       call cuda_glerror('mise_a_jr_zone_seche_cudaf(2) <-- Full_FV_cudaf_shared.cuf',1)
     endif
 
-    ! *** Calcul du pas de temps via la CFL ***
-    if ( pas_dt == 2 )  then
-      call cflcond_cudaf<<<grid, tblock>>>(vdlg_d,deltatmin_d)
-      dt_arr = deltatmin_d
-      dt = minval(dt_arr)
-      if(num_mpi_process>1) then
-        call MPI_ALLREDUCE(MPI_IN_PLACE,dt,1,real_kind_mpi,MPI_MIN,MPI_COMM_WORLD, mpi_ierr)
-      end if
+    ! Calcul du pas de temps via la CFL
+    call cflcond_cudaf<<<grid, tblock>>>(vdlg_d,deltatmin_d)
+    dt_arr = deltatmin_d
+    dt = minval(dt_arr)
+    if(num_mpi_process>1) then
+      call MPI_ALLREDUCE(MPI_IN_PLACE,dt,1,real_kind_mpi,MPI_MIN,MPI_COMM_WORLD, mpi_ierr)
+    end if
 
-      dt_d = dt
-      if(local_time_step==1) then
-        call cflcond_sec_cudaf<<<grid, tblock>>>(vdlg_d, deltatmin_d, dt_d)
-      end if
-    endif
+    dt_d = dt
+    if(local_time_step==1) then
+      call cflcond_sec_cudaf<<<grid, tblock>>>(vdlg_d, deltatmin_d, dt_d)
+    end if
+
     call cuda_glerror('ierr<-cflcond_cudaf (2) <-- Full_FV_cudaf_shared.cuf',1)
 
-    !! *** mise à jour du temps et de la solution initiale ***
+    !! mise à jour du temps et de la solution initiale
     tc = tc + dt
     tc_d = tc
 
@@ -731,7 +728,7 @@ subroutine Full_FV
     endif
 
     ! *** Stockage de la solution pour postraitement et animation 
-    if (video == 1 .and. multi_simul ==0 ) then
+    if (video == 1) then
       if ( abs( tc - tvideo(cptvideo) ) <= tolaffiche) then
         if(is_solnode == 0) then 
           vdlg = vdlg_d
@@ -827,9 +824,6 @@ subroutine Full_FV
       print*, "temps echange ", te2-te1
       print*, "%temps echange ", 100*(te2-te1)/(te2-tb1)
       print*,"dt = ", dt
-      !!call sol_nodes(vdlg,surf,zm,sh0,she0,shu0,shv0,su0,sv0)
-      !!vdlg = vdlg_d
-      !!call paraview_export (she0, sh0, shu0, shv0, nt/freqaffich)
     end if
 
   enddo 
@@ -852,39 +846,36 @@ subroutine Full_FV
   call sol_nodes(vdlg,surf,zm,sh0,she0,shu0,shv0,su0,sv0)
 
   !*********     DEBUT DU POSTRAITEMENT   *********
-  if ( t_reg_perm > 0.0) tc  = t_reg_perm  ! Pour revenir au temps du regime permanent ! To return to the steady state
+  if ( t_reg_perm > 0.0) tc  = t_reg_perm 
 
-  if (multi_simul == 0) then
-    !!Enregistrement de la solution finale pour post-traitement avec Bluekenue/Paraview
+  !!Enregistrement de la solution finale pour post-traitement avec Bluekenue/Paraview
 
-    vdlg = vdlg_d
-    call bluekenue_export (she0, sh0, shu0, shv0)
-    call paraview_export (she0, sh0, shu0, shv0, -1)
-    call basic_export (vdlg1, she0, sh0, shu0, shv0, -1, 0)
+  vdlg = vdlg_d
+  call bluekenue_export (she0, sh0, shu0, shv0)
+  call paraview_export (she0, sh0, shu0, shv0, -1)
+  call basic_export (vdlg1, she0, sh0, shu0, shv0, -1, 0)
 
-    !STORAGE OF FINAL SOLUTIONS IN ALL ELEMENTS OF THE DOMAIN (For restarting)
-    write(ec_sol_elt_final,*) tc                        
-    do i=1,nelt
-      write(ec_sol_elt_final,'(4f16.6)') vdlg(1,i), vdlg1(1,i), vdlg1(2,i), vdlg1(3,i)
-    enddo
+  !STORAGE OF FINAL SOLUTIONS IN ALL ELEMENTS OF THE DOMAIN (For restarting)
+  write(ec_sol_elt_final,*) tc                        
+  do i=1,nelt
+    write(ec_sol_elt_final,'(4f16.6)') vdlg(1,i), vdlg1(1,i), vdlg1(2,i), vdlg1(3,i)
+  enddo
 
-    if (monte_carlo == 1) then
-      do i=1,nnt
-        !! Storage of the final solution by scenario along a section
-        !! for the statistical analysis 
-        coupe_y = coupe_a(1) * coordonnees(i,1) + coupe_b(1)
-        aux = su0(i)/sh0(i)
-        if (sh0(i)<=tolisec) aux=0.0
-        if ( abs( coordonnees(i,2) - coupe_y ) <= distcote/densite_coupe  ) &
-          !!ajouté le i ici
+  if (monte_carlo == 1) then
+    do i=1,nnt
+      !! Storage of the final solution by scenario along a section
+      !! for the statistical analysis 
+      coupe_y = coupe_a(1) * coordonnees(i,1) + coupe_b(1)
+
+      if ( abs( coordonnees(i,2) - coupe_y ) <= distcote/densite_coupe  ) then
         write(3002,'(I10,5f16.6)') i, coordonnees(i,1), sh0(i)-she0(i), she0(i), sh0(i), shu0(i)
+      end if
 
-        !! Stockage de la solution finale par scenario dans tout le domaine 
-        !! pour l'analyse statistique
-        write(3003,'(I10,7f16.6)') i, coordonnees(i,1), coordonnees(i,2), abs(sh0(i)-she0(i)), she0(i), sh0(i), shu0(i), shv0(i)
+      !! Stockage de la solution finale par scenario dans tout le domaine 
+      !! pour l'analyse statistique
+      write(3003,'(I10,7f16.6)') i, coordonnees(i,1), coordonnees(i,2), abs(sh0(i)-she0(i)), she0(i), sh0(i), shu0(i), shv0(i)
 
-      enddo
-    endif
+    enddo
   endif
 
 
@@ -1195,21 +1186,21 @@ subroutine get_io_index
 
   io_identifier = 0
 
-    count = 1
-    do i = 1, nelt
-      if(boundary(i,1,1) == -1 .or. boundary(i,2,1) == -1 .or. boundary(i,3,1) == -1) then 
-        io_identifier(i) =  count
-        count = count + 1
-      endif
-    enddo
+  count = 1
+  do i = 1, nelt
+    if(boundary(i,1,1) == -1 .or. boundary(i,2,1) == -1 .or. boundary(i,3,1) == -1) then 
+      io_identifier(i) =  count
+      count = count + 1
+    endif
+  enddo
 
-    count = 1
-    do i = 1, nelt
-      if(boundary(i,1,1) == -2 .or. boundary(i,2,1) == -2 .or. boundary(i,3,1) == -2) then 
-        io_identifier(i) =  count
-        count = count + 1
-      endif
-    enddo
+  count = 1
+  do i = 1, nelt
+    if(boundary(i,1,1) == -2 .or. boundary(i,2,1) == -2 .or. boundary(i,3,1) == -2) then 
+      io_identifier(i) =  count
+      count = count + 1
+    endif
+  enddo
 
 
   io_identifier_d = io_identifier

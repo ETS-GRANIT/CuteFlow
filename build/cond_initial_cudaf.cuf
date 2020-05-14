@@ -68,7 +68,7 @@ attributes(global) subroutine cond_initial_cudaf(zm_d, ut_d, ut1_d, visio_d)
     endif
 
     if (plan_d==1) then
-      ut_dgi1 = (-xplan_d*(xpoint_d-v1)-yplan_d*(ypoint_d-v2))/zplan_d + h_point_d - zmd
+      ut_dgi1 = (-xplan_d*(xpoint_d-v1)-yplan_d*(ypoint_d-v2))/zplan_d + zpoint_d - zmd
       ut_d(1,gi) = ut_dgi1
 
       if ( ut_dgi1 > tolisec_d ) then

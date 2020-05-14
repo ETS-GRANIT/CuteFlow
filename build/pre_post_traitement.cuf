@@ -224,9 +224,7 @@ subroutine ouv_fichiers(vdlg, vdlg1, zm)
   
   !! Ouverture du fichier de stockage des solutions 2D  (Opening the 2D solution storage file)
   write(valtemps,'(f12.3)') TS
-  if (multi_simul==0 ) then 
-    solfile2d_MC = trim(adjustl(mpi_process_id_string)) // '_FV--Q' // trim(adjustl(debit_tot)) // '_n_'// trim(adjustl(coef_frot))// '_t_' // trim(adjustl(valtemps)) // '_s'// '.txt'
-  endif
+  solfile2d_MC = trim(adjustl(mpi_process_id_string)) // '_FV--Q' // trim(adjustl(debit_tot)) // '_n_'// trim(adjustl(coef_frot))// '_t_' // trim(adjustl(valtemps)) // '_s'// '.txt'
   if (monte_carlo==1 ) then
     solfile2d_MC = trim(adjustl(mpi_process_id_string)) // '_SOL_FV_MULTISIM_2D.txt'
     solfile3d_MC = trim(adjustl(mpi_process_id_string)) // '_SOL_FV_MULTISIM_3D.txt'

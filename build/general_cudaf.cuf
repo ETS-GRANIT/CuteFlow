@@ -362,8 +362,8 @@ program general
   !!  Storage for postraitement with possibility of animation (Tecplot)
   if (video == 1) then             
     start=1
-    !call tecplot_export (she0, sh0, shu0, shv0)
-    !call paraview_export (she0, sh0, shu0, shv0, 0)
+    call paraview_export(she0, sh0, shu0, shv0, 0)
+    call basic_export (vdlg01, she0, sh0, shu0, shv0, 0, 0)
   endif
 
   !! Storage solution for 2D slices
@@ -396,14 +396,12 @@ program general
 
   close(400)
 
-  if(multi_simul==0 .and. soldomaine==1) then
+  if(soldomaine==1) then
     close(ec_sol_elt_t)
     close(ec_sol_nd_t)
   endif
 
-  if(multi_simul==0) then
-    close(ec_sol_elt_final)
-  endif
+  close(ec_sol_elt_final)
 
   deallocate(manning_nelt, manning_nd)
   deallocate(elts_coupes_transv)

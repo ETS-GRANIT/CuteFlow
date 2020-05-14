@@ -18,9 +18,8 @@ module global_device
   integer, constant                  :: solinit_d, eqlin_barrage_d, plan_d
   real(fp_kind), constant            :: h_amont_d, u_amont_d, v_amont_d
   real(fp_kind), constant            :: h_aval_d, u_aval_d, v_aval_d
-  real(fp_kind), constant            :: xcenter_d, ycenter_d, xgate_d
-  real(fp_kind), constant            :: rayon_d, x1eqbar_d, x2eqbar_d, y1eqbar_d, y2eqbar_d
-  real(fp_kind), constant            :: xplan_d, yplan_d, zplan_d, xpoint_d, ypoint_d, h_point_d
+  real(fp_kind), constant            :: x1eqbar_d, x2eqbar_d, y1eqbar_d, y2eqbar_d
+  real(fp_kind), constant            :: xplan_d, yplan_d, zplan_d, xpoint_d, ypoint_d, zpoint_d
 
   !! Simulation variables
   integer, constant:: iflux_d, grd_d, visual_d, fricimplic_d, debit_var_d, inlet_d, local_time_step_d
@@ -28,7 +27,7 @@ module global_device
   integer, constant:: comptvisu_d, cptvis2d_d, cptvis3d_d, cptvideo_d, cptvisjauge_d, cptvisdom_d, cptdebit_d 
   real(fp_kind), constant:: long_d, critere_arret_d, alfa_d
   real(fp_kind), dimension(20), constant:: debitglob_d, h_sortie_d
-  real(fp_kind), constant:: tbase_d, divbase_d, ts_d, tsstab_d, dt_d, cfl_d, tol_d, tolisec_d, tolratio_d, tolaffiche_d, tol_reg_perm_d
+  real(fp_kind), constant:: ts_d, tsstab_d, dt_d, cfl_d, tol_d, tolisec_d, tolratio_d, tolaffiche_d, tol_reg_perm_d
   integer, constant:: multi_simul_d, monte_carlo_d
 
   character, device, allocatable  :: un_voisin_sec1_d(:)

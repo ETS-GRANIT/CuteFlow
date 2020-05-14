@@ -35,9 +35,9 @@ subroutine global_data_transfer
   xplan_d = xplan
   yplan_d = yplan
   zplan_d = zplan
-  h_point_d = h_point
   xpoint_d = xpoint
   ypoint_d = ypoint
+  zpoint_d = zpoint
   
 
   !! Simulation variables
@@ -76,8 +76,6 @@ subroutine global_data_transfer
   debitglob_d     = debitglob
   h_sortie_d      = h_sortie
   alfa_d          = alfa
-  tbase_d         = tbase
-  divbase_d       = divbase
   ts_d            = ts
   tsstab_d        = tsstab
   dt_d            = dt

@@ -26,46 +26,48 @@ module global
   character(len=200)  :: fich_sol_init
   integer             :: solinit, eqlin_barrage, plan
   real(fp_kind)             :: h_amont, u_amont, v_amont, h_aval, u_aval, v_aval
-  real(fp_kind)             :: h_point, xplan, yplan, zplan, xpoint, ypoint
-  real(fp_kind)             :: xcenter, ycenter, xgate, rayon, x1eqbar, x2eqbar, y1eqbar, y2eqbar
+  real(fp_kind)             :: xplan, yplan, zplan, xpoint, ypoint, zpoint
+  real(fp_kind)             :: x1eqbar, x2eqbar, y1eqbar, y2eqbar
 
   !! Variables donnees de simulation
   character(len=10)   :: timedisc
   character(len=6)    :: inlet
   character(len=30)   :: loi_debitglob
-  integer :: iflux, pas_dt, grd, visual, fricimplic, debit_var  
+  integer :: iflux, grd, visual, fricimplic, debit_var  
   integer :: freqvisual, freqaffich, freqjauges, nbrjauges, nbrcoupes, densite_coupe, instjauges, soldomaine, n_soldom
   integer :: comptvisu, cptvis2d, cptvis3d, cptvideo, cptvisjauge, cptvisdom, cptdebit 
   real(fp_kind) :: long, critere_arret, debitglob_sum, alfa
   real(fp_kind), dimension(20) :: debitglob, h_sortie
-  real(fp_kind) :: tbase, divbase, ts, tsstab, dt, cfl, tol, tolisec, tolratio, tolaffiche, tol_reg_perm
+  real(fp_kind) :: ts, tsstab, dt, cfl, tol, tolisec, tolratio, tolaffiche, tol_reg_perm
   real(fp_kind), dimension(10) :: coupe_a, coupe_b, long_coupe
   real(fp_kind), dimension(100000) :: tvis2d , tvis3d 
   real(fp_kind), dimension(100) :: xjauges , yjauges
   integer :: n_video, base_unique, nonlin, video, dim, k_base
-  integer :: multi_simul, monte_carlo, is_dry_as_wall, local_time_step
+  integer :: monte_carlo, is_dry_as_wall, local_time_step
 
   !! Construction de la namelist pour la lecture du fichier de donnee
   namelist/donnees_namelist/ &
 
     !! Ancien donneeter
-    & gp, friction, manning, & 
+    & gp, friction, fricimplic, manning, & 
 
     !! Ancien donneemai
     & meshfile, elt_bound, multi_entree, multi_sortie, &
 
     !! Ancien donneeinie
+    & eqlin_barrage, x1eqbar, x2eqbar, y1eqbar, y2eqbar, &
     & h_amont, u_amont, v_amont, h_aval, u_aval, v_aval, & 
-    & xgate, xcenter, ycenter, rayon, eqlin_barrage, x1eqbar, x2eqbar, y1eqbar, y2eqbar, plan, h_point, xplan, yplan, zplan, xpoint, ypoint, solinit, fich_sol_init, &
+    & plan, xplan, yplan, zplan, xpoint, ypoint, zpoint&
+    & solinit, fich_sol_init, &
 
     !! Ancien donneesim
-    & iflux, fricimplic, timedisc, & 
-    & inlet,debit_var, debitglob, loi_debitglob, h_sortie, &
-    & tbase, divbase, ts, dt, pas_dt, cfl, tol_reg_perm, tol, tolisec, tolratio, tolaffiche, & 
+    & iflux, timedisc, & 
+    & inlet,debitglob,debit_var,loi_debitglob, h_sortie, &
+    & ts, cfl, tol_reg_perm, tol, tolisec, tolratio, tolaffiche, & 
     & grd, visual, freqvisual, freqaffich, freqjauges, instjauges, &
     & nbrjauges, xjauges, yjauges, nbrcoupes, densite_coupe, coupe_a, coupe_b, long_coupe,  &
     & tvis2d, tvis3d, soldomaine, n_soldom, video, n_video, alfa, &
-    & dim, multi_simul, monte_carlo, &
+    & dim, monte_carlo, &
     & is_dry_as_wall, local_time_step
 
   !! Input pour l'analyse stochastiqu
