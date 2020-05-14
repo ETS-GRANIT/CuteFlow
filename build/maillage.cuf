@@ -179,7 +179,7 @@ subroutine lec_donnees
 
   implicit none
 
-  open(lu_fich,file='donnees.txt',form='formatted',status='old')
+  open(lu_fich,file='donnees.f',form='formatted',status='old')
   read(lu_fich,nml=donnees_namelist)
   close(lu_fich)
 

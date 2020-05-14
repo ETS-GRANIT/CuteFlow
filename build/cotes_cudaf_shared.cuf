@@ -462,7 +462,7 @@ attributes(device) subroutine solver_Riemann_cudaf(kvol,kvoisin,surf,norm,vdlg,h
 
   real(fp_kind)                 :: hm, cel, vitess, vitesm, vitesp, hbar !,cell, celr
   real(fp_kind)                 :: hl2, hr2, zml2, zmr2
-  real(fp_kind), dimension(3)   :: fl, fr, flux1, alfa_corrige
+  real(fp_kind), dimension(3)   :: fl, fr, flux1
   real(fp_kind), dimension(2,3) :: f
 
   integer                 :: i, noeud, dl ,p
@@ -589,7 +589,7 @@ attributes(device) subroutine solver_Riemann_cudaf_riadh(kvol,kvoisin,surf,norm,
 
   real(fp_kind)                 :: hm, cel, vitess, vitesm, vitesp, eps
   real(fp_kind)                 :: hl2, hr2, zml2, zmr2
-  real(fp_kind), dimension(3)   :: fl, fr, flux1, alfa_corrige
+  real(fp_kind), dimension(3)   :: fl, fr, flux1
   real(fp_kind), dimension(2,3) :: f, fet, q, qet
 
   integer                 :: i, noeud, dl ,p

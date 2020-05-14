@@ -121,14 +121,7 @@ subroutine stock_coupe2D(solh, soleta, solhu, solu)
   integer :: kvol, i, j, no
   real(fp_kind) :: aux, coupe_x, coupe_y
 
-  if (start == 1) then
-    write(valtemps,'(f12.3)') 0.0
-  else
-    write(valtemps,'(f18.3)') tc
-  endif
-
-  write(debit_tot,'(f8.3)') debitglob_sum
-  write(coef_frot,'(f6.3)') manning
+  write(valtemps,'(f18.3)') tc
 
   if (start == 1) then                
     do j=1,nbrcoupes
@@ -138,7 +131,7 @@ subroutine stock_coupe2D(solh, soleta, solhu, solu)
       open(unit=ec_sol2d,file=solfile2d,status="unknown")
       do i=1,nnt
         coupe_y = coupe_a(j) * coordonnees(i,1) + coupe_b(j)
-        if ( abs( coordonnees(i,2) - coupe_y ) <= distcote/densite_coupe ) then
+        if ( abs( coordonnees(i,2) - coupe_y ) <= distcote ) then
           nbr_nds_coupes(j) = nbr_nds_coupes(j) + 1
           nds_coupes(j,nbr_nds_coupes(j)) = i                 
           write(ec_sol2d,'(5f16.6)')  coordonnees(i,1), soleta(i) - solh(i), solh(i), soleta(i), solu(i) 
@@ -148,8 +141,6 @@ subroutine stock_coupe2D(solh, soleta, solhu, solu)
     enddo
 
   else
-    write(debit_tot,'(f12.3)') debitglob_sum
-    write(coef_frot,'(f8.3)') manning
     do j=1,nbrcoupes
       write(no_coupe,'(i2)') j            !
       solfile2d = trim(adjustl(mpi_process_id_string)) //'_FV-2D_coupe_' // trim(adjustl(no_coupe)) // "_" // trim(adjustl(valtemps)) // '_s.txt'
@@ -186,7 +177,7 @@ subroutine ouv_fichiers(vdlg, vdlg1, zm)
   sol_nd_ts = trim(adjustl(mpi_process_id_string))     // trim(adjustl('_SOLUTION_DERNIERE_ENREGISTREE_PAR_NOEUD.txt'))
   sol_nd_final = trim(adjustl(mpi_process_id_string))  // trim(adjustl('_SOLUTION_FINALE_PAR_NOEUD.txt'))
 
-  if(soldomaine==1) then
+  if(solrestart==1) then
     open(ec_sol_elt_t, file=sol_elt_ts, status="unknown")
     open(ec_sol_nd_t,  file=sol_nd_ts,  status="unknown")
   endif
@@ -390,7 +381,6 @@ subroutine paraview_export(solh, soleta, solhu, solhv, ci)
   write(ec_Paraview,'(a,I10,a)') "POINTS", nnt, " float"
 
   do nd=1, nnt
-    !!write(ec_Paraview,'(3f16.6)') coordonnees(nd,1), coordonnees(nd,2), soleta(nd)-solh(nd)
     write(ec_Paraview,'(3f16.6)') coordonnees(nd,1), coordonnees(nd,2), 0.
   end do
 

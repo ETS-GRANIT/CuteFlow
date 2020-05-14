@@ -268,13 +268,10 @@ subroutine Full_FV
   tc          = 0.d0
   t_reg_perm  = 0.d0
 
-  !! *** operator for the number of steps ***
   nt          = 0 
-
   comptvisu   = 0
   cond_reg_perm  = 0
-  cptvis2d    = 1
-  cptvis3d    = 1
+  cptviscoupe = 1
   cptvisjauge = 1
   tc_d        = tc
   kk          = 1
@@ -687,7 +684,7 @@ subroutine Full_FV
     ! read in the simulation data ***
     som_Q_coupe = 0.d0
 
-    if ( abs( tc - tvis2d(cptvis2d) ) < tolaffiche) then
+    if ( abs( tc - tviscoupes(cptviscoupe) ) < tolaffiche) then
       if (nbrcoupes > 0 ) then
         if(is_solnode == 0) then 
           vdlg = vdlg_d
@@ -697,13 +694,12 @@ subroutine Full_FV
         endif
 
         start=0
-        call stock_coupe2D(she0,    sh0, shu0, su0)
-        cptvis2d = cptvis2d + 1
+        call stock_coupe2D(she0, sh0, shu0, su0)
+        cptviscoupe = cptviscoupe + 1
       endif
     endif
 
     ! *** stockage de la solution pour les positions des gauges 'xjauges' et 'yjauges' ***
-    !if ( mod(nt,freqjauges)==0 .and. nbrjauges > 0 ) then
     if ( abs( tc - tvisjauge(cptvisjauge) ) <= tolaffiche) then
       if ( nbrjauges > 0 .and. nodjauges(1) >  0) then
         if ( nbrjauges <= 30 ) then
@@ -746,18 +742,17 @@ subroutine Full_FV
     endif
 
     !STOCKAGE DE SOLUTIONS INTERMEDIAIRES  (Pour redemarrage)
-    if(soldomaine==1 .and. abs( tc - tvisdom(cptvisdom) ) <= tolaffiche) then
-
+    if(solrestart==1 .and. abs( tc - tvisrestart(cptvisrestart) ) <= tolaffiche) then
       if(is_solnode == 0) then 
         vdlg = vdlg_d
         call cuda_glerror('ierr<- (D->H) data_transfer into vdlg(3)',1)
-
         call sol_nodes(vdlg,surf,zm,sh0,she0,shu0,shv0,su0,sv0)
         is_solnode = 1
       endif
 
       vdlg1 = vdlg1_d
-      call cuda_glerror('ierr<- (D->H) data_transfer into vdlg1{if(soldomaine == 1 ... )} <-- Full_FV_cudaf_shared.cuf',1)
+      call cuda_glerror('ierr<- (D->H) data_transfer into vdlg1{if(solrestart == 1 ... )} <-- Full_FV_cudaf_shared.cuf',1)
+
 
       write(ec_sol_elt_t,*) tc                        
       do iel=1,nelt
@@ -769,7 +764,7 @@ subroutine Full_FV
         write(ec_sol_nd_t,'(7f16.6)')  coordonnees(nd,1),coordonnees(nd,2),sh0(nd)-she0(nd),she0(nd),sh0(nd),shu0(nd),shv0(nd)
       enddo
 
-      cptvisdom = cptvisdom + 1
+      cptvisrestart = cptvisrestart + 1
     endif
 
     rewind (ec_sol_elt_t)
@@ -777,11 +772,10 @@ subroutine Full_FV
 
     debitglob_sum = sum(debitglob)
     debit_entree_sum = sum(debit_entree)
-    !if ( debitglob_sum > 0.0 .and. debit_sortie0 > tol_reg_perm ) then
-    !if ( (abs(debit_sortie0 - debit_sortie) < 1.0E-10) .or. (abs(debit_entree - debit_sortie)/debit_entree < tol_reg_perm) ) then
+
     if ( abs(debit_entree_sum - debit_sortie)/debit_entree_sum < tol_reg_perm ) then
       cond_reg_perm = cond_reg_perm + 1
-      if( cond_reg_perm > 100000) then
+      if( cond_reg_perm > 1000000) then
 
         if ((60   <= tc) .and. (tc < 3600))   print*, 'tc = ', tc, ' Secondes   =>', tc/60,    ' Minutes' 
         if ((3600 <= tc) .and. (tc< 86400))  print*, 'tc = ', tc, ' Secondes   =>', tc/3600,  ' Heures'
@@ -792,7 +786,7 @@ subroutine Full_FV
         end do
         print*, 'debit_sortie = ', debit_sortie
         print*, '' 
-        print*, 'LE REGIME PERMANENT EST ATTEINT' !THE PERMANENT REGIME IS REACHED
+        print*, 'LE REGIME PERMANENT EST ATTEINT'
         print*,('================================================================================')
 
         t_reg_perm = tc
@@ -818,7 +812,6 @@ subroutine Full_FV
     call cpu_time(te2)
 
     if ( mod(nt,freqaffich)==0 ) then
-      !!print*,debitglob, debit_sortie0, tol_reg_perm, debit_entree, debit_sortie, abs(debit_entree - debit_sortie)/debit_entree
       print*, "Performance calculs vs echange mémoire"
       print*, "temps calculs ", te1-tb1
       print*, "temps echange ", te2-te1
@@ -861,24 +854,6 @@ subroutine Full_FV
     write(ec_sol_elt_final,'(4f16.6)') vdlg(1,i), vdlg1(1,i), vdlg1(2,i), vdlg1(3,i)
   enddo
 
-  if (monte_carlo == 1) then
-    do i=1,nnt
-      !! Storage of the final solution by scenario along a section
-      !! for the statistical analysis 
-      coupe_y = coupe_a(1) * coordonnees(i,1) + coupe_b(1)
-
-      if ( abs( coordonnees(i,2) - coupe_y ) <= distcote/densite_coupe  ) then
-        write(3002,'(I10,5f16.6)') i, coordonnees(i,1), sh0(i)-she0(i), she0(i), sh0(i), shu0(i)
-      end if
-
-      !! Stockage de la solution finale par scenario dans tout le domaine 
-      !! pour l'analyse statistique
-      write(3003,'(I10,7f16.6)') i, coordonnees(i,1), coordonnees(i,2), abs(sh0(i)-she0(i)), she0(i), sh0(i), shu0(i), shv0(i)
-
-    enddo
-  endif
-
-
   call cpu_time(tf)
 
   deallocate(resc_d,res_d, res1_d)
@@ -890,7 +865,7 @@ subroutine Full_FV
   deallocate(res1)
   deallocate(coo_table_elemwise, x_centroid, y_centroid)
 
-  deallocate(tvis3d2, tvis2d2, tvisjauge, tvisdom, tvideo)
+  deallocate(tvis3d2, tvis2d2, tvisjauge, tvisrestart, tvideo)
 
   if(ndi>0) then
     deallocate(debit_entree_arr, debit_entree_arr_d)
@@ -918,6 +893,9 @@ end subroutine copy_2d
 
 attributes(global) subroutine copy_2d_1_local_time_step(vdlg1_d, vdlg01_d, resj_d, niter, iter, dt_d, nelt_d,deltatmin_d)
   use precision_m
+  use global
+  use global_device
+
   real(fp_kind), intent(inout) :: vdlg1_d(:,:), vdlg01_d(:,:)
   real(fp_kind), intent(in) :: resj_d(:,:), dt_d
   real(fp_kind), intent(in)                  :: deltatmin_d(:)
@@ -944,6 +922,9 @@ end subroutine copy_2d_1_local_time_step
 
 attributes(global) subroutine copy_2d_1(vdlg1_d, vdlg01_d, resj_d, niter, iter, dt_d, nelt_d,deltatmin_d)
   use precision_m
+  use global
+  use global_device
+
   real(fp_kind), intent(inout) :: vdlg1_d(:,:), vdlg01_d(:,:)
   real(fp_kind), intent(in) :: resj_d(:,:), dt_d
   real(fp_kind), intent(in)                  :: deltatmin_d(:)
@@ -1172,7 +1153,7 @@ subroutine get_io_index
   use global
   use global_device
   implicit none
-  integer :: i, j, k, count
+  integer :: i, j, k, counter
   if(ndi>0) then
     debit_entree_arr = 0.d0
     debit_entree_arr_d = debit_entree_arr
@@ -1186,19 +1167,19 @@ subroutine get_io_index
 
   io_identifier = 0
 
-  count = 1
+  counter = 1
   do i = 1, nelt
     if(boundary(i,1,1) == -1 .or. boundary(i,2,1) == -1 .or. boundary(i,3,1) == -1) then 
-      io_identifier(i) =  count
-      count = count + 1
+      io_identifier(i) =  counter
+      counter = counter + 1
     endif
   enddo
 
-  count = 1
+  counter = 1
   do i = 1, nelt
     if(boundary(i,1,1) == -2 .or. boundary(i,2,1) == -2 .or. boundary(i,3,1) == -2) then 
-      io_identifier(i) =  count
-      count = count + 1
+      io_identifier(i) =  counter
+      counter = counter + 1
     endif
   enddo
 

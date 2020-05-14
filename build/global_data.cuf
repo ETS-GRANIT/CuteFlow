@@ -33,23 +33,23 @@ module global
   character(len=10)   :: timedisc
   character(len=6)    :: inlet
   character(len=30)   :: loi_debitglob
-  integer :: iflux, grd, visual, fricimplic, debit_var  
-  integer :: freqvisual, freqaffich, freqjauges, nbrjauges, nbrcoupes, densite_coupe, instjauges, soldomaine, n_soldom
-  integer :: comptvisu, cptvis2d, cptvis3d, cptvideo, cptvisjauge, cptvisdom, cptdebit 
-  real(fp_kind) :: long, critere_arret, debitglob_sum, alfa
+  integer :: iflux, fricimplic, debit_var  
+  integer :: freqaffich, nbrjauges, nbrcoupes, jauges_snapshots, solrestart, restart_snapshots, coupes_snapshots
+  integer :: comptvisu, cptvideo, cptvisjauge, cptvisrestart, cptdebit, cptviscoupe
+  real(fp_kind) :: long, critere_arret, debitglob_sum
   real(fp_kind), dimension(20) :: debitglob, h_sortie
-  real(fp_kind) :: ts, tsstab, dt, cfl, tol, tolisec, tolratio, tolaffiche, tol_reg_perm
-  real(fp_kind), dimension(10) :: coupe_a, coupe_b, long_coupe
-  real(fp_kind), dimension(100000) :: tvis2d , tvis3d 
+  real(fp_kind) :: ts, tsstab, dt, cfl, tolisec, tol_reg_perm
+  real(fp_kind) :: tol=1e-6, tolaffiche=1e-2
+  real(fp_kind), dimension(10) :: coupe_a, coupe_b
   real(fp_kind), dimension(100) :: xjauges , yjauges
-  integer :: n_video, base_unique, nonlin, video, dim, k_base
+  integer :: video_snapshots, base_unique, nonlin, video, k_base
   integer :: monte_carlo, is_dry_as_wall, local_time_step
 
   !! Construction de la namelist pour la lecture du fichier de donnee
   namelist/donnees_namelist/ &
 
     !! Ancien donneeter
-    & gp, friction, fricimplic, manning, & 
+    & gp, manning, & 
 
     !! Ancien donneemai
     & meshfile, elt_bound, multi_entree, multi_sortie, &
@@ -60,15 +60,20 @@ module global
     & plan, xplan, yplan, zplan, xpoint, ypoint, zpoint&
     & solinit, fich_sol_init, &
 
+    & inlet, debitglob,debit_var,loi_debitglob, h_sortie, &
+
     !! Ancien donneesim
-    & iflux, timedisc, & 
-    & inlet,debitglob,debit_var,loi_debitglob, h_sortie, &
-    & ts, cfl, tol_reg_perm, tol, tolisec, tolratio, tolaffiche, & 
-    & grd, visual, freqvisual, freqaffich, freqjauges, instjauges, &
-    & nbrjauges, xjauges, yjauges, nbrcoupes, densite_coupe, coupe_a, coupe_b, long_coupe,  &
-    & tvis2d, tvis3d, soldomaine, n_soldom, video, n_video, alfa, &
-    & dim, monte_carlo, &
-    & is_dry_as_wall, local_time_step
+    & iflux, tolisec, timedisc, & 
+    &friction, fricimplic, &
+    & is_dry_as_wall, local_time_step,&
+
+    & ts, cfl, tol_reg_perm,& 
+    & freqaffich,&
+    & nbrjauges, jauges_snapshots &
+    & xjauges, yjauges, &
+    & nbrcoupes, coupes_snapshots, coupe_a, coupe_b,&
+    & solrestart, restart_snapshots,& 
+    & video, video_snapshots
 
   !! Input pour l'analyse stochastiqu
   character (2)  :: key, genrelt
@@ -88,10 +93,9 @@ module global
   character (2)::  num_seq_base2
   character (3)::  num_seq_base3
 
-  integer, parameter :: w=1, idim=1000, ndim=2, ndln=3     
+  integer, parameter :: w=1, ndim=2, ndln=3     
   integer, parameter :: departchrono=1
   integer, parameter :: convec=1
-  real,    parameter :: tolisec2=1.e-6, tolhfriction=1.e-4
 
   integer :: n_seq_base     
   integer :: nelt, nnt, ns, ndi, ndo, ndw, correction, prediction, nbase, nbase_h, nbase_eta, nbase_eta_tild, nbase_hu, nbase_hv, nbase_u, nbase_v, maxdimbase, nombre_input, nombre_output
@@ -104,8 +108,8 @@ module global
   real(fp_kind), dimension(20) :: debit_entree
   real(fp_kind) :: h0, coef_bol  ! Pour le problème du bol parabolique 
 
-  !real(fp_kind), dimension(200000)             :: tvis3d2 , tvis2d2, tvisjauge, tvisdom, tvideo
-  real(fp_kind), dimension(:), allocatable             :: tvis3d2 , tvis2d2, tvisjauge, tvisdom, tvideo, long_entree, cotemin_arr
+  !real(fp_kind), dimension(200000)             :: tvis3d2 , tvis2d2, tvisjauge, tvisrestart, tvideo
+  real(fp_kind), dimension(:), allocatable             :: tvis3d2 , tvis2d2, tvisjauge, tvisrestart, tvideo, long_entree, cotemin_arr, tviscoupes
   integer, dimension(:)  ,   allocatable :: ndinput, ndoutput, ndwall, i_dry_wet, nbr_nds_coupes, numero_ndinput, numero_ndoutput
   integer, dimension(:,:), allocatable :: elt_fant_recep, elt_fant_envoi
   integer, dimension(:,:), allocatable :: elt_fant_recep_bloc, elt_fant_envoi_bloc

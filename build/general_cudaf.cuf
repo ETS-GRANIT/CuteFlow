@@ -21,6 +21,27 @@ program general
 
   interface
 
+    subroutine paraview_export(solh, soleta, solhu, solhv, iaff)
+      use precision_m
+      use global
+      use m_param
+      integer, intent(in) :: iaff
+      real(fp_kind), dimension(:), intent(inout)  :: soleta, solh, solhu, solhv
+    end subroutine paraview_export
+
+    subroutine basic_export(vdlg1, solh, soleta, solhu, solhv, ci, id)
+
+      use precision_m
+      use global
+      use m_param
+
+      implicit none
+
+      integer, intent(in) :: id, ci
+      real(fp_kind), dimension(:), intent(in)  :: soleta, solh, solhu, solhv
+      real(fp_kind), dimension(:,:), intent(in)  :: vdlg1
+    end subroutine basic_export
+
     subroutine ouv_fichiers(vdlg, vdlg1, zm)
       use precision_m
       use global
@@ -190,11 +211,10 @@ program general
 
   !! Initization of the iteration counters
   comptvisu        = 0
-  cptvis2d         = 1
-  cptvis3d         = 1
   cptvideo         = 1
+  cptviscoupe      = 1
   cptvisjauge      = 1
-  cptvisdom        = 1
+  cptvisrestart        = 1
   ie_coupe_transv  = 0
   tc_init          = 0
   tc_init_d        = tc_init
@@ -220,8 +240,7 @@ program general
   allocate( she0(nnt), sh0(nnt), shu0(nnt), shv0(nnt), su0(nnt), sv0(nnt) )
 
   allocate( elts_coupes_transv(nelt, nbrcoupes), nds_coupes(nbrcoupes,nnt), nbr_nds_coupes(nbrcoupes) )
-  !real(fp_kind), dimension(:), allocatable             :: tvis3d2 , tvis2d2, tvisjauge, tvisdom, tvideo
-  allocate( tvis3d2(200000), tvis2d2(200000), tvisjauge(200000), tvisdom(200000), tvideo(200000))
+  allocate( tviscoupes(200000), tvisjauge(200000), tvisrestart(200000), tvideo(200000))
   call cuda_glerror('ierr <- device memory allocation <-- general_cudaf.cuf',1)
 
   !! Ouverture/creation des fichiers (opening / creating files)
@@ -233,20 +252,26 @@ program general
 
   !! Construction of visualization vectors in post-processing
   if (video == 1) then
-    do ii = 1,n_video
-      tvideo(ii) = ii*ts/n_video
+    do ii = 1,video_snapshots
+      tvideo(ii) = ii*ts/(1.0*video_snapshots)
     enddo
   endif
 
-  if (soldomaine == 1) then
-    do ii = 1,n_soldom
-      tvisdom(ii)= ii*ts/n_soldom
+  if (solrestart == 1) then
+    do ii = 1,restart_snapshots
+      tvisrestart(ii)= ii*ts/(1.0*restart_snapshots)
     enddo
   endif 
 
   if (nbrjauges > 0) then
-    do ii = 1,instjauges
-      tvisjauge(ii) = ii*ts/instjauges
+    do ii = 1,jauges_snapshots
+      tvisjauge(ii) = ii*ts/(1.0*jauges_snapshots)
+    enddo
+  endif
+
+  if (nbrcoupes > 0) then
+    do ii = 1,coupes_snapshots
+      tviscoupes(ii) = ii*ts/(1.0*coupes_snapshots)
     enddo
   endif
 
@@ -285,19 +310,16 @@ program general
   write(*,*) '======================================================================'  
   write(*,*) 'iflux               =', iflux
   write(*,*) 'Fricimplic          =', fricimplic
-  write(*,*) 'freqjauges          =', freqjauges
-  write(*,*) 'instjauges          =', instjauges
+  write(*,*) 'jauges_snapshots          =', jauges_snapshots
   write(*,*) 'nbrjauges           =', nbrjauges
   write(*,*) 'nbrcoupes           =', nbrcoupes
-  write(*,*) 'soldomaine          =', soldomaine
-  write(*,*) 'n_soldom            =', n_soldom
+  write(*,*) 'solrestart          =', solrestart
+  write(*,*) 'restart_snapshots    =', restart_snapshots
   write(*,*) 'video               =', video
-  write(*,*) 'n_video             =', n_video
-  write(*,*) 'alfa                =', alfa
+  write(*,*) 'video_snapshots     =', video_snapshots
   write(*,*) 'tol_reg_perm        =', tol_reg_perm
   write(*,*) 'tol                 =', tol
   write(*,*) 'tolisec             =', tolisec
-  write(*,*) 'tolratio            =', tolratio
   write(*,*) 'tolaffiche          =', tolaffiche
   write(*,*) 'freqaffich          =', freqaffich
   write(*,*) 'dry_as_wall         =', is_dry_as_wall
@@ -396,7 +418,7 @@ program general
 
   close(400)
 
-  if(soldomaine==1) then
+  if(solrestart==1) then
     close(ec_sol_elt_t)
     close(ec_sol_nd_t)
   endif
