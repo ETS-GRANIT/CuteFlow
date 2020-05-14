@@ -6,27 +6,11 @@ subroutine global_data_transfer
 
   integer :: tempinlet, ierr
 
-  pente_d             = pente
   friction_d          = friction
-  lcx_d               = lcx
-  lcy_d               = lcy
-  valxpente_d         = valxpente
-  bathyx0_d           = bathyx0
-  step_d              = step
-  xstep_d             = xstep
   gp_d                = gp
   manning_d           = manning
-  z_min_correction_d  = z_min_correction
 
   !! Mesh data variables
-  aleat_d     = aleat
-  mail_d      = mail_d
-  mtri_d      = mtri
-  nnx_d       = nnx
-  nny_d       = nny
-  numerot_d   = numerot
-  zcolumn_d   = zcolumn
-  ncel_d      = ncel
   elt_bound_d = elt_bound
 
   !! Initial data variables
@@ -66,9 +50,7 @@ subroutine global_data_transfer
   endif
 
   ! loi_debitglob_d = loi_debitglob
-  test_d          = test
   iflux_d         = iflux
-  limiteur_d      = limiteur
   grd_d           = grd
   visual_d        = visual
   fricimplic_d    = fricimplic
@@ -119,7 +101,6 @@ subroutine global_data_transfer
   tolisec2_d          =tolisec2
   tolhfriction_d      =tolhfriction
   h0_d                =h0
-  coef_bol_d          =coef_bol
 
   call cuda_glerror('ierr <- global_data_transfer <-- data_transfer.cuf',1)
 

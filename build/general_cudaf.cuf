@@ -29,10 +29,9 @@ program general
       real(fp_kind), dimension(:,:), intent(inout)    :: vdlg, vdlg1
     end subroutine ouv_fichiers
 
-    attributes(global) subroutine surfzmgradz_cudaf(p_d,z0_d,surf_d,zm_d,gradz_d,gradz2_d)
+    attributes(global) subroutine surfzmgradz_cudaf(surf_d,zm_d,gradz_d,gradz2_d)
       use precision_m
       use global_device
-      real(fp_kind), intent(in)                     :: p_d, z0_d
       real(fp_kind), dimension(:), intent(inout)    :: surf_d, zm_d
       real(fp_kind), dimension(:,:), intent(inout)  :: gradz_d, gradz2_d
     end subroutine surfzmgradz_cudaf
@@ -117,12 +116,6 @@ program general
       real(fp_kind),                intent(out)  :: scal
     end subroutine prod_scalaire
 
-    subroutine lecture_fichier_matlab(nfichier,ni, nj, matrx)
-      use precision_m
-      integer ,intent(in)                   :: nfichier, ni, nj
-      real(fp_kind), dimension(:,:),  intent(out) :: matrx
-    end subroutine lecture_fichier_matlab
-
     subroutine ouv_ferm_fich_elem_selct(ouv, ferm)
       use precision_m
       integer,               intent(in)     :: ouv, ferm
@@ -161,7 +154,7 @@ program general
   integer         :: i, ii, j, p, kk, ss, ie, iel, nt, n_MC, i_MC, af_input
   character(4)    :: i_MC_char
   integer         :: status, l, ie_coupe_transv, ierr, dev
-  real(fp_kind)   :: d2, t2, dtime2, tcm2, d, t, zero, time_start, time_stop, maxheight
+  real(fp_kind)   :: d2, t2, dtime2, tcm2, d, t, zero, time_start, time_stop
   real(fp_kind)   :: errf, errf1, errf2, errf3, errf4, errf5
   real            :: time_cuda
   type(dim3 )     :: grid, tblock, grid_nodes, tblock_nodes, grid11, tblock11
@@ -186,14 +179,14 @@ program general
 
   zero      = 0.d0
 
+  !! Ecriture du nom de process dans une chaine de caracteres
+  write(mpi_process_id_string, "(I2)") mpi_process_id
+
   !! Lecture des données (terrain, maillage, initiales, simulation)
   call lec_donnees
 
   !! Data transfer from host to device
   call global_data_transfer
-
-  !! Preparation of solution file names: solfile2d and solfile3d ****
-  write(genrtest, "(I2)") mpi_process_id
 
   !! Initization of the iteration counters
   comptvisu        = 0
@@ -262,7 +255,7 @@ program general
   grid   = dim3(ceiling(real(nelt)/real(tblock%x)), 1, 1)
   call check_gridlim(tblock, grid, 'err <- inside if (multi_simul ==0) then <-- general_cudaf.cuf (1)')
 
-  call surfzmgradz_cudaf<<<grid, tblock>>>(valxpente_d,bathyx0_d,surf_d,zm_d,gradz_d,gradz2_d)
+  call surfzmgradz_cudaf<<<grid, tblock>>>(surf_d,zm_d,gradz_d,gradz2_d)
   call cuda_glerror('ierr <- surfzmgradz_cudaf <-- general_cudaf.cuf',1)
 
   zm      = zm_d
@@ -271,14 +264,10 @@ program general
   gradz2  = gradz2_d
   call cuda_glerror('ierr <- (D->H) mem transfer surf, zm, etc <-- general_cudaf.cuf',1)
 
-  maxheight = maxval(zm)
-  write(*,*) 'The max height of the bathymetry is : ', maxheight
   write(*,*) '======================================================================'
   write(*,*) 'Mesh Parameters'
   write(*,*) '======================================================================'
   write(*,*) 'meshfile            = ', meshfile 
-  write(*,*) 'ALEAT               = ', ALEAT
-  write(*,*) 'MAIL                = ', MAIL
   write(*,*) 'elt_bound           = ', elt_bound
 
   write(*,*) '======================================================================'
@@ -294,9 +283,7 @@ program general
   write(*,*) '======================================================================'
   write(*,*) 'Simulation Parameters'
   write(*,*) '======================================================================'  
-  write(*,*) 'Test                =', test
   write(*,*) 'iflux               =', iflux
-  write(*,*) 'limiteur            =', limiteur
   write(*,*) 'Fricimplic          =', fricimplic
   write(*,*) 'freqjauges          =', freqjauges
   write(*,*) 'instjauges          =', instjauges

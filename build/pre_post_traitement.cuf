@@ -1,41 +1,3 @@
-subroutine mise_a_jr_zone_seche(zm,vdlg, vdlg1)
-  !=======================================================================
-  !     mise_a_jr_zone_seche = met jour les zones seches
-  !     auteur : Zokagoa Jean-Marie  GRANIT ETSMTL
-  !     version : 2.0  ;  Oct 09 2007
-  !=======================================================================
-
-  use precision_m
-  use global
-  use m_param
-
-  implicit none
-
-  real(fp_kind), dimension(:), intent(in)         :: zm
-  real(fp_kind), dimension(:,:), intent(inout)    :: vdlg, vdlg1
-
-  integer                 :: iel
-  real(fp_kind)           :: zero, h
-
-  zero    = 0.d0
-  do iel=1,nelt
-    vdlg(1,iel) = vdlg1(1,iel) - zm(iel)                                
-    vdlg(2,iel) = vdlg1(2,iel)
-    vdlg(3,iel) = vdlg1(3,iel)                                          
-
-    if ( vdlg(1,iel) <= tolisec ) then      
-      vdlg(1,iel)  = tolisec
-      vdlg(2,iel)  = zero
-      vdlg(3,iel)  = zero
-
-      !vdlg1(1,iel) = tolisec + zm(iel)
-      vdlg1(1,iel) = zm(iel)                  
-      vdlg1(2,iel) = zero
-      vdlg1(3,iel) = zero
-    endif
-  enddo
-end subroutine mise_a_jr_zone_seche
-
 attributes(global) subroutine mise_a_jr_zone_seche_cudaf(zm_d,vdlg_d, vdlg1_d)
   !==================================================================
   !     mise_a_jr_zone_seche = met jour les zones seches (update the dry areas)
@@ -56,10 +18,7 @@ attributes(global) subroutine mise_a_jr_zone_seche_cudaf(zm_d,vdlg_d, vdlg1_d)
   ti = threadIdx%x
   gi = (blockIdx%x - 1)*blockDim%x + ti
 
-  ! zero    = 0.d0
-  if(gi <= nelt_d) then
-    !if(gi <= nelt_d-nelt_fant_recep_d) then
-
+  if(gi <= nelt_d-nelt_fant_recep_d) then
     vdlg_dgi1 = vdlg1_d(1,gi) - zm_d(gi)
     vdlg_d(1,gi) = vdlg_dgi1
     vdlg_d(2,gi) = vdlg1_d(2,gi)
@@ -70,7 +29,6 @@ attributes(global) subroutine mise_a_jr_zone_seche_cudaf(zm_d,vdlg_d, vdlg1_d)
       vdlg_d(2,gi)  = 0.d0
       vdlg_d(3,gi)  = 0.d0
 
-      !vdlg1(1,iel) = tolisec + zm(iel)
       vdlg1_d(1,gi) = zm_d(gi)                  
       vdlg1_d(2,gi) = 0.d0
       vdlg1_d(3,gi) = 0.d0                
@@ -149,58 +107,6 @@ subroutine sol_nodes(vdlg,surf,zm,soleta,solh,solhu,solhv,solu,solv)
   deallocate(surfno , zzz)
 end subroutine sol_nodes
 
-subroutine sol_nodes_MC(H_MC,surf,zm,solh,h_eff)
-  ! ======================================================================
-  !     sol_nodes = calcul de la solution aux noeuds du maillage par
-  !                 moyennes ponderees sur les volumes entourants
-  !     auteur : Youssef Loukili  GRANIT ETSMTL
-  !     version : 1.0  ;  May 12 2003
-  ! ======================================================================
-
-  use precision_m
-  use global
-  use m_param
-
-  implicit none
-
-  real(fp_kind), dimension(:), intent(in)     :: surf, zm, H_MC
-  real(fp_kind), dimension(:), intent(inout)  :: solh, h_eff
-  
-  integer :: kvol, i, no
-  real(fp_kind)  :: surfno(nnt), zzz(nnt)
-
-  surfno = 0.0d0
-  h_eff  = 0.0d0
-  solh   = 0.0d0
-  zzz    = 0.0d0
-
-  do kvol=1,nelt
-    do i=1,ns
-      no = connectivite(kvol,i)
-      surfno(no) = surfno(no) + surf(kvol)
-      zzz(no) = zzz(no) + surf(kvol) * zm(kvol)
-      if ( H_MC(kvol)-zm(kvol) > tolisec ) then
-        h_eff(no)   = h_eff(no)  + surf(kvol) * (H_MC(kvol)-zm(kvol))
-        solh(no)    = solh(no)   + surf(kvol) * H_MC(kvol)
-      else
-        solh(no)    = solh(no)   + surf(kvol) * ( tolisec + zm(kvol) )
-      endif
-    enddo
-  enddo
-  
-  do no=1,nnt
-    zzz(no) = zzz(no) / surfno(no)
-    !zzz(no) = coordonnees(no,3)
-    h_eff(no) = h_eff(no) / surfno(no)
-    if ( h_eff(no) <= tolisec ) then
-      h_eff(no) = tolisec
-      solh(no)  = zzz(no)
-    else
-      solh(no)  = solh(no)  / surfno(no)
-    endif
-  enddo
-end subroutine sol_nodes_MC
-
 subroutine stock_coupe2D(solh, soleta, solhu, solu)
 
   use precision_m
@@ -228,7 +134,7 @@ subroutine stock_coupe2D(solh, soleta, solhu, solu)
     do j=1,nbrcoupes
       nbr_nds_coupes(j) = 0
       write(no_coupe,'(i2)') j
-      solfile2d = trim(adjustl(genrtest)) //'_FV-2D_coupe_' // trim(adjustl(no_coupe))  // "_" // trim(adjustl(valtemps)) // '_s.txt'
+      solfile2d = trim(adjustl(mpi_process_id_string)) //'_FV-2D_coupe_' // trim(adjustl(no_coupe))  // "_" // trim(adjustl(valtemps)) // '_s.txt'
       open(unit=ec_sol2d,file=solfile2d,status="unknown")
       do i=1,nnt
         coupe_y = coupe_a(j) * coordonnees(i,1) + coupe_b(j)
@@ -246,7 +152,7 @@ subroutine stock_coupe2D(solh, soleta, solhu, solu)
     write(coef_frot,'(f8.3)') manning
     do j=1,nbrcoupes
       write(no_coupe,'(i2)') j            !
-      solfile2d = trim(adjustl(genrtest)) //'_FV-2D_coupe_' // trim(adjustl(no_coupe)) // "_" // trim(adjustl(valtemps)) // '_s.txt'
+      solfile2d = trim(adjustl(mpi_process_id_string)) //'_FV-2D_coupe_' // trim(adjustl(no_coupe)) // "_" // trim(adjustl(valtemps)) // '_s.txt'
       open(unit=ec_sol2d,file=solfile2d,status="unknown")
       if(nbr_nds_coupes(j) > 0) then
         do i=1,nbr_nds_coupes(j)
@@ -275,47 +181,27 @@ subroutine ouv_fichiers(vdlg, vdlg1, zm)
   integer                 :: i
   
   open(unit=ec_bilan_sim,file='RAPPORT_SIMULATION.txt',status="unknown")
-  sol_elt_ts = trim(adjustl(genrtest))    // trim(adjustl('_SOLUTION_DERNIERE_ENREGISTREE_PAR_ELEMENT.txt'))
-  sol_elt_final = trim(adjustl(genrtest)) // trim(adjustl('_SOLUTION_FINALE_PAR_ELEMENT.txt'))
-  sol_nd_ts = trim(adjustl(genrtest))     // trim(adjustl('_SOLUTION_DERNIERE_ENREGISTREE_PAR_NOEUD.txt'))
-  sol_nd_final = trim(adjustl(genrtest))  // trim(adjustl('_SOLUTION_FINALE_PAR_NOEUD.txt'))
+  sol_elt_ts = trim(adjustl(mpi_process_id_string))    // trim(adjustl('_SOLUTION_DERNIERE_ENREGISTREE_PAR_ELEMENT.txt'))
+  sol_elt_final = trim(adjustl(mpi_process_id_string)) // trim(adjustl('_SOLUTION_FINALE_PAR_ELEMENT.txt'))
+  sol_nd_ts = trim(adjustl(mpi_process_id_string))     // trim(adjustl('_SOLUTION_DERNIERE_ENREGISTREE_PAR_NOEUD.txt'))
+  sol_nd_final = trim(adjustl(mpi_process_id_string))  // trim(adjustl('_SOLUTION_FINALE_PAR_NOEUD.txt'))
 
-  if(multi_simul==0) then
-    if(soldomaine==1) then
-      open(ec_sol_elt_t, file=sol_elt_ts, status="unknown")
-      open(ec_sol_nd_t,  file=sol_nd_ts,  status="unknown")
-    endif
-    open(ec_sol_elt_final,file=sol_elt_final,status="unknown")
-    !open(ec_sol_nd_final, file=sol_nd_final ,status="unknown")
+  if(soldomaine==1) then
+    open(ec_sol_elt_t, file=sol_elt_ts, status="unknown")
+    open(ec_sol_nd_t,  file=sol_nd_ts,  status="unknown")
   endif
+
+  open(ec_sol_elt_final,file=sol_elt_final,status="unknown")
+  open(ec_sol_nd_final, file=sol_nd_final ,status="unknown")
 
   !! Eriture de nombre total d elements en chaine de caracteres dans ntrirec
   write(ntrirec,'(i6)') nelt 
 
   select case (iflux)
   case (1)
-    genrmeth = 'LAX'
+    nom_methode = 'HLLC_ZOKA'
   case (2)
-    genrmeth = 'HLL'
-  case (3)
-    genrmeth = 'HLLC'
-  case (4)
-    select case (limiteur)
-    case (0)
-      genrmeth = 'WAF'
-    case (-1)
-      genrmeth = 'WAF-'
-    case (1)
-      genrmeth = 'WAFa'
-    case (2)
-      genrmeth = 'WAFb'
-    case (3)
-      genrmeth = 'WAFc'
-    case (4)
-      genrmeth = 'WAFd'
-    case default
-      print *,'donnee limiteur non acceptable'
-    end select
+    nom_methode = 'HLLC_RIADH'
   case default
     print *,'donnee iflux non acceptable' 
   end select
@@ -339,213 +225,21 @@ subroutine ouv_fichiers(vdlg, vdlg1, zm)
   !! Ouverture du fichier de stockage des solutions 2D  (Opening the 2D solution storage file)
   write(valtemps,'(f12.3)') TS
   if (multi_simul==0 ) then 
-    solfile2d_MC = trim(adjustl(genrtest)) // '_FV--Q' // trim(adjustl(debit_tot)) // '_n_'// trim(adjustl(coef_frot))// '_t_' // trim(adjustl(valtemps)) // '_s'// '.txt'
+    solfile2d_MC = trim(adjustl(mpi_process_id_string)) // '_FV--Q' // trim(adjustl(debit_tot)) // '_n_'// trim(adjustl(coef_frot))// '_t_' // trim(adjustl(valtemps)) // '_s'// '.txt'
   endif
   if (monte_carlo==1 ) then
-    solfile2d_MC = trim(adjustl(genrtest)) // '_SOL_FV_MULTISIM_2D.txt'
-    solfile3d_MC = trim(adjustl(genrtest)) // '_SOL_FV_MULTISIM_3D.txt'
+    solfile2d_MC = trim(adjustl(mpi_process_id_string)) // '_SOL_FV_MULTISIM_2D.txt'
+    solfile3d_MC = trim(adjustl(mpi_process_id_string)) // '_SOL_FV_MULTISIM_3D.txt'
     open(unit=3002,file=solfile2d_MC,status="unknown")
     open(unit=3003,file=solfile3d_MC,status="unknown")
   endif
 
   if (nbrcoupes>1) then
-    file_Q_coupes = trim(adjustl(genrtest)) // '_FV-debit_coupes.txt'
+    file_Q_coupes = trim(adjustl(mpi_process_id_string)) // '_FV-debit_coupes.txt'
     open(unit=ec_Q_coupes,file=file_Q_coupes,status="unknown")
   endif
 
 end subroutine ouv_fichiers
-
-subroutine ouv_ferm_fich_elem_selct(ouv, ferm)
-  ! ======================================================================
-  !     res_elem_selct == Ouvre ou ferme des fichier text d'exportation 
-  !                          des solutions des cellules selectionnées dans la prairie
-  !     auteur : Zokagoa Jean-Marie  GRANIT ETSMTL
-  !     version : 2.0  ;  mai 31 2010
-  ! ======================================================================
-
-  use precision_m
-  use global
-  use m_param
-
-  implicit none
-
-  integer, intent(in) :: ouv, ferm
-
-  if (ouv ==1 .and. ferm==0) then
-    open(unit=701,file='ELEMENT_1.txt',status="unknown")
-    open(unit=702,file='ELEMENT_2.txt',status="unknown")
-    open(unit=703,file='ELEMENT_3.txt',status="unknown")
-    open(unit=704,file='ELEMENT_4.txt',status="unknown")
-    open(unit=705,file='ELEMENT_5.txt',status="unknown")
-    open(unit=706,file='ELEMENT_6.txt',status="unknown")
-    open(unit=707,file='ELEMENT_7.txt',status="unknown")
-    open(unit=708,file='ELEMENT_8.txt',status="unknown")
-    open(unit=709,file='ELEMENT_9.txt',status="unknown")
-    open(unit=710,file='ELEMENT_10.txt',status="unknown")
-    open(unit=711,file='ELEMENT_11.txt',status="unknown")
-    open(unit=712,file='ELEMENT_12.txt',status="unknown")
-    open(unit=713,file='ELEMENT_13.txt',status="unknown")
-    open(unit=714,file='ELEMENT_14.txt',status="unknown")
-    open(unit=715,file='ELEMENT_15.txt',status="unknown")
-    open(unit=716,file='ELEMENT_16.txt',status="unknown")
-    open(unit=717,file='ELEMENT_17.txt',status="unknown")
-    open(unit=718,file='ELEMENT_18.txt',status="unknown")
-    open(unit=719,file='ELEMENT_19.txt',status="unknown")
-    open(unit=720,file='ELEMENT_20.txt',status="unknown")
-
-  elseif(ouv ==0 .and. ferm==1) then
-    close(701)
-    close(702)
-    close(703)
-    close(704)
-    close(705)
-    close(706)
-    close(707)
-    close(708)
-    close(709)
-    close(710)
-    close(711)
-    close(712)
-    close(713)
-    close(714)
-    close(715)
-    close(716)
-    close(717)
-    close(718)
-    close(719)
-    close(720)
-
-  else                
-    write(*,*) 'donnee (ouverture fermeture fichier)  non convenable'
-
-  endif
-end subroutine ouv_ferm_fich_elem_selct
-
-subroutine res_elem_selct(icel,bathy,solution)
-  ! ======================================================================
-  !     Export to a text file the solutions of the cells selected in the meadow
-  !     auteur : Zokagoa Jean-Marie  GRANIT ETSMTL
-  !     version : 2.0  ;  mai 31 2010
-  ! ======================================================================
-
-  use precision_m
-  use global
-  use m_param
-
-  implicit none
-
-  integer,               intent(in)       :: icel
-  real(fp_kind), dimension(:), intent(inout)    :: bathy
-  real(fp_kind), dimension(:,:), intent(inout)  :: solution
-
-  if (icel==elts(1))  write(701,'(5f16.6)')   tc, solution(1,icel), solution(1,icel) + bathy(icel), solution(2,icel), solution(3,icel)
-  if (icel==elts(2))  write(702,'(5f16.6)')   tc, solution(1,icel), solution(1,icel) + bathy(icel), solution(2,icel), solution(3,icel)
-  if (icel==elts(3))  write(703,'(5f16.6)')   tc, solution(1,icel), solution(1,icel) + bathy(icel), solution(2,icel), solution(3,icel)
-  if (icel==elts(4))  write(704,'(5f16.6)')   tc, solution(1,icel), solution(1,icel) + bathy(icel), solution(2,icel), solution(3,icel)
-  if (icel==elts(5))  write(705,'(5f16.6)')   tc, solution(1,icel), solution(1,icel) + bathy(icel), solution(2,icel), solution(3,icel)
-  if (icel==elts(6))  write(706,'(5f16.6)')   tc, solution(1,icel), solution(1,icel) + bathy(icel), solution(2,icel), solution(3,icel)
-  if (icel==elts(7))  write(707,'(5f16.6)')   tc, solution(1,icel), solution(1,icel) + bathy(icel), solution(2,icel), solution(3,icel)
-  if (icel==elts(8))  write(708,'(5f16.6)')   tc, solution(1,icel), solution(1,icel) + bathy(icel), solution(2,icel), solution(3,icel)
-  if (icel==elts(9))  write(709,'(5f16.6)')   tc, solution(1,icel), solution(1,icel) + bathy(icel), solution(2,icel), solution(3,icel)
-  if (icel==elts(10)) write(710,'(5f16.6)')   tc, solution(1,icel), solution(1,icel) + bathy(icel), solution(2,icel), solution(3,icel)
-  if (icel==elts(11)) write(711,'(5f16.6)')   tc, solution(1,icel), solution(1,icel) + bathy(icel), solution(2,icel), solution(3,icel)
-  if (icel==elts(12)) write(712,'(5f16.6)')   tc, solution(1,icel), solution(1,icel) + bathy(icel), solution(2,icel), solution(3,icel)
-  if (icel==elts(13)) write(713,'(5f16.6)')   tc, solution(1,icel), solution(1,icel) + bathy(icel), solution(2,icel), solution(3,icel)
-  if (icel==elts(14)) write(714,'(5f16.6)')   tc, solution(1,icel), solution(1,icel) + bathy(icel), solution(2,icel), solution(3,icel)
-  if (icel==elts(15)) write(715,'(5f16.6)')   tc, solution(1,icel), solution(1,icel) + bathy(icel), solution(2,icel), solution(3,icel)
-  if (icel==elts(16)) write(716,'(5f16.6)')   tc, solution(1,icel), solution(1,icel) + bathy(icel), solution(2,icel), solution(3,icel)
-  if (icel==elts(17)) write(717,'(5f16.6)')   tc, solution(1,icel), solution(1,icel) + bathy(icel), solution(2,icel), solution(3,icel)
-  if (icel==elts(18)) write(718,'(5f16.6)')   tc, solution(1,icel), solution(1,icel) + bathy(icel), solution(2,icel), solution(3,icel)
-  if (icel==elts(19)) write(719,'(5f16.6)')   tc, solution(1,icel), solution(1,icel) + bathy(icel), solution(2,icel), solution(3,icel)
-  if (icel==elts(20)) write(720,'(5f16.6)')   tc, solution(1,icel), solution(1,icel) + bathy(icel), solution(2,icel), solution(3,icel)
-
-end subroutine res_elem_selct
-
-subroutine res_elem_selct_ligne(icel,bathy,solution)
-  ! ======================================================================
-  !     Export to a text file the solutions of the cells selected on a line in the meadow
-  !     auteur : Zokagoa Jean-Marie  GRANIT ETSMTL
-  !     version : 2.0  ;  mai 31 2010
-  ! ======================================================================
-
-  use precision_m
-  use global
-  use m_param
-
-  implicit none
-
-  integer, intent(in)                           :: icel
-  real(fp_kind), dimension(:), intent(inout)    :: bathy
-  real(fp_kind), dimension(:,:), intent(inout)  :: solution
-
-  integer :: r
-  real(fp_kind) :: tolerance, x, y
-  integer :: s1, s2, s3, s4
-  real(fp_kind) :: x1, x2 ,x3, x4, y1, y2, y3, y4, surface
-  real(fp_kind) :: xg, yg
-
-  tolerance = 1.7
-
-  s1 = connectivite(icel,1)
-  s2 = connectivite(icel,2)
-  s3 = connectivite(icel,3)
-  x1 = coordonnees(s1,1)
-  x2 = coordonnees(s2,1)
-  x3 = coordonnees(s3,1)
-  y1 = coordonnees(s1,2)
-  y2 = coordonnees(s2,2)
-  y3 = coordonnees(s3,2)
-  xg=(x1 + x2 + x3)/3
-  yg=(y1 + y2 + y3)/3
-
-
-
-  open(unit=721,file='ligneprairie.txt',status="unknown")
-  
-  read(721,*) ncel 
-
-  do r = 1,ncel
-    read(721,*) x , y
-    if (abs(x-xg) <= tolerance .and. abs(y-yg) <= tolerance) then
-      if (xg > x0) then
-        write(ec_sol2d,'(i,6f16.6)')    icel, xg , bathy(icel), solution(1,icel), solution(1,icel) + bathy(icel), solution(2,icel), solution(3,icel)
-        x0=xg
-      endif
-    endif
-  enddo
-
-  close(721)
-end subroutine res_elem_selct_ligne
-
-subroutine lecture_fichier_matlab(nfichier, ni, nj, matrx)
-  ! =======================================================================
-  !     lecture_fichier_matlab : range en matrice le vecteur issu de matlab
-  !     auteur : Zokagoa Jean-Marie  GRANIT ETSMTL
-  !     version : 2.0  ;  17 Avril 2010
-  ! =======================================================================
-
-  use precision_m
-
-  implicit none
-
-  integer ,intent(in)                   :: nfichier, ni,nj
-  real(fp_kind), dimension(:,:),  intent(out) :: matrx
-
-  integer :: i,j,k,ninj 
-
-  j=1
-  i=1
-  ninj=ni*nj
-  do k=1,ninj 
-    read (nfichier,*) matrx(i,j)             
-    j=j+1
-    if (j>nj) then
-      j=1 
-      i=i+1
-    endif       
-  enddo
-
-end subroutine lecture_fichier_matlab
 
 subroutine bluekenue_export(solh, soleta, solhu, solhv)
   ! =================================================================================
@@ -566,10 +260,10 @@ subroutine bluekenue_export(solh, soleta, solhu, solhv)
   real(fp_kind) :: solu, solv
 
   write(valtemps,'(f12.3)') tc 
-  solfile_eta_T3S = trim(adjustl(genrtest)) // '_FV-ETA-Bluekenue_t_'// trim(adjustl(valtemps)) // 's.T3S'
-  solfile_h_T3S   = trim(adjustl(genrtest)) //   '_FV-H-Bluekenue_t_'// trim(adjustl(valtemps)) // 's.T3S'
-  solfile_u_T3S   = trim(adjustl(genrtest)) //   '_FV-U-Bluekenue_t_'// trim(adjustl(valtemps)) // 's.T3S'
-  solfile_v_T3S   = trim(adjustl(genrtest)) //   '_FV-V-Bluekenue_t_'// trim(adjustl(valtemps)) // 's.T3S'
+  solfile_eta_T3S = trim(adjustl(mpi_process_id_string)) // '_FV-ETA-Bluekenue_t_'// trim(adjustl(valtemps)) // 's.T3S'
+  solfile_h_T3S   = trim(adjustl(mpi_process_id_string)) //   '_FV-H-Bluekenue_t_'// trim(adjustl(valtemps)) // 's.T3S'
+  solfile_u_T3S   = trim(adjustl(mpi_process_id_string)) //   '_FV-U-Bluekenue_t_'// trim(adjustl(valtemps)) // 's.T3S'
+  solfile_v_T3S   = trim(adjustl(mpi_process_id_string)) //   '_FV-V-Bluekenue_t_'// trim(adjustl(valtemps)) // 's.T3S'
 
   open(unit=ec_Bluekenu_eta,file=solfile_ETA_T3S,status="unknown")
   open(unit=ec_Bluekenu_h,file=solfile_H_T3S,    status="unknown")
@@ -604,7 +298,7 @@ subroutine bluekenue_export(solh, soleta, solhu, solhv)
       solu = 0.d0
       solv = 0.d0
     endif
-    write(ec_Bluekenu_eta,'(3f16.6)') coordonnees(nd,1), coordonnees(nd,2), soleta(nd) + z_min_correction
+    write(ec_Bluekenu_eta,'(3f16.6)') coordonnees(nd,1), coordonnees(nd,2), soleta(nd)
     write(ec_Bluekenu_h,'(3f16.6)')   coordonnees(nd,1), coordonnees(nd,2), solh(nd)
     write(ec_Bluekenu_u,'(3f16.6)')   coordonnees(nd,1), coordonnees(nd,2), solu
     write(ec_Bluekenu_v,'(3f16.6)')   coordonnees(nd,1), coordonnees(nd,2), solv
@@ -644,14 +338,14 @@ subroutine basic_export(vdlg1, solh, soleta, solhu, solhv, ci, id)
   end if
 
   if(id==0 .or. id==2) then 
-    solfile_basic = trim(adjustl(trim(genrtest)))//'_sol_nodes_'//trim(adjustl(trim(valtemps)))//adjustl(trim('.txt'))
+    solfile_basic = trim(adjustl(trim(mpi_process_id_string)))//'_sol_nodes_'//trim(adjustl(trim(valtemps)))//adjustl(trim('.txt'))
     open(unit=ec_sol_basic_nd,file=solfile_basic,status="unknown")
       do nd=1,nnt
         write(ec_sol_basic_nd,'(f16.6)') soleta(nd)
       end do
     close(ec_sol_basic_nd)
   else if(id==1 .or. id==2) then 
-    solfile_basic = trim(adjustl(trim(genrtest)))//'_sol_elems_'//trim(adjustl(trim(valtemps)))//adjustl(trim('.txt'))
+    solfile_basic = trim(adjustl(trim(mpi_process_id_string)))//'_sol_elems_'//trim(adjustl(trim(valtemps)))//adjustl(trim('.txt'))
     open(unit=ec_sol_basic_elt,file=solfile_basic,status="unknown")
       do iel=1,nelt
         write(ec_sol_basic_elt,'(f16.6)') vdlg1(1,iel)
@@ -685,7 +379,7 @@ subroutine paraview_export(solh, soleta, solhu, solhv, ci)
     write(valtemps,'(I20)') ci
   end if
 
-  solfile_para = trim(adjustl(trim(genrtest)))//'_FV-Paraview_'//trim(adjustl(trim(valtemps)))//adjustl(trim('.vtk'))
+  solfile_para = trim(adjustl(trim(mpi_process_id_string)))//'_FV-Paraview_'//trim(adjustl(trim(valtemps)))//adjustl(trim('.vtk'))
 
   open(unit=ec_Paraview,file=solfile_para,status="unknown")
 
@@ -773,17 +467,13 @@ subroutine tecplot_export(solh, soleta, solhu, solhv)
 
   if ( start == 1 ) then
 
-    tecplot   =  trim(adjustl(genrtest))//'_FV-Tecplot.dat'
+    tecplot   =  trim(adjustl(mpi_process_id_string))//'_FV-Tecplot.dat'
 
     open(unit=ec_tecplot,file=tecplot,status="unknown")
 
     write(ec_tecplot,*) 'title = "hauteur"'
     write(ec_tecplot,*) 'variables = "x","y","z","h","eta","u","v", "manning"'
-    if ( ns == 3 ) then
       write(ec_tecplot,*) 'zone t="pas:',valtemps, '" , f=fepoint, n=',nnt, ',e=',nelt, ',et=triangle'
-    else
-      write(ec_tecplot,*) 'zone t="pas : valtemps ", f=fepoint, n=',nnt, ',e=',nelt, ',et=quadrilateral'
-    endif
 
     do nd=1, nnt
       write(ec_tecplot,'(8f16.6)') coordonnees(nd,1),coordonnees(nd,2),coordonnees(nd,3),solh(nd),soleta(nd),solhu(nd),solhv(nd),manning_nd(nd)
@@ -793,22 +483,14 @@ subroutine tecplot_export(solh, soleta, solhu, solhv)
     write(ec_tecplot,*)' '
 
     do i=1, nelt
-      if ( ns == 3 ) then
         write(ec_tecplot,*) connectivite(i,1) , connectivite(i,2) , connectivite(i,3)
-      else
-        write(ec_tecplot,*) connectivite(i,1), connectivite(i,2), connectivite(i,3), connectivite(i,4)
-      endif
     enddo
 
     write(ec_tecplot,*)' '
     write(ec_tecplot,*)' '
 
   else
-    if ( ns == 3 ) then
       write(ec_tecplot,*) 'zone t="pas:',tc, '" , f=fepoint, n=',nnt, ',e=',nelt, ',et=triangle', ',D=(feconnect)'
-    else
-      write(ec_tecplot,*) 'zone t="pas:',tc, '" , f=fepoint, n=',nnt, ',e=',nelt, ',et=quadrilateral', ',D=(feconnect)'
-    endif
     do nd=1, nnt
       write(ec_tecplot,'(8f16.6)') coordonnees(nd,1), coordonnees(nd,2), soleta(nd)-solh(nd), solh(nd), soleta(nd), solhu(nd), solhv(nd), manning_nd(nd)
     enddo

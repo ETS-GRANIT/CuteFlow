@@ -8,13 +8,11 @@ module global_device
   ! ======================================================================
 
   !! Terrain data variables 
-  integer, constant                  :: pente_d, friction_d
-  real(fp_kind), constant            :: lcx_d, lcy_d, valxpente_d, bathyx0_d
-  real(fp_kind), constant            :: step_d, xstep_d, gp_d, manning_d, z_min_correction_d
+  integer, constant                  :: friction_d
+  real(fp_kind), constant            :: gp_d, manning_d
 
   !! Mesh data variables
-  integer, constant                :: aleat_d, mail_d, mtri_d, nnx_d, nny_d, numerot_d, zcolumn_d
-  integer, constant                :: ncel_d, elt_bound_d
+  integer, constant                :: elt_bound_d
 
   !! Initial data variables
   integer, constant                  :: solinit_d, eqlin_barrage_d, plan_d
@@ -25,7 +23,7 @@ module global_device
   real(fp_kind), constant            :: xplan_d, yplan_d, zplan_d, xpoint_d, ypoint_d, h_point_d
 
   !! Simulation variables
-  integer, constant:: test_d, iflux_d, limiteur_d, grd_d, visual_d, fricimplic_d, debit_var_d, inlet_d, local_time_step_d
+  integer, constant:: iflux_d, grd_d, visual_d, fricimplic_d, debit_var_d, inlet_d, local_time_step_d
   integer, constant:: freqvisual_d, freqaffich_d, freqjauges_d, nbrjauges_d, nbrcoupes_d, densite_coupe_d, instjauges_d, soldomaine_d, n_soldom_d
   integer, constant:: comptvisu_d, cptvis2d_d, cptvis3d_d, cptvideo_d, cptvisjauge_d, cptvisdom_d, cptdebit_d 
   real(fp_kind), constant:: long_d, critere_arret_d, alfa_d

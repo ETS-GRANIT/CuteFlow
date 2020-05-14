@@ -12,16 +12,13 @@ module global
   integer :: mpi_process_id, num_mpi_process, mpi_ierr
 
   !! Variables donnees du terrain
-  character(len=6)    :: limiteN, limiteS, limiteW, limiteE
-  character(len=3)    :: bathy_reel
-  integer             :: pente, friction
-  real(fp_kind)             :: lcx, lcy, valxpente, bathyx0, step, xstep, gp, manning, z_min_correction
+  integer             :: friction
+  real(fp_kind)       :: gp, manning
 
 
   !! Variables donnees du maillage
   character(len=60)       :: meshfile
-  integer                 :: aleat, mail, mtri, nnx, nny, numerot, zcolumn
-  integer                 :: ncel, elt_bound, multi_entree, multi_sortie
+  integer                 :: elt_bound, multi_entree, multi_sortie
   integer, dimension(20)  :: elts
 
 
@@ -35,8 +32,8 @@ module global
   !! Variables donnees de simulation
   character(len=10)   :: timedisc
   character(len=6)    :: inlet
-  character(len=30)   :: nom_test, loi_debitglob
-  integer :: test, iflux, limiteur, pas_dt, grd, visual, fricimplic, debit_var  
+  character(len=30)   :: loi_debitglob
+  integer :: iflux, pas_dt, grd, visual, fricimplic, debit_var  
   integer :: freqvisual, freqaffich, freqjauges, nbrjauges, nbrcoupes, densite_coupe, instjauges, soldomaine, n_soldom
   integer :: comptvisu, cptvis2d, cptvis3d, cptvideo, cptvisjauge, cptvisdom, cptdebit 
   real(fp_kind) :: long, critere_arret, debitglob_sum, alfa
@@ -52,17 +49,17 @@ module global
   namelist/donnees_namelist/ &
 
     !! Ancien donneeter
-    & lcx, lcy, pente, valxpente, bathyx0, bathy_reel, step, xstep, gp, z_min_correction, friction,manning, limiteN, limiteS, limiteW, limiteE, & 
+    & gp, friction, manning, & 
 
     !! Ancien donneemai
-    & aleat, mail, mtri, nnx, nny, meshfile, elt_bound, numerot, zcolumn, ncel, elts, multi_entree, multi_sortie, &
+    & meshfile, elt_bound, multi_entree, multi_sortie, &
 
-    !! Ancien donneeini
+    !! Ancien donneeinie
     & h_amont, u_amont, v_amont, h_aval, u_aval, v_aval, & 
     & xgate, xcenter, ycenter, rayon, eqlin_barrage, x1eqbar, x2eqbar, y1eqbar, y2eqbar, plan, h_point, xplan, yplan, zplan, xpoint, ypoint, solinit, fich_sol_init, &
 
     !! Ancien donneesim
-    & test, nom_test, iflux, limiteur, fricimplic, timedisc, & 
+    & iflux, fricimplic, timedisc, & 
     & inlet,debit_var, debitglob, loi_debitglob, h_sortie, &
     & tbase, divbase, ts, dt, pas_dt, cfl, tol_reg_perm, tol, tolisec, tolratio, tolaffiche, & 
     & grd, visual, freqvisual, freqaffich, freqjauges, instjauges, &
@@ -75,7 +72,7 @@ module global
   character (2)  :: key, genrelt
   character (3)  :: un_voisin_sec
   character,  allocatable  :: un_voisin_sec1(:)
-  character (30) :: aaa1, bbb1, ntrirec, genrtest, genrmeth
+  character (30) :: aaa1, bbb1, ntrirec, mpi_process_id_string, nom_methode
   character (30) :: valtemps, D_ETA, D_DEBIT, AFF_DEBITS, debit_tot, coef_frot
   character (2)  :: njaug
   character (200):: SOLFILE2D, SOLFILE3D, SOLFILE2D_MC, SOLFILE3D_MC, TECPLOT, SOLFILEMC, fichsolfile3d_MC_FV 
@@ -139,7 +136,5 @@ module global
   real(fp_kind), allocatable :: vol_tot_entre_arr(:)
   real(fp_kind), allocatable :: vol_tot_sorti_arr(:)
   integer, allocatable :: io_identifier(:)
-  real(fp_kind), allocatable :: rtests_1d(:), rtests_2d(:,:), rtests1_1d(:), rtests1_2d(:,:)
-  real(fp_kind), allocatable :: itests_1d(:), itests_2d(:,:), itests1_1d(:), itests1_2d(:,:)
   integer :: gridxlim, gridylim
 end module global

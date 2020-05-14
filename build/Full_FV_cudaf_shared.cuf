@@ -329,10 +329,10 @@ subroutine Full_FV
   ! *** early storage solution for gauges ***!
   if ( nbrjauges > 0 .and. nodjauges(1) >  0) then
     write(njaug,'(i2)') nbrjauges
-    solfilej_eta = trim(adjustl(genrtest)) // '_FV_' // trim(adjustl(njaug)) // '_gauges_eta.txt'
-    solfilej_h = trim(adjustl(genrtest)) // '_FV_' // trim(adjustl(njaug)) // '_gauges_h.txt'
-    solfilej_u = trim(adjustl(genrtest)) // '_FV_' // trim(adjustl(njaug)) // '_gauges_u.txt'
-    solfilej_v = trim(adjustl(genrtest)) // '_FV_' // trim(adjustl(njaug)) // '_gauges_v.txt'
+    solfilej_eta = trim(adjustl(mpi_process_id_string)) // '_FV_' // trim(adjustl(njaug)) // '_gauges_eta.txt'
+    solfilej_h = trim(adjustl(mpi_process_id_string)) // '_FV_' // trim(adjustl(njaug)) // '_gauges_h.txt'
+    solfilej_u = trim(adjustl(mpi_process_id_string)) // '_FV_' // trim(adjustl(njaug)) // '_gauges_u.txt'
+    solfilej_v = trim(adjustl(mpi_process_id_string)) // '_FV_' // trim(adjustl(njaug)) // '_gauges_v.txt'
 
     open(unit=ec_solj_eta,file=solfilej_eta,status="unknown")
     open(unit=ec_solj_h,file=solfilej_h,status="unknown")
@@ -547,7 +547,6 @@ subroutine Full_FV
       call update_un_voisin_sec<<<grid11, tblock11>>>()
       call cuda_glerror('ierr<-update_un_voisin_sec <-- Full_FV_cudaf_shared.cuf',1)
 
-      if(ns == 3) then 
         if(iflux==1) then
           call cotes_cudaf3<<<grids, tblocks>>>(surf_d,zm_d,gradz_d,vdlg_d)
         else if (iflux==2) then
@@ -555,9 +554,6 @@ subroutine Full_FV
         else
           print*,"Mauvaise valeur de iflux"
         end if
-      elseif(ns == 4) then 
-        call cotes_cudaf4<<<grids, tblocks>>>(surf_d,zm_d,gradz_d,vdlg_d)
-      endif
 
 
       call cuda_glerror('ierr<-cotes_cudaf <-- Full_FV_cudaf_shared.cuf',1)
@@ -1199,7 +1195,6 @@ subroutine get_io_index
 
   io_identifier = 0
 
-  if(ns == 3) then 
     count = 1
     do i = 1, nelt
       if(boundary(i,1,1) == -1 .or. boundary(i,2,1) == -1 .or. boundary(i,3,1) == -1) then 
@@ -1216,24 +1211,6 @@ subroutine get_io_index
       endif
     enddo
 
-  elseif (ns == 4) then 
-
-    count = 1
-    do i = 1, nelt
-      if(boundary(i,1,1) == -1 .or. boundary(i,2,1) == -1 .or. boundary(i,3,1) == -1 .or. boundary(i,4,1) == -1) then 
-        io_identifier(i) =  count
-        count = count + 1
-      endif
-    enddo
-
-    count = 1
-    do i = 1, nelt
-      if(boundary(i,1,1) == -2 .or. boundary(i,2,1) == -2 .or. boundary(i,3,1) == -2 .or. boundary(i,4,1) == -2) then 
-        io_identifier(i) =  count
-        count = count + 1
-      endif
-    enddo
-  endif
 
   io_identifier_d = io_identifier
   call cuda_glerror('ierr <- (H->D) data transfer (2) <-- get_io_index <--- Full_FV_cudaf_shared.cuf ',1)
