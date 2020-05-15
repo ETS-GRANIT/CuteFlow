@@ -3,7 +3,7 @@ echo "
 
   ! Données du terrain
   GP=9.81,
-  manning=0.02200,                                                ! nombre de manning qui n'a aucun impact pour l'instant
+  manning=$4,                                                ! nombre de manning qui n'a aucun impact pour l'instant
 
   ! Données du maillage
   meshfile='Mille_Iles_mesh_481930_elts.txt',                     ! Fichier de maillage
