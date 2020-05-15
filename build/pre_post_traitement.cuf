@@ -172,18 +172,13 @@ subroutine ouv_fichiers(vdlg, vdlg1, zm)
   integer                 :: i
 
   open(unit=ec_bilan_sim,file='RAPPORT_SIMULATION.txt',status="unknown")
-  sol_elt_ts = trim(adjustl(mpi_process_id_string))    // trim(adjustl('_SOLUTION_DERNIERE_ENREGISTREE_PAR_ELEMENT.txt'))
-  sol_elt_final = trim(adjustl(mpi_process_id_string)) // trim(adjustl('_SOLUTION_FINALE_PAR_ELEMENT.txt'))
-  sol_nd_ts = trim(adjustl(mpi_process_id_string))     // trim(adjustl('_SOLUTION_DERNIERE_ENREGISTREE_PAR_NOEUD.txt'))
-  sol_nd_final = trim(adjustl(mpi_process_id_string))  // trim(adjustl('_SOLUTION_FINALE_PAR_NOEUD.txt'))
+  sol_elt_ts = trim(adjustl(mpi_process_id_string))    // trim(adjustl('_solution_elements_restart.txt'))
+  sol_nd_ts = trim(adjustl(mpi_process_id_string))     // trim(adjustl('_solution_noeuds.txt'))
 
   if(solrestart==1) then
     open(ec_sol_elt_t, file=sol_elt_ts, status="unknown")
     open(ec_sol_nd_t,  file=sol_nd_ts,  status="unknown")
   endif
-
-  open(ec_sol_elt_final,file=sol_elt_final,status="unknown")
-  open(ec_sol_nd_final, file=sol_nd_final ,status="unknown")
 
   !! Eriture de nombre total d elements en chaine de caracteres dans ntrirec
   write(ntrirec,'(i6)') nelt 
@@ -327,14 +322,14 @@ subroutine basic_export(vdlg1, solh, soleta, solhu, solhv, ci, id)
   end if
 
   if(id==0 .or. id==2) then 
-    solfile_basic = trim(adjustl(trim(mpi_process_id_string)))//'_sol_nodes_'//trim(adjustl(trim(valtemps)))//adjustl(trim('.txt'))
+    solfile_basic = trim(adjustl(trim(mpi_process_id_string)))//'_solution_noeuds_basic_'//trim(adjustl(trim(valtemps)))//adjustl(trim('.txt'))
     open(unit=ec_sol_basic_nd,file=solfile_basic,status="unknown")
     do nd=1,nnt
       write(ec_sol_basic_nd,'(f16.6)') soleta(nd)
     end do
     close(ec_sol_basic_nd)
   else if(id==1 .or. id==2) then 
-    solfile_basic = trim(adjustl(trim(mpi_process_id_string)))//'_sol_elems_'//trim(adjustl(trim(valtemps)))//adjustl(trim('.txt'))
+    solfile_basic = trim(adjustl(trim(mpi_process_id_string)))//'_solution_elements_basic_'//trim(adjustl(trim(valtemps)))//adjustl(trim('.txt'))
     open(unit=ec_sol_basic_elt,file=solfile_basic,status="unknown")
     do iel=1,nelt
       write(ec_sol_basic_elt,'(f16.6)') vdlg1(1,iel)

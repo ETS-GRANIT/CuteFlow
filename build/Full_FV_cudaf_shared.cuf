@@ -256,7 +256,7 @@ subroutine Full_FV
   comptvisu   = 0
   cond_reg_perm  = 0
   cptviscoupe = 1
-  cptvisjauge = 1
+  cptsoljauge = 1
   tc_d        = tc
   kk          = 1
   is_solnode  = 0
@@ -641,7 +641,7 @@ subroutine Full_FV
     if ( mod(nt,freqaffich)==0 ) then
       print*,'-----------------------------------------------'
       write(*,*) 'nt = ', nt
-      print*,' prochain tvideo = ', tvideo(cptvideo), cptvideo
+      print*,' prochain tsolvtk = ', tsolvtk(cptsolvtk), cptsolvtk
       if (tc < 3600)   print*, 'tc = ', tc, ' Secondes   =>', tc/60,    ' Minutes' 
       if (tc >= 3600)  print*, 'tc = ', tc, ' Secondes   =>', tc/3600,  ' Heures'
       if (tc >= 86400) print*, 'tc = ', tc, ' Secondes   =>', tc/86400, ' Jours'
@@ -666,7 +666,7 @@ subroutine Full_FV
     ! read in the simulation data ***
     som_Q_coupe = 0.d0
 
-    if ( abs( tc - tviscoupes(cptviscoupe) ) < tolaffiche) then
+    if ( abs( tc - tsolcoupes(cptviscoupe) ) < tolaffiche) then
       if (nbrcoupes > 0 ) then
         if(is_solnode == 0) then 
           vdlg = vdlg_d
@@ -682,7 +682,7 @@ subroutine Full_FV
     endif
 
     ! *** stockage de la solution pour les positions des gauges 'xjauges' et 'yjauges' ***
-    if ( abs( tc - tvisjauge(cptvisjauge) ) <= tolaffiche) then
+    if ( abs( tc - tsoljauge(cptsoljauge) ) <= tolaffiche) then
       if ( nbrjauges > 0 .and. nodjauges(1) >  0) then
         if ( nbrjauges <= 30 ) then
           if(is_solnode == 0) then 
@@ -698,7 +698,7 @@ subroutine Full_FV
         else
           if ( nbrjauges > 30) write(*,*) '*** Attention : nombre de jauges > 30 ***'
         endif
-        cptvisjauge = cptvisjauge + 1
+        cptsoljauge = cptsoljauge + 1
       endif
 
       ! Ecriture des debits a travers les differentes coupes
@@ -706,25 +706,35 @@ subroutine Full_FV
     endif
 
     ! *** Stockage de la solution pour postraitement et animation 
-    if (video == 1) then
-      if ( abs( tc - tvideo(cptvideo) ) <= tolaffiche) then
-        if(is_solnode == 0) then 
-          vdlg = vdlg_d
-          call cuda_glerror('ierr<- (D->H) data_transfer into vdlg(3) <-- Full_FV_cudaf_shared.cuf',1)
-          call sol_nodes(vdlg,surf,zm,sh0,she0,shu0,shv0,su0,sv0)
-          is_solnode = 1
-        endif
-
-        start=0
-        !call tecplot_export (she0, sh0, shu0, shv0)
-        call paraview_export (she0, sh0, shu0, shv0, cptvideo)
-        call basic_export (vdlg1, she0, sh0, shu0, shv0, cptvideo, 0)
-        cptvideo = cptvideo + 1
+    if (solvtk == 1 .and. abs( tc - tsolvtk(cptsolvtk) ) <= tolaffiche) then
+      if(is_solnode == 0) then 
+        vdlg = vdlg_d
+        call cuda_glerror('ierr<- (D->H) data_transfer into vdlg(3) <-- Full_FV_cudaf_shared.cuf',1)
+        call sol_nodes(vdlg,surf,zm,sh0,she0,shu0,shv0,su0,sv0)
+        is_solnode = 1
       endif
+
+      start=0
+      call paraview_export (she0, sh0, shu0, shv0, cptsolvtk)
+      cptsolvtk = cptsolvtk + 1
     endif
 
+    if (solbasic == 1 .and. abs( tc - tsolbasic(cptsolbasic) ) <= tolaffiche) then
+      if(is_solnode == 0) then 
+        vdlg = vdlg_d
+        call cuda_glerror('ierr<- (D->H) data_transfer into vdlg(3) <-- Full_FV_cudaf_shared.cuf',1)
+        call sol_nodes(vdlg,surf,zm,sh0,she0,shu0,shv0,su0,sv0)
+        is_solnode = 1
+      endif
+
+      start=0
+      call basic_export (vdlg1, she0, sh0, shu0, shv0, cptsolbasic, 0)
+      cptsolbasic = cptsolbasic + 1
+    endif
+
+
     !STOCKAGE DE SOLUTIONS INTERMEDIAIRES  (Pour redemarrage)
-    if(solrestart==1 .and. abs( tc - tvisrestart(cptvisrestart) ) <= tolaffiche) then
+    if(solrestart==1 .and. abs( tc - tsolrestart(cptsolrestart) ) <= tolaffiche) then
       if(is_solnode == 0) then 
         vdlg = vdlg_d
         call cuda_glerror('ierr<- (D->H) data_transfer into vdlg(3)',1)
@@ -746,7 +756,7 @@ subroutine Full_FV
         write(ec_sol_nd_t,'(7f16.6)')  coordonnees(nd,1),coordonnees(nd,2),sh0(nd)-she0(nd),she0(nd),sh0(nd),shu0(nd),shv0(nd)
       enddo
 
-      cptvisrestart = cptvisrestart + 1
+      cptsolrestart = cptsolrestart + 1
     endif
 
     rewind (ec_sol_elt_t)
@@ -818,23 +828,39 @@ subroutine Full_FV
 
   call cuda_glerror('ierr<- (D->H) data_transfer into vdlg(DEBUT DU POSTRAITEMENT) <-- Full_FV_cudaf_shared.cuf',1)
 
-  call sol_nodes(vdlg,surf,zm,sh0,she0,shu0,shv0,su0,sv0)
 
   !*********     DEBUT DU POSTRAITEMENT   *********
   if ( t_reg_perm > 0.0) tc  = t_reg_perm 
 
+  vdlg = vdlg_d
+  vdlg1 = vdlg1_d
+
+  call sol_nodes(vdlg,surf,zm,sh0,she0,shu0,shv0,su0,sv0)
+
   !!Enregistrement de la solution finale pour post-traitement avec Bluekenue/Paraview
 
-  vdlg = vdlg_d
-  call bluekenue_export (she0, sh0, shu0, shv0)
-  call paraview_export (she0, sh0, shu0, shv0, -1)
-  call basic_export (vdlg1, she0, sh0, shu0, shv0, -1, 0)
+  if(sortie_finale_bluekenue) then
+    call bluekenue_export(she0, sh0, shu0, shv0)
+  end if
 
   !STORAGE OF FINAL SOLUTIONS IN ALL ELEMENTS OF THE DOMAIN (For restarting)
-  write(ec_sol_elt_final,*) tc                        
-  do i=1,nelt
-    write(ec_sol_elt_final,'(4f16.6)') vdlg(1,i), vdlg1(1,i), vdlg1(2,i), vdlg1(3,i)
-  enddo
+  if(solrestart==1 .and. abs( tc - tsolrestart(cptsolrestart) ) <= tolaffiche) then
+    write(ec_sol_elt_t,*) tc                        
+    do iel=1,nelt
+      write(ec_sol_elt_t,'(4f16.6)') vdlg(1,iel), vdlg1(1,iel), vdlg1(2,iel), vdlg1(3,iel)
+    enddo
+
+    write(ec_sol_nd_t,*) tc
+    do nd=1,nnt
+      write(ec_sol_nd_t,'(7f16.6)')  coordonnees(nd,1),coordonnees(nd,2),sh0(nd)-she0(nd),she0(nd),sh0(nd),shu0(nd),shv0(nd)
+    enddo
+
+    cptsolrestart = cptsolrestart + 1
+  endif
+  if(solbasic==1 .and. abs( tc - tsolbasic(cptsolbasic) ) <= tolaffiche) then
+    call basic_export (vdlg1, she0, sh0, shu0, shv0, cptsolbasic, 0)
+    cptsolbasic = cptsolbasic + 1
+  endif
 
   call cpu_time(tf)
 

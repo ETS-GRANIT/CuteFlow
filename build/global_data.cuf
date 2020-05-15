@@ -24,7 +24,7 @@ module global
 
   !! Variables donnees initiales
   character(len=200)  :: fich_sol_init
-  integer             :: solinit, eqlin_barrage, plan
+  integer             :: solinit, eqlin_barrage, plan, sortie_finale_bluekenue, solbasic
   real(fp_kind)             :: h_amont, u_amont, v_amont, h_aval, u_aval, v_aval
   real(fp_kind)             :: xplan, yplan, zplan, xpoint, ypoint, zpoint
   real(fp_kind)             :: x1eqbar, x2eqbar, y1eqbar, y2eqbar
@@ -35,27 +35,24 @@ module global
   character(len=30)   :: loi_debitglob
   integer :: iflux, fricimplic, debit_var  
   integer :: freqaffich, nbrjauges, nbrcoupes, jauges_snapshots, solrestart, restart_snapshots, coupes_snapshots
-  integer :: comptvisu, cptvideo, cptvisjauge, cptvisrestart, cptdebit, cptviscoupe
+  integer :: comptvisu, cptsolvtk, cptsoljauge, cptsolrestart, cptdebit, cptviscoupe, cptsolbasic
   real(fp_kind) :: long, critere_arret, debitglob_sum
   real(fp_kind), dimension(20) :: debitglob, h_sortie
   real(fp_kind) :: ts, tsstab, dt, cfl, tolisec, tol_reg_perm
   real(fp_kind) :: tol=1e-6, tolaffiche=1e-2
   real(fp_kind), dimension(10) :: coupe_a, coupe_b
   real(fp_kind), dimension(100) :: xjauges , yjauges
-  integer :: video_snapshots, base_unique, nonlin, video, k_base
+  integer :: vtk_snapshots, base_unique, nonlin, solvtk, k_base
   integer :: monte_carlo, is_dry_as_wall, local_time_step
 
   !! Construction de la namelist pour la lecture du fichier de donnee
   namelist/donnees_namelist/ &
 
-  !! Ancien donneeter
   & gp, &
   & is_override_manning, override_manning, & 
 
-  !! Ancien donneemai
   & meshfile, elt_bound, multi_entree, multi_sortie, &
 
-  !! Ancien donneeinie
   & eqlin_barrage, x1eqbar, x2eqbar, y1eqbar, y2eqbar, &
   & h_amont, u_amont, v_amont, h_aval, u_aval, v_aval, & 
   & plan, xplan, yplan, zplan, xpoint, ypoint, zpoint&
@@ -63,9 +60,8 @@ module global
 
   & inlet, debitglob,debit_var,loi_debitglob, h_sortie, &
 
-  !! Ancien donneesim
   & iflux, tolisec, timedisc, & 
-  &friction, fricimplic, &
+  & friction, fricimplic, &
   & is_dry_as_wall, local_time_step,&
    
   & ts, cfl, tol_reg_perm,& 
@@ -74,7 +70,9 @@ module global
   & xjauges, yjauges, &
   & nbrcoupes, coupes_snapshots, coupe_a, coupe_b,&
   & solrestart, restart_snapshots,& 
-  & video, video_snapshots
+  & solbasic, basic_snapshots, &
+  & solvtk, vtk_snapshots,&
+  & sortie_finale_bluekenue
 
   !! Input pour l'analyse stochastiqu
   character (2)  :: key, genrelt
@@ -109,8 +107,8 @@ module global
   real(fp_kind), dimension(20) :: debit_entree
   real(fp_kind) :: h0, coef_bol  ! Pour le problème du bol parabolique 
 
-  !real(fp_kind), dimension(200000)             :: tvis3d2 , tvis2d2, tvisjauge, tvisrestart, tvideo
-  real(fp_kind), dimension(:), allocatable             :: tvis3d2 , tvis2d2, tvisjauge, tvisrestart, tvideo, long_entree, cotemin_arr, tviscoupes
+  !real(fp_kind), dimension(200000)             :: tvis3d2 , tvis2d2, tsoljauge, tsolrestart, tsolvtk
+  real(fp_kind), dimension(:), allocatable             :: tvis3d2 , tvis2d2, tsoljauge, tsolrestart, tsolvtk, long_entree, cotemin_arr, tsolcoupes, tsolbasic
   integer, dimension(:)  ,   allocatable :: ndinput, ndoutput, ndwall, i_dry_wet, nbr_nds_coupes, numero_ndinput, numero_ndoutput
   integer, dimension(:,:), allocatable :: elt_fant_recep, elt_fant_envoi
   integer, dimension(:,:), allocatable :: elt_fant_recep_bloc, elt_fant_envoi_bloc

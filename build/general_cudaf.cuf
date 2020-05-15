@@ -203,10 +203,11 @@ program general
 
   !! Initization of the iteration counters
   comptvisu        = 0
-  cptvideo         = 1
   cptviscoupe      = 1
-  cptvisjauge      = 1
-  cptvisrestart        = 1
+  cptsolvtk        = 0
+  cptsoljauge      = 1
+  cptsolrestart    = 1
+  cptsolbasic      = 0
   ie_coupe_transv  = 0
   tc_init          = 0
   tc_init_d        = tc_init
@@ -230,7 +231,7 @@ program general
   allocate( she0(nnt), sh0(nnt), shu0(nnt), shv0(nnt), su0(nnt), sv0(nnt) )
 
   allocate( nds_coupes(nbrcoupes,nnt), nbr_nds_coupes(nbrcoupes) )
-  allocate( tviscoupes(200000), tvisjauge(200000), tvisrestart(200000), tvideo(200000))
+  allocate( tsolcoupes(200000), tsoljauge(200000), tsolrestart(200000), tsolvtk(200000), tsolbasic(200000))
   call cuda_glerror('ierr <- device memory allocation <-- general_cudaf.cuf',1)
 
   !! Ouverture/creation des fichiers (opening / creating files)
@@ -241,27 +242,33 @@ program general
   call cuda_glerror('errf <- (H->D) data transfer to vdlg, vdlg1_d after call ouv_fichiers <-- general_cudaf.cuf',1)
 
   !! Construction of visualization vectors in post-processing
-  if (video == 1) then
-    do ii = 1,video_snapshots
-      tvideo(ii) = ii*ts/(1.0*video_snapshots)
+  if (solvtk == 1) then
+    do ii = 1,vtk_snapshots
+      tsolvtk(ii) = ii*ts/(1.0*vtk_snapshots)
+    enddo
+  endif
+
+  if (solbasic == 1) then
+    do ii = 1,basic_snapshots
+      tsolbasic(ii) = ii*ts/(1.0*basic_snapshots)
     enddo
   endif
 
   if (solrestart == 1) then
     do ii = 1,restart_snapshots
-      tvisrestart(ii)= ii*ts/(1.0*restart_snapshots)
+      tsolrestart(ii)= ii*ts/(1.0*restart_snapshots)
     enddo
   endif 
 
   if (nbrjauges > 0) then
     do ii = 1,jauges_snapshots
-      tvisjauge(ii) = ii*ts/(1.0*jauges_snapshots)
+      tsoljauge(ii) = ii*ts/(1.0*jauges_snapshots)
     enddo
   endif
 
   if (nbrcoupes > 0) then
     do ii = 1,coupes_snapshots
-      tviscoupes(ii) = ii*ts/(1.0*coupes_snapshots)
+      tsolcoupes(ii) = ii*ts/(1.0*coupes_snapshots)
     enddo
   endif
 
@@ -297,8 +304,8 @@ program general
   write(*,*) 'nbrcoupes           =', nbrcoupes
   write(*,*) 'solrestart          =', solrestart
   write(*,*) 'restart_snapshots   =', restart_snapshots
-  write(*,*) 'video               =', video
-  write(*,*) 'video_snapshots     =', video_snapshots
+  write(*,*) 'solvtk               =', solvtk
+  write(*,*) 'vtk_snapshots     =', vtk_snapshots
   write(*,*) 'tol_reg_perm        =', tol_reg_perm
   write(*,*) 'tol                 =', tol
   write(*,*) 'tolisec             =', tolisec
@@ -362,11 +369,17 @@ program general
   call sol_nodes(vdlg0,surf,zm,sh0,she0,shu0,shv0,su0,sv0)
 
   !!  Storage for postraitement with possibility of animation (Tecplot)
-  if (video == 1) then             
+  if(solvtk) then             
     start=1
-    call paraview_export(she0, sh0, shu0, shv0, 0)
-    call basic_export (vdlg01, she0, sh0, shu0, shv0, 0, 0)
+    call paraview_export(she0, sh0, shu0, shv0, cptsolvtk)
+    cptsolvtk = cptsolvtk + 1
   endif
+
+  if(solbasic) then
+    start=1
+    call basic_export (vdlg01, she0, sh0, shu0, shv0, cptsolbasic, 0)
+    cptsolbasic = cptsolbasic + 1
+  end if
 
   !! Storage solution for 2D slices
   if (nbrcoupes > 0 ) then
@@ -403,8 +416,6 @@ program general
     close(ec_sol_nd_t)
   endif
 
-  close(ec_sol_elt_final)
-
   deallocate(manning_nelt, manning_nd)
   deallocate(manning_nelt_d, manning_nd_d)
   deallocate(cotemin_arr, cotemin_arr_d)
@@ -420,7 +431,7 @@ program general
     deallocate(nds_coupes, nbr_nds_coupes)
   end if
 
-  deallocate(tviscoupes, tvisjauge, tvisrestart, tvideo)
+  deallocate(tsolcoupes, tsoljauge, tsolrestart, tsolvtk, tsolbasic)
 
   deallocate(boundary, boundary_d)
   deallocate(coo_table_elemwise, coo_table_elemwise_d)

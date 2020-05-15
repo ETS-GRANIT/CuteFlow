@@ -52,9 +52,9 @@ subroutine global_data_transfer
   debit_var_d     = debit_var 
   freqaffich_d    = freqaffich
   comptvisu_d     = comptvisu
-  cptvideo_d      = cptvideo
-  cptvisjauge_d   = cptvisjauge
-  cptvisrestart_d     = cptvisrestart
+  cptsolvtk_d      = cptsolvtk
+  cptsoljauge_d   = cptsoljauge
+  cptsolrestart_d     = cptsolrestart
   cptdebit_d      = cptdebit 
   long_d          = long
   critere_arret_d = critere_arret

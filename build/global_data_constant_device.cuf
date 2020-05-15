@@ -24,7 +24,7 @@ module global_device
   !! Simulation variables
   integer, constant:: iflux_d, fricimplic_d, debit_var_d, inlet_d, local_time_step_d
   integer, constant:: freqaffich_d
-  integer, constant:: comptvisu_d, cptvideo_d, cptvisjauge_d, cptvisrestart_d, cptdebit_d 
+  integer, constant:: comptvisu_d, cptsolvtk_d, cptsoljauge_d, cptsolrestart_d, cptdebit_d 
   real(fp_kind), constant:: long_d, critere_arret_d
   real(fp_kind), dimension(20), constant:: debitglob_d, h_sortie_d
   real(fp_kind), constant:: ts_d, tsstab_d, dt_d, cfl_d, tol_d, tolisec_d, tolaffiche_d, tol_reg_perm_d
