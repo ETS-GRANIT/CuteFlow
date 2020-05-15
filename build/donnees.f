@@ -2,11 +2,11 @@
 
   ! Données du terrain
   GP=9.81,
-  manning=0.02200,                                                ! nombre de manning qui n'a aucun impact pour l'instant
+  is_override_manning=1, override_manning=0.02200,                ! nombre de manning qui override les autes si is_...=1
 
   ! Données du maillage
   meshfile='Mille_Iles_mesh_481930_elts.txt',                     ! Fichier de maillage
-  elt_bound=0,                                                    ! 1 si le fichier boundary_table existe déja
+  elt_bound=1,                                                    ! 1 si le fichier boundary_table existe déja
   multi_entree=0, multi_sortie=0,                                 ! 0 si fichier non formaté pour plusieurs entrées/sorties
 
   ! Initialisation avec un Barrage
@@ -40,7 +40,7 @@
   is_dry_as_wall=0,                                               ! 1 pour mettre les mailles seches comme des murs
   local_time_step=0,                                              ! 1 pour utiliser le local time step
 
-  TS=30.0, CFL=0.2,                                              ! Temps maximal de simultion, nombre CFL
+  TS=10.0, CFL=0.2,                                               ! Temps maximal de simultion, nombre CFL
   tol_reg_perm=1.0E-15,                                           ! Tolérence relative entre debit entrée et débit sortie
   freqaffich=5000,                                                ! Frequence de print dans outfile.[0-9]
 
@@ -55,4 +55,4 @@
 
   solrestart=0, restart_snapshots=2,                              ! Sauvegarde en overwrite la solution sur le domaine
 
-  video=1, video_snapshots=10/                                   ! 1 pour sauvegarder video, nombre de snapshots (vtk+pierre)
+  video=0, video_snapshots=10/                                    ! 1 pour sauvegarder video, nombre de snapshots (vtk+pierre)
