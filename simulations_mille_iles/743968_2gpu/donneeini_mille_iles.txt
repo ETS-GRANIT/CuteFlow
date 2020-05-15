@@ -1,8 +1,0 @@
-&DATAINIT  H_AMONT=31.3505 , U_AMONT=0 , V_AMONT=0 ,
-           H_AVAL =0. , U_AVAL =0 , V_AVAL =0 ,
-           XGATE=601000.0 , XCENTER=20 , YCENTER=20 , RAYON=2.5,
-           eqlin_barrage=1, 
-           x1eqbar=274956.783790834, x2eqbar=275034.184652595, 
-           y1eqbar=5043746.46205659, y2eqbar=5043642.1013441,
-           solinit=0, 
-           fich_sol_init='Mille_Iles_solution_initiale_t67500s.txt'/
