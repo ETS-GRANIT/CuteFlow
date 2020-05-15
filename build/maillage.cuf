@@ -259,6 +259,7 @@ subroutine lec_mail_tri
       enddo
     endif
   end if
+  print*,"id ", mpi_process_id, ", ", ndi, " noeuds d'entree"
 
   !! table des noeuds de la sortie :
   read(lec_mesh,*) tarati
@@ -276,8 +277,8 @@ subroutine lec_mail_tri
       enddo
     end if
   else
+    read(lec_mesh,*) ndo, nombre_output
     if(ndo>0) then
-      read(lec_mesh,*) ndo, nombre_output
       allocate(numero_ndoutput(ndo))
       allocate(numero_ndoutput_d(ndo))
       allocate(ndoutput(ndo))
@@ -287,6 +288,7 @@ subroutine lec_mail_tri
       enddo
     endif
   endif
+  print*,"id ", mpi_process_id, ", ", ndo, " noeuds de sortie"
 
   !! table des noeuds de la frontière solide :
   read(lec_mesh,*) tarati
