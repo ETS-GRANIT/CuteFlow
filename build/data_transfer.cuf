@@ -8,7 +8,8 @@ subroutine global_data_transfer
 
   friction_d          = friction
   gp_d                = gp
-  manning_d           = manning
+  is_override_manning_d  = is_override_manning
+  override_manning_d  = override_manning
 
   !! Mesh data variables
   elt_bound_d = elt_bound
@@ -34,7 +35,7 @@ subroutine global_data_transfer
   xpoint_d = xpoint
   ypoint_d = ypoint
   zpoint_d = zpoint
-  
+
 
   !! Simulation variables
   if(inlet == 'transm') then

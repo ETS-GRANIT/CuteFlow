@@ -123,7 +123,6 @@ subroutine lect_const_mail
 
   call construct_coo_table_elemwise
 
-  !deallocate(coo_table_elemwise, x_centroid, y_centroid)
 
   !! distance cote entre 1er et 2eme noeuds ***
   premnoeud = connectivite(1,1)

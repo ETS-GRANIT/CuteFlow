@@ -104,7 +104,7 @@ subroutine sol_nodes(vdlg,surf,zm,soleta,solh,solhu,solhv,solu,solv)
     endif
   enddo
 
-  deallocate(surfno , zzz)
+  deallocate(surfno, zzz)
 end subroutine sol_nodes
 
 subroutine stock_coupe2D(solh, soleta, solhu, solu)
@@ -114,7 +114,7 @@ subroutine stock_coupe2D(solh, soleta, solhu, solu)
   use m_param
 
   implicit none
-  
+
   real(fp_kind), dimension(:), intent(inout)  :: solh, soleta, solhu, solu
 
   character (10) :: no_coupe
@@ -170,7 +170,7 @@ subroutine ouv_fichiers(vdlg, vdlg1, zm)
   real(fp_kind), dimension(:,:), intent(inout)    :: vdlg, vdlg1
 
   integer                 :: i
-  
+
   open(unit=ec_bilan_sim,file='RAPPORT_SIMULATION.txt',status="unknown")
   sol_elt_ts = trim(adjustl(mpi_process_id_string))    // trim(adjustl('_SOLUTION_DERNIERE_ENREGISTREE_PAR_ELEMENT.txt'))
   sol_elt_final = trim(adjustl(mpi_process_id_string)) // trim(adjustl('_SOLUTION_FINALE_PAR_ELEMENT.txt'))
@@ -212,7 +212,7 @@ subroutine ouv_fichiers(vdlg, vdlg1, zm)
     debitglob_d = debitglob
     debitglob_sum = sum(debitglob)
   endif
-  
+
   !! Ouverture du fichier de stockage des solutions 2D  (Opening the 2D solution storage file)
   write(valtemps,'(f12.3)') TS
   solfile2d_MC = trim(adjustl(mpi_process_id_string)) // '_FV--Q' // trim(adjustl(debit_tot)) // '_n_'// trim(adjustl(coef_frot))// '_t_' // trim(adjustl(valtemps)) // '_s'// '.txt'
@@ -263,7 +263,7 @@ subroutine bluekenue_export(solh, soleta, solhu, solhv)
   write(ec_Bluekenu_eta,*) ':ElementCount', nelt
   write(ec_Bluekenu_eta,*) ':ElementType  T3'
   write(ec_Bluekenu_eta,*) ':EndHeader'
-  
+
   write(ec_Bluekenu_h,*) ':NodeCount', nnt
   write(ec_Bluekenu_h,*) ':ElementCount', nelt
   write(ec_Bluekenu_h,*) ':ElementType  T3'
@@ -273,7 +273,7 @@ subroutine bluekenue_export(solh, soleta, solhu, solhv)
   write(ec_Bluekenu_u,*) ':ElementCount', nelt
   write(ec_Bluekenu_u,*) ':ElementType  T3'
   write(ec_Bluekenu_u,*) ':EndHeader'
-  
+
   write(ec_Bluekenu_v,*) ':NodeCount', nnt
   write(ec_Bluekenu_v,*) ':ElementCount', nelt
   write(ec_Bluekenu_v,*) ':ElementType  T3'
@@ -329,16 +329,16 @@ subroutine basic_export(vdlg1, solh, soleta, solhu, solhv, ci, id)
   if(id==0 .or. id==2) then 
     solfile_basic = trim(adjustl(trim(mpi_process_id_string)))//'_sol_nodes_'//trim(adjustl(trim(valtemps)))//adjustl(trim('.txt'))
     open(unit=ec_sol_basic_nd,file=solfile_basic,status="unknown")
-      do nd=1,nnt
-        write(ec_sol_basic_nd,'(f16.6)') soleta(nd)
-      end do
+    do nd=1,nnt
+      write(ec_sol_basic_nd,'(f16.6)') soleta(nd)
+    end do
     close(ec_sol_basic_nd)
   else if(id==1 .or. id==2) then 
     solfile_basic = trim(adjustl(trim(mpi_process_id_string)))//'_sol_elems_'//trim(adjustl(trim(valtemps)))//adjustl(trim('.txt'))
     open(unit=ec_sol_basic_elt,file=solfile_basic,status="unknown")
-      do iel=1,nelt
-        write(ec_sol_basic_elt,'(f16.6)') vdlg1(1,iel)
-      end do
+    do iel=1,nelt
+      write(ec_sol_basic_elt,'(f16.6)') vdlg1(1,iel)
+    end do
     close(ec_sol_basic_elt)
   end if
 
@@ -445,7 +445,7 @@ subroutine tecplot_export(solh, soleta, solhu, solhv)
   use precision_m
   use global
   use m_param
-  
+
   implicit none
 
   real(fp_kind), dimension(:), intent(inout)  :: soleta, solh, solhu, solhv
@@ -461,7 +461,7 @@ subroutine tecplot_export(solh, soleta, solhu, solhv)
 
     write(ec_tecplot,*) 'title = "hauteur"'
     write(ec_tecplot,*) 'variables = "x","y","z","h","eta","u","v", "manning"'
-      write(ec_tecplot,*) 'zone t="pas:',valtemps, '" , f=fepoint, n=',nnt, ',e=',nelt, ',et=triangle'
+    write(ec_tecplot,*) 'zone t="pas:',valtemps, '" , f=fepoint, n=',nnt, ',e=',nelt, ',et=triangle'
 
     do nd=1, nnt
       write(ec_tecplot,'(8f16.6)') coordonnees(nd,1),coordonnees(nd,2),coordonnees(nd,3),solh(nd),soleta(nd),solhu(nd),solhv(nd),manning_nd(nd)
@@ -471,14 +471,14 @@ subroutine tecplot_export(solh, soleta, solhu, solhv)
     write(ec_tecplot,*)' '
 
     do i=1, nelt
-        write(ec_tecplot,*) connectivite(i,1) , connectivite(i,2) , connectivite(i,3)
+      write(ec_tecplot,*) connectivite(i,1) , connectivite(i,2) , connectivite(i,3)
     enddo
 
     write(ec_tecplot,*)' '
     write(ec_tecplot,*)' '
 
   else
-      write(ec_tecplot,*) 'zone t="pas:',tc, '" , f=fepoint, n=',nnt, ',e=',nelt, ',et=triangle', ',D=(feconnect)'
+    write(ec_tecplot,*) 'zone t="pas:',tc, '" , f=fepoint, n=',nnt, ',e=',nelt, ',et=triangle', ',D=(feconnect)'
     do nd=1, nnt
       write(ec_tecplot,'(8f16.6)') coordonnees(nd,1), coordonnees(nd,2), soleta(nd)-solh(nd), solh(nd), soleta(nd), solhu(nd), solhv(nd), manning_nd(nd)
     enddo

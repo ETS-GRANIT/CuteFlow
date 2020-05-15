@@ -8,8 +8,8 @@ module global_device
   ! ======================================================================
 
   !! Terrain data variables 
-  integer, constant                  :: friction_d
-  real(fp_kind), constant            :: gp_d, manning_d
+  integer, constant                  :: friction_d, is_override_manning_d
+  real(fp_kind), constant            :: gp_d, override_manning_d
 
   !! Mesh data variables
   integer, constant                :: elt_bound_d
@@ -46,7 +46,7 @@ module global_device
 
   integer, device, dimension(:)  ,   allocatable :: ndinput_d, numero_ndinput_d, ndoutput_d, numero_ndoutput_d, ndwall_d !, i_dry_wet_d
   integer, device, dimension(:, :)  ,   allocatable :: elt_fant_recep_d, elt_fant_envoi_d
-  integer, device, dimension(:,:),   allocatable :: connectivite_d !, ij_wet_dry_d, ij_dry_wet_d, elts_coupes_transv_d, nds_coupes_d
+  integer, device, dimension(:,:),   allocatable :: connectivite_d 
   integer, device, dimension(:,:,:),   allocatable :: boundary_d 
   real(fp_kind), device, dimension(:)  ,   allocatable :: manning_nd_d, manning_nelt_d, long_entree_d
   real(fp_kind), device, dimension(:,:),   allocatable :: coo_table_elemwise_d, coordonnees_d !, phi_d, phi_h_d, phi_eta_d 

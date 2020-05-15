@@ -1,4 +1,4 @@
-attributes(global) subroutine cond_initial_cudaf(zm_d, ut_d, ut1_d, visio_d)
+attributes(global) subroutine cond_initial_cudaf(zm_d, ut_d, ut1_d)
   ! ======================================================================
   !     cd limit = sets the initial conditions for the state variable ut
   !                and for the active visualization visualization vector! 
@@ -9,7 +9,7 @@ attributes(global) subroutine cond_initial_cudaf(zm_d, ut_d, ut1_d, visio_d)
   implicit none
 
   real(fp_kind), dimension(:), intent(in)     :: zm_d
-  real(fp_kind), dimension(:,:), intent(inout):: ut_d, visio_d, ut1_d
+  real(fp_kind), dimension(:,:), intent(inout):: ut_d, ut1_d
 
   real(fp_kind) :: x1, x2 ,x3, x4, y1, y2, y3, y4, rayvol, ut_dgi1, v1, v2, zmd
   real(fp_kind) :: alpha, beta, X, Y, r_sup, omega, dist_min, x1coupe, x2coupe, y1coupe, y2coupe, dO_P1, dO_P2
@@ -32,8 +32,6 @@ attributes(global) subroutine cond_initial_cudaf(zm_d, ut_d, ut1_d, visio_d)
 
     v1 = ( x1 + x2 + x3 ) / 3
     v2 = ( y1 + y2 + y3 ) / 3
-    visio_d(1,gi) = v1
-    visio_d(2,gi) = v2
 
     if (eqlin_barrage_d==1) then
       alpha = (y1eqbar_d - y2eqbar_d)/(x1eqbar_d - x2eqbar_d)

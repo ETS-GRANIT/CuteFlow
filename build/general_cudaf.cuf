@@ -1,6 +1,6 @@
 program general
   ! ======================================================================
-  !   FLUMEFLOW : programme de simulation par volumes finis / solveurs de Riemann
+  !   CUTEFLOW : programme de simulation par volumes finis / solveurs de Riemann
   !               des ecoulements de canalisations, bris de barrages et innondations.
   !               Equations de base : Shallow Water Equations
   ! ======================================================================
@@ -57,11 +57,11 @@ program general
       real(fp_kind), dimension(:,:), intent(inout)  :: gradz_d, gradz2_d
     end subroutine surfzmgradz_cudaf
 
-    attributes(global) subroutine cond_initial_cudaf(zm_d, ut_d, ut1_d, visio_d)
+    attributes(global) subroutine cond_initial_cudaf(zm_d, ut_d, ut1_d)
       use precision_m
       use global_device
       real(fp_kind), dimension(:), intent(in)     :: zm_d
-      real(fp_kind), dimension(:,:), intent(inout):: ut_d, visio_d, ut1_d
+      real(fp_kind), dimension(:,:), intent(inout):: ut_d, ut1_d
     end subroutine cond_initial_cudaf
 
     attributes(global) subroutine assign_dry_as_wall(vdlg_d)
@@ -70,11 +70,11 @@ program general
       real(fp_kind), intent(in) :: vdlg_d(:,:)
     end subroutine assign_dry_as_wall
 
-        attributes (global) subroutine set_unset_as_wall()
-            use precision_m
-            use global_device
-            implicit none
-        end subroutine set_unset_as_wall
+    attributes(global) subroutine set_unset_as_wall()
+      use precision_m
+      use global_device
+      implicit none
+    end subroutine set_unset_as_wall
 
     subroutine cond_initial2(ut1,ut)
       use precision_m
@@ -105,14 +105,6 @@ program general
       real(fp_kind), dimension(:), intent(in)         :: zm_d
       real(fp_kind), dimension(:,:), intent(inout)    :: vdlg_d, vdlg1_d
     end subroutine mise_a_jr_zone_seche_cudaf
-
-    subroutine v_tecplot_vol(visio,vdlg,zm)
-      use precision_m
-      use global
-      use m_param
-      real(fp_kind), dimension(:,:), intent(in)    :: visio, vdlg
-      real(fp_kind), dimension(:), intent(in)      :: zm
-    end subroutine v_tecplot_vol
 
     subroutine prod_Mpk_vect(droite,ni,nj,mat,vect1,vect2)
       use precision_m
@@ -227,8 +219,6 @@ program general
   call cuda_glerror('ierr <-- cotemin_arr_d = cotemin_arr',1)
 
   !! Allocation des matrices et vecteurs
-  allocate( visio(ndim+1,nelt), visio_d( ndim+1,nelt) )
-
   allocate( surf(nelt), zm(nelt), gradz(ndim,nelt), gradz2(ndim,nelt) )
   allocate( surf_d(nelt), zm_d(nelt), gradz_d(ndim,nelt), gradz2_d(ndim,nelt) )
 
@@ -239,7 +229,7 @@ program general
 
   allocate( she0(nnt), sh0(nnt), shu0(nnt), shv0(nnt), su0(nnt), sv0(nnt) )
 
-  allocate( elts_coupes_transv(nelt, nbrcoupes), nds_coupes(nbrcoupes,nnt), nbr_nds_coupes(nbrcoupes) )
+  allocate( nds_coupes(nbrcoupes,nnt), nbr_nds_coupes(nbrcoupes) )
   allocate( tviscoupes(200000), tvisjauge(200000), tvisrestart(200000), tvideo(200000))
   call cuda_glerror('ierr <- device memory allocation <-- general_cudaf.cuf',1)
 
@@ -290,31 +280,23 @@ program general
   call cuda_glerror('ierr <- (D->H) mem transfer surf, zm, etc <-- general_cudaf.cuf',1)
 
   write(*,*) '======================================================================'
-  write(*,*) 'Mesh Parameters'
+  write(*,*) ' Parameters'
   write(*,*) '======================================================================'
   write(*,*) 'meshfile            = ', meshfile 
   write(*,*) 'elt_bound           = ', elt_bound
-
-  write(*,*) '======================================================================'
-  write(*,*) 'Initial Parameters'
-  write(*,*) '======================================================================'
   write(*,*) 'H_AMONT             = ', H_AMONT 
   write(*,*) 'U_AMONT             = ', U_AMONT
   write(*,*) 'V_AMONT             = ', V_AMONT
   write(*,*) 'H_AVAL              = ', H_AVAL
   write(*,*) 'U_AVAL              = ', U_AVAL
   write(*,*) 'V_AVAL              = ', V_AVAL 
-
-  write(*,*) '======================================================================'
-  write(*,*) 'Simulation Parameters'
-  write(*,*) '======================================================================'  
   write(*,*) 'iflux               =', iflux
   write(*,*) 'Fricimplic          =', fricimplic
-  write(*,*) 'jauges_snapshots          =', jauges_snapshots
+  write(*,*) 'jauges_snapshots    =', jauges_snapshots
   write(*,*) 'nbrjauges           =', nbrjauges
   write(*,*) 'nbrcoupes           =', nbrcoupes
   write(*,*) 'solrestart          =', solrestart
-  write(*,*) 'restart_snapshots    =', restart_snapshots
+  write(*,*) 'restart_snapshots   =', restart_snapshots
   write(*,*) 'video               =', video
   write(*,*) 'video_snapshots     =', video_snapshots
   write(*,*) 'tol_reg_perm        =', tol_reg_perm
@@ -326,12 +308,12 @@ program general
   write(*,*) 'local time step     =', local_time_step
   write(*,*) 'nombre entree       =', nombre_input
   do af_input=1,nombre_input
-    write(*,*) 'debitglob       ', af_input, " = ", debitglob(af_input)
-    write(*,*) 'longueur entree ', af_input, " = ", long_entree(af_input)
+    write(*,*) 'debitglob       ', af_input, " =", debitglob(af_input)
+    write(*,*) 'longueur entree ', af_input, " =", long_entree(af_input)
   end do
   write(*,*) 'nombre sortie       =', nombre_output
   do af_input=1,nombre_output
-    write(*,*) 'H_SORTIE        ', af_input, " = ", h_sortie(af_input)
+    write(*,*) 'H_SORTIE        ', af_input, " =", h_sortie(af_input)
   end do
   write(*,*) '======================================================================'
   write(*,*) '======================================================================'
@@ -341,7 +323,6 @@ program general
   vdlg01             = zero
   vdlg               = zero
   vdlg1              = zero
-  elts_coupes_transv = zero
 
   vdlg0_d  = vdlg0
   vdlg01_d = vdlg01
@@ -358,13 +339,12 @@ program general
     vdlg01_d = vdlg01
     call cuda_glerror('ierr <- data transfer to (vdlg0_d  and vdlg01_d) (H->D) {if(solinit == 1)} <-- general_cudaf.cuf',1)
   else
-    call cond_initial_cudaf<<<grid, tblock>>>(zm_d, vdlg0_d, vdlg01_d, visio_d)
+    call cond_initial_cudaf<<<grid, tblock>>>(zm_d, vdlg0_d, vdlg01_d)
     if(is_dry_as_wall==1) then
       call assign_dry_as_wall<<<grid, tblock>>>(vdlg0_d)
     end if
     !!Fix non walls
     call set_unset_as_wall<<<grid, tblock>>>()
-    visio = visio_d
     call cuda_glerror('ierr <- cond_initial_cudaf <-- general_cudaf.cuf',1)
   endif               
 
@@ -426,11 +406,52 @@ program general
   close(ec_sol_elt_final)
 
   deallocate(manning_nelt, manning_nd)
-  deallocate(elts_coupes_transv)
   deallocate(manning_nelt_d, manning_nd_d)
   deallocate(cotemin_arr, cotemin_arr_d)
+  deallocate(surf, zm, gradz, gradz2)
+  deallocate(surf_d, zm_d, gradz_d, gradz2_d)
 
-  if(nelt_fant_envoi>1) then
+  deallocate(vdlg, vdlg0, vdlg1, vdlg01)
+  deallocate(vdlg_d, vdlg0_d, vdlg1_d, vdlg01_d)
+  deallocate(tempvdlg)
+
+  deallocate(she0, sh0, shu0, shv0, su0, sv0)
+  if(nbrcoupes>0) then
+    deallocate(nds_coupes, nbr_nds_coupes)
+  end if
+
+  deallocate(tviscoupes, tvisjauge, tvisrestart, tvideo)
+
+  deallocate(boundary, boundary_d)
+  deallocate(coo_table_elemwise, coo_table_elemwise_d)
+  deallocate(x_centroid, y_centroid,x_centroid_d, y_centroid_d)
+  deallocate(coordonnees)
+  deallocate(connectivite)
+  deallocate(long_entree)
+  deallocate(long_entree_d)
+
+  if(ndi>0) then
+    deallocate(ndinput)
+    deallocate(numero_ndinput)
+    deallocate(ndinput_d)
+    deallocate(numero_ndinput_d)
+  end if
+  if(ndo>0) then
+    deallocate(ndoutput)
+    deallocate(ndoutput_d)
+    deallocate(numero_ndoutput)
+    deallocate(numero_ndoutput_d)
+  end if
+  if(ndw>0) then
+    deallocate(ndwall)
+    deallocate(ndwall_d)
+  end if
+  deallocate(coordonnees_d)
+  deallocate(connectivite_d)
+  if(debit_var==1) then
+    deallocate(debit_t)
+  end if
+  if(nelt_fant_envoi>0) then
     deallocate(elt_fant_envoi,elt_fant_recep)
     deallocate(elt_fant_envoi_bloc,elt_fant_recep_bloc)
   end if

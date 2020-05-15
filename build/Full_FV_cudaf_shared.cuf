@@ -172,22 +172,6 @@ subroutine Full_FV
       real(fp_kind), dimension(:), intent(inout)  :: solh, soleta, solhu, solu
     end subroutine stock_coupe2D
 
-    subroutine v_tecplot_vol(visio,vdlg,zm)
-      use precision_m
-      use global
-      use m_param
-      real(fp_kind), dimension(:,:), intent(in)    :: visio, vdlg
-      real(fp_kind), dimension(:), intent(in)      :: zm
-    end subroutine v_tecplot_vol
-
-    subroutine v_tecplot_nod(solfile,she,sh,su,sv)
-      use precision_m
-      use global
-      use m_param
-      character (50), intent(in)              :: solfile
-      real(fp_kind), dimension(:), intent(in)       :: she, sh, su, sv
-    end subroutine v_tecplot_nod
-
     subroutine bluekenue_export(solh, soleta, solhu, solhv)
       use precision_m
       use global
@@ -676,8 +660,6 @@ subroutine Full_FV
       call volume_total(vdlg, total_volume)
       call MPI_ALLREDUCE(MPI_IN_PLACE,total_volume,1,real_kind_mpi,MPI_SUM,MPI_COMM_WORLD, mpi_ierr)
       print*,"VOLUME TOTAL ", total_volume, " M3"
-      !call sol_nodes(vdlg,surf,zm,sh0,she0,shu0,shv0,su0,sv0)
-      !call paraview_export (she0, sh0, shu0, shv0, nt)
     endif
 
     ! *** storage of the solution in 2D sections for the table time 'tvis2d'
@@ -859,13 +841,17 @@ subroutine Full_FV
   deallocate(resc_d,res_d, res1_d)
   deallocate(sourcfric_d)
   deallocate(sourcbath_d)
-  deallocate(deltatmin_d)
   deallocate(un_voisin_sec1_d)
   deallocate(afm1_d)
   deallocate(res1)
-  deallocate(coo_table_elemwise, x_centroid, y_centroid)
+  deallocate(io_identifier, io_identifier_d)
+  deallocate(dt_arr, deltatmin_d)
 
-  deallocate(tvis3d2, tvis2d2, tvisjauge, tvisrestart, tvideo)
+  if ( timedisc == 'second' ) then
+    deallocate(res2_d)
+  elseif ( timedisc == 'runge' ) then
+    deallocate(res2_d, res3_d, res4_d)
+  end if
 
   if(ndi>0) then
     deallocate(debit_entree_arr, debit_entree_arr_d)

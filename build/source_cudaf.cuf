@@ -37,7 +37,12 @@ attributes(global) subroutine source_cudaf(vdlg_d,surf_d,zm_d,gradz_d,deltatmin_
     q3 = vdlg_d(3,gi)
     area = surf_d(gi)
     normQ   = sqrt( q2**2 + q3**2 )
-    manning = manning_nelt_d(gi)
+
+    if(is_override_manning_d) then
+      manning = override_manning_d
+    else
+      manning = manning_nelt_d(gi)
+    end if
 
     !       ++++++++++++++  SLOPE  +++++++++++++++
     ! On traite la bathymetrie seulement dans le cas iflux=2 (riadh) 
@@ -100,19 +105,19 @@ attributes(global) subroutine source_cudaf(vdlg_d,surf_d,zm_d,gradz_d,deltatmin_
 
     !       ++++++++++++++  FRICTION  +++++++++++++++
     if (friction_d == 1) then
-     
+
       if (  q1 <= tolisec_d ) then
         !		if (  q1 <= tol_d ) then              
-        
+
         sourcfric_d( 2,gi) = 0.d0
         sourcfric_d( 3,gi) = 0.d0
       else                                                
         vitu = q2 / q1
         vitv = q3 / q1
-        
+
         chezy2  = q1**(1.d0/3.d0) / manning**2
         normvit = sqrt( vitu**2 + vitv**2 )
-        
+
         if ( normvit < tol_d ) then
           normvit= tol_d
         endif
@@ -128,7 +133,7 @@ attributes(global) subroutine source_cudaf(vdlg_d,surf_d,zm_d,gradz_d,deltatmin_
       !       ++++++++++++++  IMPLICITATION  +++++++++++++++
 
       if ( fricimplic_d == 1 ) then 
-        
+
         if ( normvit > tol_d .and. q1 > tolisec_d ) then
           !			if ( normvit > tol_d .and. q1 > tol_d ) then
           !
@@ -155,10 +160,10 @@ attributes(global) subroutine source_cudaf(vdlg_d,surf_d,zm_d,gradz_d,deltatmin_
           af(3,2) = af(2,3)
           ! af(3,3) = 1.d0 + (dtgn2h/q1) * ( vitu**2 + 2*vitv**2 ) / normvit
           af(3,3) = 1.d0 + dtgn2h * ( vitu**2 + 2*vitv**2 ) / normvit
-         
+
           !! Determinant de Id-dt/2 * J
           detaf = af(2,2)*af(3,3)-af(2,3)*af(3,2)
-          
+
           !! Matrice inverse de Id-dt/2 * J
           afm1_d(gi,1) = 1
           afm1_d(gi,2) = 0.d0
@@ -169,7 +174,7 @@ attributes(global) subroutine source_cudaf(vdlg_d,surf_d,zm_d,gradz_d,deltatmin_
           afm1_d(gi,7) =  (af(2,1)*af(3,2) - af(2,2)*af(3,1))/detaf
           afm1_d(gi,8) = -af(3,2)/detaf
           afm1_d(gi,9) = af(2,2)/detaf
-          
+
         else
           afm1_d(gi,1) = 1.d0
           afm1_d(gi,2) = 0.d0
@@ -181,7 +186,7 @@ attributes(global) subroutine source_cudaf(vdlg_d,surf_d,zm_d,gradz_d,deltatmin_
           afm1_d(gi,8) = 0.d0
           afm1_d(gi,9) = 1.d0
         endif
-        
+
       elseif ( fricimplic_d == 2 ) then
 
         if ( normvit > tol_d .and. q1 > tolisec_d ) then

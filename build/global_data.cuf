@@ -12,8 +12,8 @@ module global
   integer :: mpi_process_id, num_mpi_process, mpi_ierr
 
   !! Variables donnees du terrain
-  integer             :: friction
-  real(fp_kind)       :: gp, manning
+  integer             :: friction, is_override_manning
+  real(fp_kind)       :: gp, override_manning
 
 
   !! Variables donnees du maillage
@@ -48,32 +48,33 @@ module global
   !! Construction de la namelist pour la lecture du fichier de donnee
   namelist/donnees_namelist/ &
 
-    !! Ancien donneeter
-    & gp, manning, & 
+  !! Ancien donneeter
+  & gp, &
+  & is_override_manning, override_manning, & 
 
-    !! Ancien donneemai
-    & meshfile, elt_bound, multi_entree, multi_sortie, &
+  !! Ancien donneemai
+  & meshfile, elt_bound, multi_entree, multi_sortie, &
 
-    !! Ancien donneeinie
-    & eqlin_barrage, x1eqbar, x2eqbar, y1eqbar, y2eqbar, &
-    & h_amont, u_amont, v_amont, h_aval, u_aval, v_aval, & 
-    & plan, xplan, yplan, zplan, xpoint, ypoint, zpoint&
-    & solinit, fich_sol_init, &
+  !! Ancien donneeinie
+  & eqlin_barrage, x1eqbar, x2eqbar, y1eqbar, y2eqbar, &
+  & h_amont, u_amont, v_amont, h_aval, u_aval, v_aval, & 
+  & plan, xplan, yplan, zplan, xpoint, ypoint, zpoint&
+  & solinit, fich_sol_init, &
 
-    & inlet, debitglob,debit_var,loi_debitglob, h_sortie, &
+  & inlet, debitglob,debit_var,loi_debitglob, h_sortie, &
 
-    !! Ancien donneesim
-    & iflux, tolisec, timedisc, & 
-    &friction, fricimplic, &
-    & is_dry_as_wall, local_time_step,&
-
-    & ts, cfl, tol_reg_perm,& 
-    & freqaffich,&
-    & nbrjauges, jauges_snapshots &
-    & xjauges, yjauges, &
-    & nbrcoupes, coupes_snapshots, coupe_a, coupe_b,&
-    & solrestart, restart_snapshots,& 
-    & video, video_snapshots
+  !! Ancien donneesim
+  & iflux, tolisec, timedisc, & 
+  &friction, fricimplic, &
+  & is_dry_as_wall, local_time_step,&
+   
+  & ts, cfl, tol_reg_perm,& 
+  & freqaffich,&
+  & nbrjauges, jauges_snapshots &
+  & xjauges, yjauges, &
+  & nbrcoupes, coupes_snapshots, coupe_a, coupe_b,&
+  & solrestart, restart_snapshots,& 
+  & video, video_snapshots
 
   !! Input pour l'analyse stochastiqu
   character (2)  :: key, genrelt
@@ -113,7 +114,7 @@ module global
   integer, dimension(:)  ,   allocatable :: ndinput, ndoutput, ndwall, i_dry_wet, nbr_nds_coupes, numero_ndinput, numero_ndoutput
   integer, dimension(:,:), allocatable :: elt_fant_recep, elt_fant_envoi
   integer, dimension(:,:), allocatable :: elt_fant_recep_bloc, elt_fant_envoi_bloc
-  integer, dimension(:,:),   allocatable :: connectivite, ij_wet_dry, ij_dry_wet, elts_coupes_transv, nds_coupes
+  integer, dimension(:,:),   allocatable :: connectivite, ij_wet_dry, ij_dry_wet, nds_coupes
   integer, dimension(:,:,:),   allocatable :: boundary
   real(fp_kind), dimension(:)  ,   allocatable :: flux_interface, manning_nd, manning_nelt
   real(fp_kind), dimension(:,:),   allocatable :: coo_table_elemwise, coordonnees, phi, phi_h, phi_eta, phi_eta_tild, phi_hu, phi_hv, phi_u, phi_v, phij_u, phij_v, phi_h_eta

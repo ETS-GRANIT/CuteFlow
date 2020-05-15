@@ -40,7 +40,7 @@ contains
       call MPI_BCAST(hosts(i),MPI_MAX_PROCESSOR_NAME, &
         MPI_CHARACTER,i,MPI_COMM_WORLD,ierr)
     end do
-    
+
     call quicksort(hosts,nProcs,MPI_MAX_PROCESSOR_NAME,strcmp)
 
     color=0
@@ -56,7 +56,7 @@ contains
 
     dev = newRank
     ierr = cudaSetDevice(dev)
-    
+
     deallocate(hosts)
   end subroutine assignDevice
 

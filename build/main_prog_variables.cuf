@@ -1,30 +1,18 @@
 module main_prog_variables
-    use precision_m
-    use cudafor
+  use precision_m
+  use cudafor
 
-    
-    integer :: premnoeud, deuxnoeud ! first node, second node
-    ! real(fp_kind), dimension(:)  , allocatable ::  vdle, vdle0
-    ! real(fp_kind), dimension(:)  , allocatable :: sh1, su1, sv1, she1
+  integer :: premnoeud, deuxnoeud ! first node, second node
 
-    real(fp_kind), dimension(:)  , allocatable :: surf, sh0, shu0, shv0, su0,she0, sv0, zm
-    real(fp_kind), dimension(:,:), allocatable :: gradz, gradz2
-    real(fp_kind), dimension(:,:), allocatable :: vdlg, vdlg0, vdlg1, vdlg01, tempvdlg
-    real(fp_kind), dimension(:,:), allocatable :: visio
+  real(fp_kind), dimension(:)  , allocatable :: surf, sh0, shu0, shv0, su0,she0, sv0, zm
+  real(fp_kind), dimension(:,:), allocatable :: gradz, gradz2
+  real(fp_kind), dimension(:,:), allocatable :: vdlg, vdlg0, vdlg1, vdlg01, tempvdlg
 
-    real(fp_kind) :: ti, tf
+  real(fp_kind) :: ti, tf
 
-    real(fp_kind), device, dimension(:)  , allocatable :: surf_d, zm_d
-    ! real(fp_kind), device, dimension(:)  , allocatable :: sh0_d, shu0_d, shv0_d, su0_d, sv0_d, she0_d
-    
-    real(fp_kind), device, dimension(:,:), allocatable :: gradz_d, gradz2_d
-    real(fp_kind), device, dimension(:,:), allocatable :: vdlg_d, vdlg0_d, vdlg1_d, vdlg01_d
-    real(fp_kind), device, dimension(:,:), allocatable :: visio_d
-    real(fp_kind), device, dimension(:,:), allocatable :: res_d, res1_d, res2_d, res3_d, res4_d
-    
+  real(fp_kind), device, dimension(:)  , allocatable :: surf_d, zm_d
 
-    ! real(fp_kind), device, dimension(:)  , allocatable :: sh1_d, su1_d, sv1_d, she1_d 
-    ! real(fp_kind), device, dimension(:,:), allocatable :: res_d, res1_d, res2_d, res3_d, res4_d, som_dtres_d, af_d, aff_d, affich_d
-    ! real(fp_kind), device, dimension(:,:), allocatable :: greta_lisec_d
-
+  real(fp_kind), device, dimension(:,:), allocatable :: gradz_d, gradz2_d
+  real(fp_kind), device, dimension(:,:), allocatable :: vdlg_d, vdlg0_d, vdlg1_d, vdlg01_d
+  real(fp_kind), device, dimension(:,:), allocatable :: res_d, res1_d, res2_d, res3_d, res4_d
 end module main_prog_variables
