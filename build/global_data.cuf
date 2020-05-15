@@ -39,7 +39,7 @@ module global
   real(fp_kind) :: long, critere_arret, debitglob_sum
   real(fp_kind), dimension(20) :: debitglob, h_sortie
   real(fp_kind) :: ts, tsstab, dt, cfl, tolisec, tol_reg_perm
-  real(fp_kind) :: tol=1e-6, tolaffiche=1e-2
+  real(fp_kind) :: tol=1e-8, tolaffiche=1e-3
   real(fp_kind), dimension(10) :: coupe_a, coupe_b
   real(fp_kind), dimension(100) :: xjauges , yjauges
   integer :: vtk_snapshots, base_unique, nonlin, solvtk, k_base

@@ -523,9 +523,6 @@ subroutine Full_FV
 
       !! ****** Calculation of Flux starts ******
 
-      call update_un_voisin_sec<<<grid11, tblock11>>>()
-      call cuda_glerror('ierr<-update_un_voisin_sec <-- Full_FV_cudaf_shared.cuf',1)
-
       if(iflux==1) then
         call cotes_cudaf3<<<grids, tblocks>>>(surf_d,zm_d,gradz_d,vdlg_d)
       else if (iflux==2) then
@@ -1121,44 +1118,19 @@ attributes(global) subroutine init_vdlg(vdlg_d, vdlg1_d,  zm_d)
   gi = (blockIdx%x - 1)*blockDim%x + ti
 
   if(gi <= nelt_d) then
-    !!if(gi <= nelt_d-nelt_fant_recep_d) then
-
     vdlgtmp = vdlg1_d(1,gi) - zm_d(gi)
-    vdlg_d(1,gi) = vdlgtmp
-    if ( vdlgtmp <= tolisec_d )   vdlg_d(1,gi) = tolisec_d           
-    vdlg_d(2,gi) = vdlg1_d(2,gi)
-    vdlg_d(3,gi) = vdlg1_d(3,gi)
-
+    if ( vdlgtmp <= 0. ) then
+      vdlg_d(1,gi) = 0.
+      vdlg_d(2,gi) = 0.
+      vdlg_d(3,gi) = 0.
+    else
+      vdlg_d(1,gi) = vdlgtmp
+      vdlg_d(2,gi) = vdlg1_d(2,gi)
+      vdlg_d(3,gi) = vdlg1_d(3,gi)
+    end if
   endif
 
 end subroutine init_vdlg
-
-attributes(global) subroutine update_un_voisin_sec()
-  use precision_m
-  use main_prog_variables
-  use global_device
-  implicit none
-
-
-  integer :: thi, gi, j, kvoisin, i
-  character :: output
-  real(fp_kind) :: v1
-
-  thi = threadIdx%x
-  gi = (blockIdx%x - 1)*blockDim%x + thi
-
-  !!if(gi <= nelt_d) then
-  if(gi <= nelt_d-nelt_fant_recep_d) then
-    v1 = vdlg_d(1,gi)
-    output = 'n'        
-    do i=1,ns_d
-      kvoisin = boundary_d(gi,i,1)
-      if( kvoisin > 0 .and. (vdlg_d(1,kvoisin) <= tolisec_d  .or.   v1 <= tolisec_d) )   output = 'y' 
-    enddo
-    un_voisin_sec1_d(gi) = output
-
-  endif
-end subroutine update_un_voisin_sec
 
 subroutine get_io_index
   use precision_m
