@@ -33,16 +33,16 @@
 
   ! Paramètres des schémas numériques
   IFLUX=2,                                                       ! 1 -> HLLC zoka, 2 -> HLLC Riadh
-  tolisec=1.0E-03,                                               ! Tolérence sec/mouillé
+  tolisec=1.0E-08,                                               ! Tolérence sec/mouillé
   timedisc='euler',                                              ! Schéma en temps : {euler,second,runge}
   friction=1,                                                    ! 1 pour prendre en compte la friction
   fricimplic=1,                                                  ! 0 -> explicite, 1 -> I-dt/2*J, 2 -> I-dt*B
   is_dry_as_wall=0,                                              ! 1 pour mettre les mailles seches comme des murs
   local_time_step=0,                                             ! 1 pour utiliser le local time step
 
-  TS=20.0, CFL=0.9,                                              ! Temps maximal de simultion, nombre CFL
+  TS=3000.0, CFL=0.9,                                              ! Temps maximal de simultion, nombre CFL
   tol_reg_perm=1.0E-15,                                          ! Tolérence relative entre debit entrée et débit sortie
-  freqaffich=100,                                               ! Frequence de print dans outfile.[0-9]
+  freqaffich=1000,                                               ! Frequence de print dans outfile.[0-9]
 
   ! Sauvegarde de la solution
   nbrjauges=0, jauges_snapshots=100,                             ! Nombre de jauges, nombre de snapshots
@@ -53,7 +53,7 @@
   coupe_a    = -0.7946,    -2.6754,    -1.4439                   ! Coeficient a de ax+b=y
   coupe_b    =  5.2585e+06, 5.7768e+06, 5.4397e+06               ! Coeficient b de ax+b=y
 
-  solrestart=1, restart_snapshots=10,                            ! Sauvegarde en overwrite la solution pour restart
+  solrestart=0, restart_snapshots=10,                            ! Sauvegarde en overwrite la solution pour restart
   solbasic=0, basic_snapshots=10,                                ! 1 pour sauvegarder h sur les noeud (pierre)
-  solvtk=1, vtk_snapshots=20,                                    ! 1 pour sauvegarder les fichiers vkt pour video
+  solvtk=1, vtk_snapshots=300,                                    ! 1 pour sauvegarder les fichiers vkt pour video
   sortie_finale_bluekenue=0/                                     ! Sauvergarde fichiers T3S à la fin

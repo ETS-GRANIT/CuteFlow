@@ -355,10 +355,10 @@ program general
     call cuda_glerror('ierr <- cond_initial_cudaf <-- general_cudaf.cuf',1)
   endif               
 
-  if(iflux==1) then
+  ! if(iflux==1) then
     call mise_a_jr_zone_seche_cudaf<<<grid, tblock>>>(zm_d,vdlg0_d, vdlg01_d)
     call cuda_glerror('ierr <- mise_a_jr_zone_seche_cudaf <-- general_cudaf.cuf',1)
-  end if
+  ! end if
 
   !! Calcul de la solution initiale sur les noeuds
   valtemps = '0.0'

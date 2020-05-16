@@ -435,10 +435,10 @@ subroutine Full_FV
         call copy_2d<<<grid_copy, block_copy>>>(vdlg1_d, vdlg01_d, nelt_d)
         call cuda_glerror('ierr<-copy_2d{if(niter == 1)} <-- Full_FV_cudaf_shared.cuf',1)
 
-        if(iflux==1) then
+        ! if(iflux==1) then
           call mise_a_jr_zone_seche_cudaf<<<grid, tblock>>>(zm_d, vdlg_d, vdlg1_d)
           call cuda_glerror('ierr<-mise_a_jr_zone_seche_cudaf{if(niter == 1)} <-- Full_FV_cudaf_shared.cuf',1)
-        endif
+        ! endif
 
       elseif ( niter == 2 ) then      ! *** Second ordre ***
         if ( iter == 1 ) then
@@ -446,10 +446,10 @@ subroutine Full_FV
           call copy_2d<<<grid_copy, block_copy>>>(vdlg1_d, vdlg01_d, nelt_d)
           call cuda_glerror('ierr<-copy_2d{if(niter == 2, iter == 1)} <-- Full_FV_cudaf_shared.cuf',1)
 
-          if(iflux==1) then
+          ! if(iflux==1) then
             call mise_a_jr_zone_seche_cudaf<<<grid, tblock>>>(zm_d, vdlg_d, vdlg1_d)
             call cuda_glerror('ierr<-mise_a_jr_zone_seche_cudaf{if(niter == 2, iter == 1)} <-- Full_FV_cudaf_shared.cuf',1)
-          endif
+          ! endif
 
         else
           if(local_time_step) then
@@ -459,10 +459,10 @@ subroutine Full_FV
           end if
           call cuda_glerror('ierr<-copy_2d_1{if(niter == 2 iter == 2)} <-- Full_FV_cudaf_shared.cuf',1)
 
-          if(iflux==1) then
+          ! if(iflux==1) then
             call mise_a_jr_zone_seche_cudaf<<<grid, tblock>>>(zm_d, vdlg_d, vdlg1_d)
             call cuda_glerror('ierr<-mise_a_jr_zone_seche_cudaf{if(niter == 2,  iter == 2)} <-- Full_FV_cudaf_shared.cuf',1)
-          endif
+          ! endif
         endif
 
       elseif ( niter == 4 ) then      ! *** Runge-kutta ***
@@ -471,10 +471,10 @@ subroutine Full_FV
           call copy_2d<<<grid_copy, block_copy>>>(vdlg1_d, vdlg01_d, nelt_d)
           call cuda_glerror('ierr<-copy_2d{if(niter == 4, iter == 1)} <-- Full_FV_cudaf_shared.cuf',1)
 
-          if(iflux==1) then
+          ! if(iflux==1) then
             call mise_a_jr_zone_seche_cudaf<<<grid, tblock>>>(zm_d, vdlg_d, vdlg1_d)
             call cuda_glerror('ierr<-mise_a_jr_zone_seche_cudaf{if(niter == 4, iter == 1)} <-- Full_FV_cudaf_shared.cuf',1)
-          end if
+          ! end if
 
         elseif ( iter == 2 ) then
           if(local_time_step) then
@@ -484,10 +484,10 @@ subroutine Full_FV
           end if
           call cuda_glerror('ierr<-copy_2d_1{if(niter == 4, iter == 2)} <-- Full_FV_cudaf_shared.cuf',1)
 
-          if(iflux==1) then
+          ! if(iflux==1) then
             call mise_a_jr_zone_seche_cudaf<<<grid, tblock>>>(zm_d, vdlg_d, vdlg1_d)
             call cuda_glerror('ierr<-mise_a_jr_zone_seche_cudaf{if(niter == 4, iter == 2)} <-- Full_FV_cudaf_shared.cuf',1)
-          end if
+          ! end if
 
         elseif ( iter == 3 ) then
           if(local_time_step) then
@@ -497,10 +497,10 @@ subroutine Full_FV
           end if
           call cuda_glerror('ierr<-copy_2d_1{if(niter == 4, iter== 3)} <-- Full_FV_cudaf_shared.cuf',1)
 
-          if(iflux==1) then
+          ! if(iflux==1) then
             call mise_a_jr_zone_seche_cudaf<<<grid, tblock>>>(zm_d, vdlg_d, vdlg1_d)
             call cuda_glerror('ierr<-mise_a_jr_zone_seche_cudaf{if(niter == 4, iter == 3)} <-- Full_FV_cudaf_shared.cuf',1)
-          end if
+          ! end if
 
         else
           if(local_time_step) then
@@ -510,10 +510,10 @@ subroutine Full_FV
           end if
           call cuda_glerror('ierr<-copy_2d_1{if(niter == 4, iter== 4)} <-- Full_FV_cudaf_shared.cuf',1)
 
-          if(iflux==1) then
+          ! if(iflux==1) then
             call mise_a_jr_zone_seche_cudaf<<<grid, tblock>>>(zm_d, vdlg_d, vdlg1_d)
             call cuda_glerror('ierr<-mise_a_jr_zone_seche_cudaf{if(niter == 4, iter == 4)} <-- Full_FV_cudaf_shared.cuf',1)
-          end if
+          ! end if
         endif
       endif
 
@@ -606,10 +606,10 @@ subroutine Full_FV
     call cuda_glerror('ierr<-copy_2d_1 <-- Full_FV_cudaf_shared.cuf',1)
 
     ! Mise a jour de la zone seche requis uniquement pour iflux==1 (zoka)
-    if(iflux==1) then
+    ! if(iflux==1) then
       call mise_a_jr_zone_seche_cudaf<<<grid, tblock>>>(zm_d, vdlg_d, vdlg1_d)
       call cuda_glerror('mise_a_jr_zone_seche_cudaf(2) <-- Full_FV_cudaf_shared.cuf',1)
-    endif
+    ! endif
 
     ! Calcul du pas de temps via la CFL
     call cflcond_cudaf<<<grid, tblock>>>(vdlg_d,deltatmin_d)

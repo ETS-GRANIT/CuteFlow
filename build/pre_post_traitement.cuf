@@ -29,7 +29,7 @@ attributes(global) subroutine mise_a_jr_zone_seche_cudaf(zm_d,vdlg_d, vdlg1_d)
       vdlg_d(2,gi)  = 0.d0
       vdlg_d(3,gi)  = 0.d0
 
-      vdlg1_d(1,gi) = zm_d(gi)                  
+      vdlg1_d(1,gi) = zm_d(gi)+tolisec_d
       vdlg1_d(2,gi) = 0.d0
       vdlg1_d(3,gi) = 0.d0                
     endif

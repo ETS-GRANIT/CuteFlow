@@ -2,10 +2,10 @@
 
   ! Données du terrain
   GP=9.81,
-  is_override_manning=1, override_manning=0.02200,               ! nombre de manning qui override les autes si is_...=1
+  is_override_manning=0, override_manning=0.02200,               ! nombre de manning qui override les autes si is_...=1
 
   ! Données du maillage
-  meshfile='Mille_Iles_mesh_481930_elts.txt',                    ! Fichier de maillage
+  meshfile='Mille_Iles_mesh_743968_elts.txt',                    ! Fichier de maillage
   elt_bound=0,                                                   ! 1 si le fichier boundary_table existe déja
   multi_entree=0, multi_sortie=0,                                ! 0 si fichier non formaté pour plusieurs entrées/sorties
 
@@ -13,7 +13,7 @@
   eqlin_barrage=1,                                               ! 1 pour initialiser avec un barrage
   x1eqbar=274997.75521489076, x2eqbar=274756.1533974407,         ! Abscisses des deux points du barrage
   y1eqbar=5043578.489765059, y2eqbar=5043885.982987268,          ! Ordonnées des deux points du barrage
-  H_AMONT=33.0, U_AMONT=0, V_AMONT=0,                            ! Valeur de l'init du coté - de la normale au barrage
+  H_AMONT=30.0, U_AMONT=0, V_AMONT=0,                            ! Valeur de l'init du coté - de la normale au barrage
   H_AVAL =0.0, U_AVAL =0, V_AVAL =0,                             ! Valeur de l'init du coté + de la normale au barrage
 
   ! Initialisation avec un plan 
@@ -33,16 +33,16 @@
 
   ! Paramètres des schémas numériques
   IFLUX=2,                                                       ! 1 -> HLLC zoka, 2 -> HLLC Riadh
-  tolisec=1.0E-05,                                               ! Tolérence sec/mouillé pour HLLC zoka
+  tolisec=1.0E-08,                                               ! Tolérence sec/mouillé
   timedisc='euler',                                              ! Schéma en temps : {euler,second,runge}
   friction=1,                                                    ! 1 pour prendre en compte la friction
   fricimplic=1,                                                  ! 0 -> explicite, 1 -> I-dt/2*J, 2 -> I-dt*B
   is_dry_as_wall=0,                                              ! 1 pour mettre les mailles seches comme des murs
   local_time_step=0,                                             ! 1 pour utiliser le local time step
 
-  TS=10.0, CFL=0.2,                                              ! Temps maximal de simultion, nombre CFL
+  TS=3000.0, CFL=0.9,                                              ! Temps maximal de simultion, nombre CFL
   tol_reg_perm=1.0E-15,                                          ! Tolérence relative entre debit entrée et débit sortie
-  freqaffich=5000,                                               ! Frequence de print dans outfile.[0-9]
+  freqaffich=1000,                                               ! Frequence de print dans outfile.[0-9]
 
   ! Sauvegarde de la solution
   nbrjauges=0, jauges_snapshots=100,                             ! Nombre de jauges, nombre de snapshots
@@ -53,7 +53,7 @@
   coupe_a    = -0.7946,    -2.6754,    -1.4439                   ! Coeficient a de ax+b=y
   coupe_b    =  5.2585e+06, 5.7768e+06, 5.4397e+06               ! Coeficient b de ax+b=y
 
-  solrestart=1, restart_snapshots=10,                            ! Sauvegarde en overwrite la solution pour restart
+  solrestart=0, restart_snapshots=10,                            ! Sauvegarde en overwrite la solution pour restart
   solbasic=0, basic_snapshots=10,                                ! 1 pour sauvegarder h sur les noeud (pierre)
-  solvtk=1, vtk_snapshots=10,                                    ! 1 pour sauvegarder les fichiers vkt pour video
+  solvtk=1, vtk_snapshots=300,                                    ! 1 pour sauvegarder les fichiers vkt pour video
   sortie_finale_bluekenue=0/                                     ! Sauvergarde fichiers T3S à la fin
