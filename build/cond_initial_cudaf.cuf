@@ -40,21 +40,43 @@ attributes(global) subroutine cond_initial_cudaf(zm_d, ut_d, ut1_d)
       if ( alpha*v1 - v2 + beta >= 0.00) then        
         ut_dgi1    = h_amont_d - zmd
         ut_d(1,gi) = ut_dgi1
-        ut_d(2,gi) = ut_dgi1 * u_amont_d
-        ut_d(3,gi) = ut_dgi1 * v_amont_d   
+
+        if(ut_dgi1 > tolisec_d) then
+          ut_d(2,gi) = ut_dgi1 * u_amont_d
+          ut_d(3,gi) = ut_dgi1 * v_amont_d   
+        else
+          ut_d(1,gi) = tolisec_d
+          ut_d(2,gi) = 0.
+          ut_d(3,gi) = 0.
+        end if
+
       else
         ut_dgi1 = h_aval_d - zmd
         ut_d(1,gi) = ut_dgi1
-        ut_d(2,gi) = u_aval_d
-        ut_d(3,gi) = v_aval_d
+
+        if(ut_dgi1 > tolisec_d) then
+          ut_d(2,gi) = ut_dgi1 * u_aval_d
+          ut_d(3,gi) = ut_dgi1 * v_aval_d
+        else
+          ut_d(1,gi) = tolisec_d
+          ut_d(2,gi) = 0.
+          ut_d(3,gi) = 0.
+        end if
       endif
     endif
 
     if (plan_d==1) then
       ut_dgi1 = (-xplan_d*(xpoint_d-v1)-yplan_d*(ypoint_d-v2))/zplan_d + zpoint_d - zmd
       ut_d(1,gi) = ut_dgi1
-      ut_d(2,gi) = u_aval_d
-      ut_d(3,gi) = v_aval_d
+
+      if(ut_dgi1 > tolisec_d) then
+        ut_d(2,gi) = ut_dgi1 * u_aval_d
+        ut_d(3,gi) = ut_dgi1 * v_aval_d
+      else
+        ut_d(1,gi) = tolisec_d
+        ut_d(2,gi) = 0.
+        ut_d(3,gi) = 0.
+      end if
     endif
 
     ut1_d(1,gi) = ut_d(1,gi) + zmd

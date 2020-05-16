@@ -619,6 +619,18 @@ subroutine Full_FV
       call MPI_ALLREDUCE(MPI_IN_PLACE,dt,1,real_kind_mpi,MPI_MIN,MPI_COMM_WORLD, mpi_ierr)
     end if
 
+    if(dt>999999 .or. dt<1e-16) then
+      print*, "***********************************************************************"
+      print*, "ERREUR !!!! DIVERGENCE NAN !!!! ERREUR !!!! DIVERGENCE NAN !!!!! ERREUR"
+      print*, "***********************************************************************"
+      print*, "***********************************************************************"
+      print*, "ERREUR !!!! DIVERGENCE NAN !!!! ERREUR !!!! DIVERGENCE NAN !!!!! ERREUR"
+      print*, "***********************************************************************"
+      print*, "***********************************************************************"
+      print*, "ERREUR !!!! DIVERGENCE NAN !!!! ERREUR !!!! DIVERGENCE NAN !!!!! ERREUR"
+      print*, "***********************************************************************"
+    end if
+
     dt_d = dt
     if(local_time_step==1) then
       call cflcond_sec_cudaf<<<grid, tblock>>>(vdlg_d, deltatmin_d, dt_d)

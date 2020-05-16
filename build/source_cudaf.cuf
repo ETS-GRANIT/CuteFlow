@@ -106,7 +106,7 @@ attributes(global) subroutine source_cudaf(vdlg_d,surf_d,zm_d,gradz_d,deltatmin_
     !       ++++++++++++++  FRICTION  +++++++++++++++
     if (friction_d == 1) then
 
-      if (  q1 <= tol_d ) then
+      if (  q1 <= tolisec_d) then
         !		if (  q1 <= tol_d ) then              
 
         sourcfric_d( 2,gi) = 0.d0
@@ -134,7 +134,7 @@ attributes(global) subroutine source_cudaf(vdlg_d,surf_d,zm_d,gradz_d,deltatmin_
 
       if ( fricimplic_d == 1 ) then 
 
-        if ( normvit > tol_d .and. q1 > tol_d ) then
+        if ( normvit > tol_d .and. q1 > tolisec_d ) then
           !			if ( normvit > tol_d .and. q1 > tol_d ) then
           !
           ! tempa  = real(q1**(-4.d0/3.d0))
@@ -189,7 +189,7 @@ attributes(global) subroutine source_cudaf(vdlg_d,surf_d,zm_d,gradz_d,deltatmin_
 
       elseif ( fricimplic_d == 2 ) then
 
-        if ( normvit > tol_d .and. q1 > tol_d ) then
+        if ( normvit > tol_d .and. q1 > tolisec_d ) then
           !	if ( normvit > tol_d .and. q1 > tol_d ) then
           !
           ! tempa  = real(q1**(-4.d0/3.d0))

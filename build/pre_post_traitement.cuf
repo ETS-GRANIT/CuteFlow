@@ -18,7 +18,7 @@ attributes(global) subroutine mise_a_jr_zone_seche_cudaf(zm_d,vdlg_d, vdlg1_d)
   ti = threadIdx%x
   gi = (blockIdx%x - 1)*blockDim%x + ti
 
-  if(gi <= nelt_d-nelt_fant_recep_d) then
+  if(gi <= nelt_d) then
     vdlg_dgi1 = vdlg1_d(1,gi) - zm_d(gi)
     vdlg_d(1,gi) = vdlg_dgi1
     vdlg_d(2,gi) = vdlg1_d(2,gi)

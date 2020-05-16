@@ -130,6 +130,7 @@ attributes(global) subroutine cotes_cudaf3_riadh(surf_d, zm_d,gradz_d,vdlg_d)
     if ( kvoisin == -2 ) then ! *** flux sortant ***
       if ( vitul > 0.d0 .and. vitul/sqrt(gp_d*hautl) < 1.d0 ) then
         hautl = h_sortie_d(id_entree) - zml
+        hautl = max(0.D0, hautl)
         flux(1) = hautl * vitul
         flux(2) = norm(1) * ( hautl * vitul**2 + gp_d * hautl**2/2. ) - norm(2) * hautl * vitul * vitvl
         flux(3) = norm(2) * ( hautl * vitul**2 + gp_d * hautl**2/2. ) + norm(1) * hautl * vitul * vitvl
@@ -334,6 +335,7 @@ attributes(global) subroutine cotes_cudaf3(surf_d, zm_d,gradz_d,vdlg_d)
       if ( hautl > tolisec_d ) then
         if ( vitul > 0.d0 .and. vitul/sqrt(gp_d*hautl) < 1.d0 ) then
           hautl = h_sortie_d(id_entree) - zml
+          hautl = max(0.D0, hautl)
           flux(1) = hautl * vitul
           flux(2) = norm(1) * ( hautl * vitul**2 + gp_d * hautl*(hautl+zml) ) - norm(2) * hautl * vitul * vitvl
           flux(3) = norm(2) * ( hautl * vitul**2 + gp_d * hautl*(hautl+zml) ) + norm(1) * hautl * vitul * vitvl

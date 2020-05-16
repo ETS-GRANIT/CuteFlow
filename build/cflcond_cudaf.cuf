@@ -27,7 +27,7 @@ attributes(global) subroutine cflcond_cudaf(solut_d, deltatmin_d)
   if(gi <= nelt_d-nelt_fant_recep_d) then
     deltatmin_d(gi) = dt1
     hauteur = solut_d(1,gi)
-    if ( hauteur > tol_d ) then
+    if ( hauteur > tolisec_d ) then
       vitessu = solut_d(2,gi) / hauteur
       vitessv = solut_d(3,gi) / hauteur
       normvites = sqrt(vitessu**2 + vitessv**2)
@@ -60,7 +60,7 @@ attributes(global) subroutine cflcond_sec_cudaf(solut_d, deltatmin_d, dt_d)
 
   if(gi <= nelt_d-nelt_fant_recep_d) then
     hauteur = solut_d(1,gi)
-    if ( hauteur <= tol_d ) then
+    if ( hauteur <= tolisec_d ) then
       deltatmin_d(gi) = 1e-3*dt_d*cotemin_d/cotemin_arr_d(gi)
     endif
   endif   
