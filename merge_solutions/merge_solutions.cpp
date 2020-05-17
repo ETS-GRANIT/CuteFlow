@@ -24,7 +24,7 @@ void lecture_restart(ifstream &file, double &tsol, vector<vector<double> > &sol)
 
 void lecture_par_noeud(ifstream &file, double &tsol, vector<vector<double> > &sol){
   //Lecture des fichiers de solution sur le domaine complet
-  //pour les fichier txt avec 7 colonnes
+  //pour les fichier txt avec 8 colonnes
 
   string str;
   vector<double> v(8);

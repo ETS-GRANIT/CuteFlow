@@ -165,11 +165,11 @@ subroutine Full_FV
       real(fp_kind), dimension(:,:), intent(in)    :: gradz_d
     end subroutine source_cudaf
 
-    subroutine stock_coupe2D(solh, soleta, solhu, solu, solv)
+    subroutine stock_coupe2D(solh, soleta, solhu, solu)
       use precision_m
       use global
       use m_param
-      real(fp_kind), dimension(:), intent(inout)  :: solh, soleta, solhu, solu, solv
+      real(fp_kind), dimension(:), intent(inout)  :: solh, soleta, solhu, solu
     end subroutine stock_coupe2D
 
     subroutine bluekenue_export(solh, soleta, solhu, solhv)
@@ -629,7 +629,6 @@ subroutine Full_FV
       print*, "***********************************************************************"
       print*, "ERREUR !!!! DIVERGENCE NAN !!!! ERREUR !!!! DIVERGENCE NAN !!!!! ERREUR"
       print*, "***********************************************************************"
-      dt = 1000000000
     end if
 
     dt_d = dt
@@ -686,7 +685,7 @@ subroutine Full_FV
         endif
 
         start=0
-        call stock_coupe2D(she0, sh0, shu0, su0, sv0)
+        call stock_coupe2D(she0, sh0, shu0, su0)
         cptviscoupe = cptviscoupe + 1
       endif
     endif
@@ -763,7 +762,7 @@ subroutine Full_FV
 
       write(ec_sol_nd_t,*) tc
       do nd=1,nnt
-        write(ec_sol_nd_t,'(7f16.6)')  coordonnees(nd,1),coordonnees(nd,2),max(0.0D0,sh0(nd)-she0(nd)),she0(nd),sh0(nd),shu0(nd),shv0(nd)
+        write(ec_sol_nd_t,'(7f16.6)')  coordonnees(nd,1),coordonnees(nd,2),sh0(nd)-she0(nd),she0(nd),sh0(nd),shu0(nd),shv0(nd)
       enddo
 
       cptsolrestart = cptsolrestart + 1
@@ -853,32 +852,6 @@ subroutine Full_FV
     call bluekenue_export(she0, sh0, shu0, shv0)
   end if
 
-  if(sortie_finale_monte_carlo) then
-    if(is_solnode == 0) then 
-      vdlg = vdlg_d
-      call cuda_glerror('ierr<- (D->H) data_transfer into vdlg(3)',1)
-      call sol_nodes(vdlg,surf,zm,sh0,she0,shu0,shv0,su0,sv0)
-      is_solnode = 1
-    endif
-
-    vdlg1 = vdlg1_d
-    call cuda_glerror('ierr<- (D->H) data_transfer into vdlg1{if(solrestart == 1 ... )} <-- Full_FV_cudaf_shared.cuf',1)
-
-    do j=1,nbrcoupes
-      nbr_nds_coupes(j) = 0
-      do i=1,nnt
-        coupe_y = coupe_a(j) * coordonnees(i,1) + coupe_b(j)
-        if ( abs( coordonnees(i,2) - coupe_y ) <= distcote ) then
-          write(3002,'(i8,5f16.6)')  i, coordonnees(i,1), sh0(i) - she0(i), she0(i), sh0(i), su0(i), sv0(i)
-        endif
-      enddo
-    enddo
-
-    do nd=1,nnt
-      write(3003,'(i8,7f16.6)')  i, coordonnees(nd,1),coordonnees(nd,2),max(0.0D0,sh0(nd)-she0(nd)),she0(nd),sh0(nd),shu0(nd),shv0(nd)
-    enddo
-  end if
-
   !STORAGE OF FINAL SOLUTIONS IN ALL ELEMENTS OF THE DOMAIN (For restarting)
   if(solrestart==1 .and. abs( tc - tsolrestart(cptsolrestart) ) <= tolaffiche) then
     write(ec_sol_elt_t,*) tc                        
@@ -888,12 +861,11 @@ subroutine Full_FV
 
     write(ec_sol_nd_t,*) tc
     do nd=1,nnt
-      write(ec_sol_nd_t,'(7f16.6)')  coordonnees(nd,1),coordonnees(nd,2),max(0.0D0,sh0(nd)-she0(nd)),she0(nd),sh0(nd),shu0(nd),shv0(nd)
+      write(ec_sol_nd_t,'(7f16.6)')  coordonnees(nd,1),coordonnees(nd,2),sh0(nd)-she0(nd),she0(nd),sh0(nd),shu0(nd),shv0(nd)
     enddo
 
     cptsolrestart = cptsolrestart + 1
   endif
-
   if(solbasic==1 .and. abs( tc - tsolbasic(cptsolbasic) ) <= tolaffiche) then
     call basic_export (vdlg1, she0, sh0, shu0, shv0, cptsolbasic, 0)
     cptsolbasic = cptsolbasic + 1

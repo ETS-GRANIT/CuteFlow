@@ -43,7 +43,7 @@ module global
   real(fp_kind), dimension(10) :: coupe_a, coupe_b
   real(fp_kind), dimension(100) :: xjauges , yjauges
   integer :: vtk_snapshots, base_unique, nonlin, solvtk, k_base
-  integer :: sortie_finale_monte_carlo, is_dry_as_wall, local_time_step
+  integer :: monte_carlo, is_dry_as_wall, local_time_step
 
   !! Construction de la namelist pour la lecture du fichier de donnee
   namelist/donnees_namelist/ &
@@ -72,7 +72,6 @@ module global
   & solrestart, restart_snapshots,& 
   & solbasic, basic_snapshots, &
   & solvtk, vtk_snapshots,&
-  & sortie_finale_monte_carlo,&
   & sortie_finale_bluekenue
 
   !! Input pour l'analyse stochastiqu
