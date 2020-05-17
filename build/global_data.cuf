@@ -1,5 +1,4 @@
 module global
-
   ! ======================================================================
   !     global = module de stockage des variables
   !     auteur  : Youssef Loukili  GRANIT ETSMTL
