@@ -107,7 +107,7 @@ subroutine sol_nodes(vdlg,surf,zm,soleta,solh,solhu,solhv,solu,solv)
   deallocate(surfno, zzz)
 end subroutine sol_nodes
 
-subroutine stock_coupe2D(solh, soleta, solhu, solu)
+subroutine stock_coupe2D(solh, soleta, solhu, solu, solv)
 
   use precision_m
   use global
@@ -115,7 +115,7 @@ subroutine stock_coupe2D(solh, soleta, solhu, solu)
 
   implicit none
 
-  real(fp_kind), dimension(:), intent(inout)  :: solh, soleta, solhu, solu
+  real(fp_kind), dimension(:), intent(inout)  :: solh, soleta, solhu, solu, solv
 
   character (10) :: no_coupe
   integer :: kvol, i, j, no
@@ -134,7 +134,7 @@ subroutine stock_coupe2D(solh, soleta, solhu, solu)
         if ( abs( coordonnees(i,2) - coupe_y ) <= distcote ) then
           nbr_nds_coupes(j) = nbr_nds_coupes(j) + 1
           nds_coupes(j,nbr_nds_coupes(j)) = i                 
-          write(ec_sol2d,'(5f16.6)')  coordonnees(i,1), soleta(i) - solh(i), solh(i), soleta(i), solu(i) 
+          write(ec_sol2d,'(5f16.6)')  coordonnees(i,1), soleta(i) - solh(i), solh(i), soleta(i), solu(i), solv(i)
         endif
       enddo
       close (ec_sol2d)
@@ -148,7 +148,7 @@ subroutine stock_coupe2D(solh, soleta, solhu, solu)
       if(nbr_nds_coupes(j) > 0) then
         do i=1,nbr_nds_coupes(j)
           no = nds_coupes(j,i)
-          write(ec_sol2d,'(5f16.6)') coordonnees(no,1), soleta(no) - solh(no), solh(no), soleta(no), solu(no)     
+          write(ec_sol2d,'(5f16.6)') coordonnees(no,1), soleta(no) - solh(no), solh(no), soleta(no), solu(no), solv(no)
         enddo
       endif
       close (ec_sol2d)
@@ -211,7 +211,7 @@ subroutine ouv_fichiers(vdlg, vdlg1, zm)
   !! Ouverture du fichier de stockage des solutions 2D  (Opening the 2D solution storage file)
   write(valtemps,'(f12.3)') TS
   solfile2d_MC = trim(adjustl(mpi_process_id_string)) // '_FV--Q' // trim(adjustl(debit_tot)) // '_n_'// trim(adjustl(coef_frot))// '_t_' // trim(adjustl(valtemps)) // '_s'// '.txt'
-  if (monte_carlo==1 ) then
+  if (sortie_finale_monte_carlo==1 ) then
     solfile2d_MC = trim(adjustl(mpi_process_id_string)) // '_SOL_FV_MULTISIM_2D.txt'
     solfile3d_MC = trim(adjustl(mpi_process_id_string)) // '_SOL_FV_MULTISIM_3D.txt'
     open(unit=3002,file=solfile2d_MC,status="unknown")
