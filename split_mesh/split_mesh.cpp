@@ -163,7 +163,7 @@ void ecritureFantGnuplot(int n, vector<vector<double> > &nodes, vector<vector<do
   out_mesh.close();
 }
 
-void ecriture(bool multi_sortie, bool multi_entree, string fileName, int n, vector<vector<double> > &nodes, vector<vector<double> > &elems, vector<int> &new_entreNodes, vector<int> &new_numEntreNodes, vector<int> &new_sortieNodes, vector<int> &new_numSortieNodes, vector<int> &new_wallNodes, vector<vector<int> > &fantElemsRecep, vector<vector<int> > &fantElemsEnvoi, vector<vector<int> > &infoEnvoi, vector<vector<int> > &infoRecep, int &nombreEntre, int &nombreSortie){
+void ecriture(bool multi_sortie, bool multi_entree, string fileName, int n, vector<vector<double> > &nodes, vector<vector<double> > &elems, vector<int> &new_entreNodes, vector<int> &new_numEntreNodes, vector<int> &new_sortieNodes, vector<int> &new_numSortieNodes, vector<int> &new_wallNodes, vector<vector<int> > &fantElemsRecep, vector<vector<int> > &fantElemsEnvoi, vector<vector<int> > &infoEnvoi, vector<vector<int> > &infoRecep, int &nombreEntre, int &nombreSortie, vector<int> renumSD){
 
   int i, nNodes, nElems;
   nNodes = nodes.size();
@@ -171,7 +171,7 @@ void ecriture(bool multi_sortie, bool multi_entree, string fileName, int n, vect
   ofstream out_mesh;
   stringstream ss;
   //ss << "out_mesh." << n << ".txt";
-  ss << n << "_" << fileName;
+  ss << renumSD[n] << "_" << fileName;
   out_mesh.open(ss.str());
   ss.str("");
   out_mesh << fixed ;
@@ -240,7 +240,7 @@ void ecriture(bool multi_sortie, bool multi_entree, string fileName, int n, vect
   i=0;
   while(i<fantElemsRecep.size()){
     //out_mesh << fantElemsRecep[i][0] << " " << fantElemsRecep[i][1] << endl ;
-    out_mesh << fantElemsRecep[i][0] << " " << fantElemsRecep[i][1] << " " << fantElemsRecep[i][2] << endl;
+    out_mesh << fantElemsRecep[i][0] << " " << renumSD[fantElemsRecep[i][1]] << " " << fantElemsRecep[i][2] << endl;
     i++; 
   }
   out_mesh << "Mailles fantomes a envoyer" << endl;
@@ -248,21 +248,21 @@ void ecriture(bool multi_sortie, bool multi_entree, string fileName, int n, vect
   i=0;
   while(i<fantElemsEnvoi.size()){
     //out_mesh << fantElemsEnvoi[i][0] << " " << fantElemsEnvoi[i][1] << endl ;
-    out_mesh << fantElemsEnvoi[i][0] << " " << fantElemsEnvoi[i][1] << " " << fantElemsEnvoi[i][2]<< endl ;
+    out_mesh << fantElemsEnvoi[i][0] << " " << renumSD[fantElemsEnvoi[i][1]] << " " << fantElemsEnvoi[i][2]<< endl ;
     i++; 
   }
   out_mesh << "Mailles fantomes a receptionner par bloc" << endl;
   out_mesh << infoRecep.size() << endl;
   i=0;
   while(i<infoRecep.size()){
-    out_mesh << infoRecep[i][0] << " " << infoRecep[i][1] << " " << infoRecep[i][2]<< endl ;
+    out_mesh << infoRecep[i][0] << " " << infoRecep[i][1] << " " << renumSD[infoRecep[i][2]]<< endl ;
     i++; 
   }
   out_mesh << "Mailles fantomes a envoyer par bloc" << endl;
   out_mesh << infoEnvoi.size() << endl;
   i=0;
   while(i<infoEnvoi.size()){
-    out_mesh << infoEnvoi[i][0] << " " << infoEnvoi[i][1] << " " << infoEnvoi[i][2]<< endl ;
+    out_mesh << infoEnvoi[i][0] << " " << infoEnvoi[i][1] << " " << renumSD[infoEnvoi[i][2]]<< endl ;
     i++; 
   }
   out_mesh.close();
@@ -484,14 +484,14 @@ void boundary(int nParts, vector<vector<double> > &nodes, vector<vector<double> 
       }
       
     }
-    stringstream w;
-    w << p << "_wall.txt";
-    ofstream out(w.str());
-    out << fixed ;
-    for(int l=0;l<new_wallNodes[p].size();l++){
-      out << newNodes[p][(int) (new_wallNodes[p][l])-1][1]<< " " << newNodes[p][(int) (new_wallNodes[p][l])-1][2]<< endl;
-    }
-    out.close();
+    /* stringstream w; */
+    /* w << p << "_wall.txt"; */
+    /* ofstream out(w.str()); */
+    /* out << fixed ; */
+    /* for(int l=0;l<new_wallNodes[p].size();l++){ */
+    /*   out << newNodes[p][(int) (new_wallNodes[p][l])-1][1]<< " " << newNodes[p][(int) (new_wallNodes[p][l])-1][2]<< endl; */
+    /* } */
+    /* out.close(); */
 }
 }
 
@@ -559,6 +559,97 @@ void renum(int nParts, vector<vector<vector<double> > > &newElems, vector<vector
       eGTLRenum[p][eLTG[p][tempRecepLoc[m]-1]-1] = ms+m+1;
     }
 
+  }
+}
+
+
+void renumSousDomaines(int nParts, vector<int> &renumerotationSousDomaine, vector<vector<vector<int> > > &infoEnvoi, vector<vector<int> > &new_entreNodes){
+
+  int deg=10000;
+  vector<int> renum;
+
+  //Calcul des vertex degree
+  vector<int> vertexDegree(nParts);
+  for(int p=0;p<nParts;p++){
+    vertexDegree[p] = infoEnvoi[p].size(); //vertex degree est le nombre de voisins du domaine
+  }
+
+  //Initialisation du premier domaine
+  renum.push_back(-1);
+
+  //On recherche un domaine avec un noeud d'entrée pour servir de premier domaine
+  for(int p=0;p<nParts;p++){
+    if(new_entreNodes[p].size()>1){
+      if(vertexDegree[p]<deg){
+        renum[0] = p;
+        deg=vertexDegree[p];
+      }
+    }
+  }
+
+  //Si on ne trouve pas de domaines d'entrée
+  if(renum[0] == -1){
+    deg=10000;
+    for(int p=0;p<nParts;p++){
+      if(vertexDegree[p]<deg){
+        renum[0] = p;
+        deg=vertexDegree[p];
+      }
+    }
+  }
+
+  vector<int> adjencySet;
+  vector<int> adjencySetClean;
+
+  //Cuthil-Mckee
+  int np=0;
+  while(renum.size()<nParts){
+
+    //Nettoyage et construction de l'adjency vector
+    adjencySet.clear();
+    adjencySetClean.clear();
+    
+    for(int j=0;j<infoEnvoi[renum[np]].size();j++){
+      adjencySet.push_back(infoEnvoi[renum[np]][j][2]);
+    }
+   
+    //Enleve de l'adjency vector les domaines déja dans renum
+    for(int j=0;j<adjencySet.size();j++){
+      //Chesk si deja dans renum
+      bool is_inside=false;
+      for(int i=0;i<renum.size();i++){
+        if(renum[i]==adjencySet[j]){
+          is_inside=true;
+          break;
+        }
+      }
+      if(!is_inside){
+        adjencySetClean.push_back(adjencySet[j]); 
+      }
+    }
+
+    //Trie l'adjency vector (bubble sort)
+    int temp;
+    for(int i=0;i<adjencySetClean.size();i++){
+      for(int j=0;j<adjencySetClean.size()-i-1;j++){
+        if(vertexDegree[adjencySetClean[j]]<vertexDegree[adjencySetClean[j+1]]){
+          temp = adjencySetClean[j];
+          adjencySetClean[j] = adjencySetClean[j+1];
+          adjencySetClean[j+1] = temp;
+        }
+      }
+    }
+
+    for(int i=0;i<adjencySetClean.size();i++){
+      renum.push_back(adjencySetClean[i]); 
+    }
+    np++;
+  }
+
+
+  //remplie renumerotationSousDomaines
+  for(int i=0;i<nParts;i++){
+    renumerotationSousDomaine[renum[i]] = i;
   }
 }
 
@@ -660,7 +751,7 @@ int main(int argc, char* argv[]){
 
   int n, i, nNodes, nElems, ncom(1), nombreEntre, nombreSortie;
   int new_nElems, new_nNodes;
-  vector<int> entreNodes, sortieNodes, wallNodes, numEntreNodes, numSortieNodes;
+  vector<int> entreNodes, sortieNodes, wallNodes, numEntreNodes, numSortieNodes, renumerotationSousDomaine(nParts);
   vector<vector<int> > new_entreNodes(nParts), new_numEntreNodes(nParts);
   vector<vector<int> > new_sortieNodes(nParts), new_numSortieNodes(nParts);
   vector<vector<int> > new_wallNodes(nParts);
@@ -722,13 +813,16 @@ int main(int argc, char* argv[]){
   cout << "Génération des informations send/recp" << endl;
   genInfoSendRecv(nParts, fantElemsEnvoi, fantElemsRecep, infoEnvoi, infoRecep);
 
+  cout << "Renumerotation des sous domaines" << endl;
+  renumSousDomaines(nParts, renumerotationSousDomaine, infoEnvoi, new_entreNodes);
+
   //Ecriture des fichiers de maillages
   cout << "Ecriture des fichiers de maillages finaux." << endl;
   for(int p=0;p<nParts;p++){
-    cout << "Part " << p << ", " << fantElemsRecep[p].size() << " mailles à recep et " << fantElemsEnvoi[p].size() << " à envoyer." << endl;
-    ecritureGnuplot(p, newNodes[p], newElems[p]);
+    cout << "Part " << renumerotationSousDomaine[p] << ", " << fantElemsRecep[p].size() << " mailles à recep et " << fantElemsEnvoi[p].size() << " à envoyer." << endl;
+    //ecritureGnuplot(p, newNodes[p], newElems[p]);
     //ecritureFantGnuplot(p,newNodes[p], newElems[p], new_entreNodes[p], new_sortieNodes[p], new_wallNodes[p], fantElemsRecep[p], fantElemsEnvoi[p]);
-    ecriture(multi_sortie, multi_entree, fileName, p,newNodes[p], newElems[p], new_entreNodes[p], new_numEntreNodes[p], new_sortieNodes[p], new_numSortieNodes[p], new_wallNodes[p], fantElemsRecep[p], fantElemsEnvoi[p],infoEnvoi[p], infoRecep[p], nombreEntre, nombreSortie);
+    ecriture(multi_sortie, multi_entree, fileName, p,newNodes[p], newElems[p], new_entreNodes[p], new_numEntreNodes[p], new_sortieNodes[p], new_numSortieNodes[p], new_wallNodes[p], fantElemsRecep[p], fantElemsEnvoi[p],infoEnvoi[p], infoRecep[p], nombreEntre, nombreSortie,renumerotationSousDomaine);
     ecritureLiens(p, nLTG[p], eLTG[p]);
   }
 
