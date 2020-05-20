@@ -331,6 +331,7 @@ void fantome(int nParts, vector<vector<double> > &nodes, vector<vector<double> >
     }
   }
   cout << "Fin de copies de vecteurs " << endl;
+  cout << "Debut de l'ajout des mailles fantomes" << endl;
 
 
   //Fantome meshing
@@ -463,26 +464,34 @@ void fantome(int nParts, vector<vector<double> > &nodes, vector<vector<double> >
 
 void boundary(int nParts, vector<vector<double> > &nodes, vector<vector<double> > &elems, vector<vector<vector<double> > > &newNodes, vector<vector<vector<double> > > &newElems, vector<int> &sortieNodes, vector<int> &numSortieNodes, vector<int> &entreNodes, vector<int> &numEntreNodes, vector<int> &wallNodes, vector<vector<int> > &new_sortieNodes, vector<vector<int> > &new_numSortieNodes,vector<vector<int> > &new_entreNodes, vector<vector<int> > &new_numEntreNodes, vector<vector<int> > &new_wallNodes,vector<vector<int> > &nLTG,vector<vector<int> > &nGTL,vector<vector<int> > &eLTG,vector<vector<int> > &eGTL){
   
+  vector<int> boundTag(nodes.size(),0);
+  vector<int> numEntreeSortie(nodes.size(),0);
+  for(int i=0;i<entreNodes.size();i++){
+    boundTag[entreNodes[i]-1] = -1; //Tag entree
+    numEntreeSortie[entreNodes[i]-1] = numEntreNodes[i]; 
+  }
+  for(int i=0;i<sortieNodes.size();i++){
+    boundTag[sortieNodes[i]-1] = -2; //Tag sortie
+    numEntreeSortie[sortieNodes[i]-1] = numSortieNodes[i]; 
+  }
+  for(int i=0;i<wallNodes.size();i++){
+    boundTag[wallNodes[i]-1] = -3; //Tag mur
+  }
+
   for(int p=0;p<nParts;p++){
     for(int i=0;i<newNodes[p].size();i++){
-      for(int j=0;j<entreNodes.size();j++){
-        if(nLTG[p][i] == entreNodes[j]){
+        if(boundTag[nLTG[p][i]-1] == -1){
           new_entreNodes[p].push_back(i+1);
-          new_numEntreNodes[p].push_back(numEntreNodes[j]);
+          new_numEntreNodes[p].push_back(numEntreeSortie[nLTG[p][i]-1]);
         }
-      }
-      for(int j=0;j<sortieNodes.size();j++){
-        if(nLTG[p][i] == sortieNodes[j]){
+      
+        if(boundTag[nLTG[p][i]-1] == -2){
           new_sortieNodes[p].push_back(i+1);
-          new_numSortieNodes[p].push_back(numSortieNodes[j]);
+          new_numSortieNodes[p].push_back(numEntreeSortie[nLTG[p][i]-1]);
         }
-      }
-      for(int j=0;j<wallNodes.size();j++){
-        if(nLTG[p][i] == wallNodes[j]){
+        if(boundTag[nLTG[p][i]-1] == -3){
           new_wallNodes[p].push_back(i+1);
         }
-      }
-      
     }
     /* stringstream w; */
     /* w << p << "_wall.txt"; */
@@ -765,7 +774,7 @@ int main(int argc, char* argv[]){
   cout << fixed;
 
   //Lecture du maillage
-  lecture(multi_sortie, multi_entree, mesh, nodes, elems, eind, eptr, entreNodes, numEntreNodes, sortieNodes, numSortieNodes, wallNodes, nombreEntre, nombreSortie);
+  lecture(multi_entree, multi_sortie, mesh, nodes, elems, eind, eptr, entreNodes, numEntreNodes, sortieNodes, numSortieNodes, wallNodes, nombreEntre, nombreSortie);
   mesh.close();
 
 
@@ -815,6 +824,10 @@ int main(int argc, char* argv[]){
 
   cout << "Renumerotation des sous domaines" << endl;
   renumSousDomaines(nParts, renumerotationSousDomaine, infoEnvoi, new_entreNodes);
+
+  /* for(int i=0;i<nParts;i++){ */
+  /*   renumerotationSousDomaine[i] = i; */ 
+  /* } */
 
   //Ecriture des fichiers de maillages
   cout << "Ecriture des fichiers de maillages finaux." << endl;
