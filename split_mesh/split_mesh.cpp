@@ -352,9 +352,9 @@ void fantome(int nParts, vector<vector<double> > &nodes, vector<vector<double> >
         ofstream nflu(ss.str());
         nflu << fixed;
         //Test plot noeuds communs
-        for(int no=0;no<commonNodes.size();no++){
-          nflu << commonNodes[no] << " " <<nodes[(int) (commonNodes[no])-1][1]<< " " << nodes[(int) (commonNodes[no])-1][2] << endl;
-        }
+        /* for(int no=0;no<commonNodes.size();no++){ */
+        /*   nflu << commonNodes[no] << " " <<nodes[(int) (commonNodes[no])-1][1]<< " " << nodes[(int) (commonNodes[no])-1][2] << endl; */
+        /* } */
         nflu.close();
         //}
 

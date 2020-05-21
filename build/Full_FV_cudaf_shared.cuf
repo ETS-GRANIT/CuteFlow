@@ -766,17 +766,17 @@ subroutine Full_FV
       enddo
 
       cptsolrestart = cptsolrestart + 1
+      rewind (ec_sol_elt_t)
+      rewind (ec_sol_nd_t)
     endif
 
-    rewind (ec_sol_elt_t)
-    rewind (ec_sol_nd_t)
 
     debitglob_sum = sum(debitglob)
     debit_entree_sum = sum(debit_entree)
 
     if ( abs(debit_entree_sum - debit_sortie)/debit_entree_sum < tol_reg_perm ) then
       cond_reg_perm = cond_reg_perm + 1
-      if( cond_reg_perm > 1000000) then
+      if( cond_reg_perm > 100000) then
 
         if ((60   <= tc) .and. (tc < 3600))   print*, 'tc = ', tc, ' Secondes   =>', tc/60,    ' Minutes' 
         if ((3600 <= tc) .and. (tc< 86400))  print*, 'tc = ', tc, ' Secondes   =>', tc/3600,  ' Heures'
@@ -806,8 +806,10 @@ subroutine Full_FV
 
     !!  Echange sur GPU directement bloc
     if(num_mpi_process>1) then
-      call gpu_echange_fant_bloc(vdlg0_d, ndln)
+      !call gpu_echange_fant_bloc(vdlg0_d, ndln)
       call gpu_echange_fant_bloc(vdlg01_d, ndln)
+      call init_vdlg<<<grid, tblock>>>(vdlg0_d, vdlg01_d, zm_d)
+      call cuda_glerror('ierr<-init_vdlg <-- Full_FV_cudaf_shared.cuf',1)
     end if
 
     call cpu_time(te2)
@@ -1131,8 +1133,8 @@ attributes(global) subroutine init_vdlg(vdlg_d, vdlg1_d,  zm_d)
 
   if(gi <= nelt_d) then
     vdlgtmp = vdlg1_d(1,gi) - zm_d(gi)
-    if ( vdlgtmp <= 0. ) then
-      vdlg_d(1,gi) = 0.
+    if ( vdlgtmp <= tolisec_d ) then
+      vdlg_d(1,gi) = tolisec_d
       vdlg_d(2,gi) = 0.
       vdlg_d(3,gi) = 0.
     else

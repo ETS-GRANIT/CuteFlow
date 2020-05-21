@@ -13,7 +13,7 @@
   eqlin_barrage=1,                                               ! 1 pour initialiser avec un barrage
   x1eqbar=274997.75521489076, x2eqbar=274756.1533974407,         ! Abscisses des deux points du barrage
   y1eqbar=5043578.489765059, y2eqbar=5043885.982987268,          ! Ordonnées des deux points du barrage
-  H_AMONT=31.0, U_AMONT=0, V_AMONT=0,                            ! Valeur de l'init du coté - de la normale au barrage
+  H_AMONT=30.0, U_AMONT=0, V_AMONT=0,                            ! Valeur de l'init du coté - de la normale au barrage
   H_AVAL =29.0, U_AVAL =0, V_AVAL =0,                             ! Valeur de l'init du coté + de la normale au barrage
 
   ! Initialisation avec un plan 
@@ -40,7 +40,7 @@
   is_dry_as_wall=0,                                              ! 1 pour mettre les mailles seches comme des murs
   local_time_step=0,                                             ! 1 pour utiliser le local time step
 
-  TS=300.0, CFL=0.9,                                              ! Temps maximal de simultion, nombre CFL
+  TS=3000.0, CFL=1.5,                                              ! Temps maximal de simultion, nombre CFL
   tol_reg_perm=1.0E-15,                                          ! Tolérence relative entre debit entrée et débit sortie
   freqaffich=10000,                                               ! Frequence de print dans outfile.[0-9]
 
@@ -55,5 +55,5 @@
 
   solrestart=1, restart_snapshots=10,                            ! Sauvegarde en overwrite la solution pour restart
   solbasic=0, basic_snapshots=10,                                ! 1 pour sauvegarder h sur les noeud (pierre)
-  solvtk=1, vtk_snapshots=300,                                    ! 1 pour sauvegarder les fichiers vkt pour video
+  solvtk=1, vtk_snapshots=10,                                    ! 1 pour sauvegarder les fichiers vkt pour video
   sortie_finale_bluekenue=0/                                     ! Sauvergarde fichiers T3S à la fin
