@@ -331,6 +331,28 @@ void fantome(int nParts, vector<vector<double> > &nodes, vector<vector<double> >
     }
   }
   cout << "Fin de copies de vecteurs " << endl;
+
+  cout << "Construction d'adjency vector pour controle maille fantome" << endl;
+  vector<vector<vector<int> > > adj(nParts);
+  for(int p=0;p<nParts;p++){
+    int n1,n2,n3;
+    adj[p].resize(newNodes[p].size());
+    for(int i=0;i<newElems[p].size();i++){
+      n1 = newElems[p][i][1]-1;
+      n2 = newElems[p][i][2]-1;
+      n3 = newElems[p][i][3]-1;
+      adj[p][n1].push_back(n2+1);
+      adj[p][n1].push_back(n3+1);
+      adj[p][n2].push_back(n1+1);
+      adj[p][n2].push_back(n3+1);
+      adj[p][n3].push_back(n1+1);
+      adj[p][n3].push_back(n2+1);
+    }
+  }
+
+
+
+
   cout << "Debut de l'ajout des mailles fantomes" << endl;
 
 
@@ -347,21 +369,21 @@ void fantome(int nParts, vector<vector<double> > &nodes, vector<vector<double> >
       }
      
       if(commonNodes.size()!=0){
-        stringstream ss;
-        ss << "common_nodes." << i << "." << j << ".txt";
-        ofstream nflu(ss.str());
-        nflu << fixed;
-        //Test plot noeuds communs
+        /* stringstream ss; */
+        /* ss << "common_nodes." << i << "." << j << ".txt"; */
+        /* ofstream nflu(ss.str()); */
+        /* nflu << fixed; */
+        /* //Test plot noeuds communs */
         /* for(int no=0;no<commonNodes.size();no++){ */
         /*   nflu << commonNodes[no] << " " <<nodes[(int) (commonNodes[no])-1][1]<< " " << nodes[(int) (commonNodes[no])-1][2] << endl; */
         /* } */
-        nflu.close();
-        //}
+        /* nflu.close(); */
 
         //Recherche des mailles fantomes pour i (2 noeuds dans les noeuds communs)
         for(int maille=0;maille<maxE[i];maille++){
           int nc=0; 
           int ncc[3] = {0};
+          bool controle=false;
 
           for(int ne=0;ne<3;ne++){
             for(int pa=0;pa<commonNodes.size();pa++){
@@ -370,7 +392,35 @@ void fantome(int nParts, vector<vector<double> > &nodes, vector<vector<double> >
             }
           }
 
-          if(nc>=2){
+          if(nc==2){
+            int ni1, ni2, nj1, nj2;
+            if(ncc[0]==0){
+              ni1=newElems[i][maille][2]-1;
+              ni2=newElems[i][maille][3]-1;
+            }
+            else if(ncc[1]==0){
+              ni1=newElems[i][maille][1]-1;
+              ni2=newElems[i][maille][3]-1;
+            }
+            else if(ncc[2]==0){
+              ni1=newElems[i][maille][1]-1;
+              ni2=newElems[i][maille][2]-1;
+            }
+
+            nj1=bnGTL[j][bnLTG[i][ni1]-1]-1;
+            nj2=bnGTL[j][bnLTG[i][ni2]-1]-1;
+
+              for(int k=0;k<adj[j][nj1].size();k++){
+                if(adj[j][nj1][k] == nj2+1){
+                  controle=true; 
+                }
+              }
+          } 
+          else if(nc==3){
+            controle=true; 
+          }
+
+          if(nc>=2 and controle){
             //Ajout du noeud manquant si besoin
             for(int l=0;l<3;l++){
               if(ncc[l] == 0){
@@ -412,6 +462,7 @@ void fantome(int nParts, vector<vector<double> > &nodes, vector<vector<double> >
         for(int maille=0;maille<maxE[j];maille++){
           int nc=0; 
           int ncc[3] = {0};
+          bool controle=false;
 
           for(int ne=0;ne<3;ne++){
             for(int pa=0;pa<commonNodes.size();pa++){
@@ -420,7 +471,35 @@ void fantome(int nParts, vector<vector<double> > &nodes, vector<vector<double> >
             }
           }
 
-          if(nc>=2){
+          if(nc==2){
+            int ni1, ni2, nj1, nj2;
+            if(ncc[0]==0){
+              nj1=newElems[j][maille][2]-1;
+              nj2=newElems[j][maille][3]-1;
+            }
+            else if(ncc[1]==0){
+              nj1=newElems[j][maille][1]-1;
+              nj2=newElems[j][maille][3]-1;
+            }
+            else if(ncc[2]==0){
+              nj1=newElems[j][maille][1]-1;
+              nj2=newElems[j][maille][2]-1;
+            }
+
+            ni1=bnGTL[i][bnLTG[j][nj1]-1]-1;
+            ni2=bnGTL[i][bnLTG[j][nj2]-1]-1;
+
+              for(int k=0;k<adj[i][ni1].size();k++){
+                if(adj[i][ni1][k] == ni2+1){
+                  controle=true; 
+                }
+              }
+          } 
+          else if(nc==3){
+            controle=true; 
+          }
+
+          if(nc>=2 and controle){
             //Ajout du noeud manquant si besoin
             for(int l=0;l<3;l++){
               if(ncc[l] == 0){

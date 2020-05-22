@@ -22,8 +22,8 @@
   xpoint=274956.783790834, ypoint=5043746.46205659, zpoint=31.35 ! Point appartenant au plan
 
   ! Initialisation a partir d'un fichier, fichier avec solution ax elements
-  solinit=0,                                                     ! 1 pour initialiser a partir du fichier
-  fich_sol_init='Mille_Iles_solution_initiale_t67500s.txt',      ! nom du fichier d'initialisation
+  solinit=1,                                                     ! 1 pour initialiser a partir du fichier
+  fich_sol_init='sol_restart.txt',      ! nom du fichier d'initialisation
 
   ! Conditions aux limites
   inlet='inflow',                                                ! Type d'entrée : {inflow,transm}
@@ -40,7 +40,7 @@
   is_dry_as_wall=0,                                              ! 1 pour mettre les mailles seches comme des murs
   local_time_step=0,                                             ! 1 pour utiliser le local time step
 
-  TS=3000.0, CFL=1.5,                                              ! Temps maximal de simultion, nombre CFL
+  TS=30000.0, CFL=1.5,                                              ! Temps maximal de simultion, nombre CFL
   tol_reg_perm=1.0E-15,                                          ! Tolérence relative entre debit entrée et débit sortie
   freqaffich=10000,                                               ! Frequence de print dans outfile.[0-9]
 
@@ -55,5 +55,5 @@
 
   solrestart=1, restart_snapshots=10,                            ! Sauvegarde en overwrite la solution pour restart
   solbasic=0, basic_snapshots=10,                                ! 1 pour sauvegarder h sur les noeud (pierre)
-  solvtk=1, vtk_snapshots=10,                                    ! 1 pour sauvegarder les fichiers vkt pour video
+  solvtk=1, vtk_snapshots=100,                                    ! 1 pour sauvegarder les fichiers vkt pour video
   sortie_finale_bluekenue=0/                                     ! Sauvergarde fichiers T3S à la fin
