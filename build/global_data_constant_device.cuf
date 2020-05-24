@@ -7,6 +7,8 @@ module global_device
   !     version : 1.0  ;  May 12 2003
   ! ======================================================================
 
+  integer, device :: mutex
+
   !! Terrain data variables 
   integer, constant                  :: friction_d, is_override_manning_d
   real(fp_kind), constant            :: gp_d, override_manning_d
@@ -27,7 +29,8 @@ module global_device
   integer, constant:: comptvisu_d, cptsolvtk_d, cptsoljauge_d, cptsolrestart_d, cptdebit_d 
   real(fp_kind), constant:: long_d, critere_arret_d
   real(fp_kind), dimension(20), constant:: debitglob_d, h_sortie_d
-  real(fp_kind), constant:: ts_d, tsstab_d, dt_d, cfl_d, tol_d, tolisec_d, tolaffiche_d, tol_reg_perm_d
+  real(fp_kind), constant:: ts_d, tsstab_d, cfl_d, tol_d, tolisec_d, tolaffiche_d, tol_reg_perm_d
+  real(fp_kind), device :: dt_d
   integer, constant:: multi_simul_d, monte_carlo_d
 
   character, device, allocatable  :: un_voisin_sec1_d(:)

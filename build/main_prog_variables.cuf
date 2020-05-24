@@ -6,7 +6,7 @@ module main_prog_variables
 
   real(fp_kind), dimension(:)  , allocatable :: surf, sh0, shu0, shv0, su0,she0, sv0, zm
   real(fp_kind), dimension(:,:), allocatable :: gradz, gradz2
-  real(fp_kind), dimension(:,:), allocatable :: vdlg, vdlg0, vdlg1, vdlg01, tempvdlg
+  real(fp_kind), pinned, dimension(:,:), allocatable :: vdlg, vdlg0, vdlg1, vdlg01, tempvdlg
 
   real(fp_kind) :: ti, tf
 
