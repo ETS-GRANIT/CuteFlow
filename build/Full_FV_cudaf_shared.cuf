@@ -611,8 +611,8 @@ subroutine Full_FV
     !!  Echange sur GPU directement bloc
     if(num_mpi_process>1) then
       !call gpu_echange_fant_bloc(vdlg01_d, ndln)
-      call gpu_echange_fant_bloc_async(vdlg01_d, ndln)
-      call init_vdlg<<<grid, tblock>>>(vdlg0_d, vdlg01_d, zm_d)
+      call gpu_echange_fant_bloc_async(vdlg1_d, ndln)
+      call init_vdlg<<<grid, tblock>>>(vdlg_d, vdlg1_d, zm_d)
       call cuda_glerror('ierr<-init_vdlg <-- Full_FV_cudaf_shared.cuf',1)
     end if
 
