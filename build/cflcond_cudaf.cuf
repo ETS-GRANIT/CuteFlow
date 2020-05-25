@@ -13,23 +13,26 @@ attributes(global) subroutine cflcond_cudaf(solut_d, deltatmin_d)
   real(fp_kind), dimension(:,:), intent(in)     :: solut_d
   real(fp_kind), intent(inout)                  :: deltatmin_d(:)
 
-  !real(fp_kind)               :: hauteur, vitessu, vitessv, normvites, vitessmax
-  real(fp_kind)               :: normvites, vitessmax
+  real(fp_kind)               :: hauteur, vitessu, vitessv, normvites, vitessmax
   integer                     :: ti,gi
 
   ti = threadIdx%x
   gi = (blockIdx%x - 1)*blockDim%x + ti
 
+
   if(gi <= nelt_d-nelt_fant_recep_d) then
-    deltatmin_d=1000000.0D0
-    if ( solut_d(1,gi) > tolisec_d ) then
-      normvites = sqrt((solut_d(2,gi) / solut_d(1,gi))**2+ (solut_d(3,gi) / solut_d(1,gi))**2)
-      vitessmax = max( 0.01D0, (normvites + sqrt(gp_d * abs(solut_d(1,gi)))))
+    deltatmin_d(gi) = 1000000.0D0
+    hauteur = solut_d(1,gi)
+    if ( hauteur > tolisec_d ) then
+      vitessu = solut_d(2,gi) / hauteur
+      vitessv = solut_d(3,gi) / hauteur
+      normvites = sqrt(vitessu**2 + vitessv**2)
+      vitessmax = max( 0.01D0, (normvites + sqrt(gp_d * abs(hauteur))))
       deltatmin_d(gi) = min( cfl_d * cotemin_arr_d(gi)/vitessmax, 1000000.0D0)
     else
       deltatmin_d(gi) = 1000000.0D0
     endif
-  end if
+  endif   
 end subroutine cflcond_cudaf
 
 attributes(global) subroutine cflcond_sec_cudaf(solut_d, deltatmin_d, dt_d)
