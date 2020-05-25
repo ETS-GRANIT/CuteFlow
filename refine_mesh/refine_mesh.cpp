@@ -97,6 +97,7 @@ void refine(vector<vector<double> > &nodes, vector<vector<double> > &elems, vect
   double s3x, s3y, s3z, s3m;
   double s31x, s31y, s31z, s31m;
   int ns1, ns12, ns2, ns23, ns3, ns31;
+  bool is1, is2, is3, is12, is23, is31;
   //vector<vector<int> > is_created(nodes.size(), vector<int> (nodes.size(), -1));
   //SpMat is_created(nodes.size(), nodes.size());
   unordered_map<int, int> is_created;
@@ -108,7 +109,14 @@ void refine(vector<vector<double> > &nodes, vector<vector<double> > &elems, vect
     s2 = elems[i][2]-1;
     s3 = elems[i][3]-1;
 
-    if(is_created.find(s1*ns+s1)==is_created.end()){
+    is1=(is_created.find(s1*ns+s1)==is_created.end());
+    is2=(is_created.find(s2*ns+s2)==is_created.end());
+    is3=(is_created.find(s3*ns+s3)==is_created.end());
+    is12=(is_created.find(s1*ns+s2)==is_created.end() or is_created.find(s2*ns+s1)==is_created.end());
+    is23=(is_created.find(s2*ns+s3)==is_created.end() or is_created.find(s3*ns+s2)==is_created.end());
+    is31=(is_created.find(s3*ns+s1)==is_created.end() or is_created.find(s1*ns+s3)==is_created.end());
+
+    if(is1){
       s1x = nodes[s1][1];
       s1y = nodes[s1][2];
       s1z = nodes[s1][3];
@@ -131,7 +139,7 @@ void refine(vector<vector<double> > &nodes, vector<vector<double> > &elems, vect
       s1m = new_nodes[ns1][4];
     }
 
-    if(is_created.find(s2*ns+s2)==is_created.end()){
+    if(is2){
       s2x = nodes[s2][1];
       s2y = nodes[s2][2];
       s2z = nodes[s2][3];
@@ -154,7 +162,7 @@ void refine(vector<vector<double> > &nodes, vector<vector<double> > &elems, vect
       s2m = new_nodes[ns2][4];
     }
 
-    if(is_created.find(s3*ns+s3)==is_created.end()){
+    if(is3){
       s3x = nodes[s3][1];
       s3y = nodes[s3][2];
       s3z = nodes[s3][3];
@@ -177,7 +185,7 @@ void refine(vector<vector<double> > &nodes, vector<vector<double> > &elems, vect
       s3m = new_nodes[ns3][4];
     }
 
-    if(is_created.find(s1*ns+s2)==is_created.end()){
+    if(is12){
       s12x = (s1x+s2x)/2.;
       s12y = (s1y+s2y)/2.;
       s12z = (s1z+s2z)/2.;
@@ -201,7 +209,7 @@ void refine(vector<vector<double> > &nodes, vector<vector<double> > &elems, vect
       s12m = new_nodes[ns12][4];
     }
 
-    if(is_created.find(s2*ns+s3)==is_created.end()){
+    if(is23){
       s23x = (s3x+s2x)/2.;
       s23y = (s3y+s2y)/2.;
       s23z = (s3z+s2z)/2.;
@@ -225,7 +233,7 @@ void refine(vector<vector<double> > &nodes, vector<vector<double> > &elems, vect
       s23m = new_nodes[ns23][4];
     }
 
-    if(is_created.find(s3*ns+s1)==is_created.end()){
+    if(is31){
       s31x = (s1x+s3x)/2.;
       s31y = (s1y+s3y)/2.;
       s31z = (s1z+s3z)/2.;
@@ -281,76 +289,88 @@ void refine(vector<vector<double> > &nodes, vector<vector<double> > &elems, vect
     new_elems.push_back(v);
 
     //Gestion des entree sorties mur
-    if(boundTag[s1][0] == -1){
-      new_entreNodes.push_back(ns1+1);
-      new_numEntreNodes.push_back(boundTag[s1][1]);
-    }
-    else if(boundTag[s1][0] == -2){
-      new_sortieNodes.push_back(ns1+1);
-      new_numSortieNodes.push_back(boundTag[s1][1]);
-    }
-    else if(boundTag[s1][0] == -3){
-      new_wallNodes.push_back(ns1+1);
-    }
-
-    if(boundTag[s2][0] == -1){
-      new_entreNodes.push_back(ns2+1);
-      new_numEntreNodes.push_back(boundTag[s2][1]);
-    }
-    else if(boundTag[s2][0] == -2){
-      new_sortieNodes.push_back(ns2+1);
-      new_numSortieNodes.push_back(boundTag[s2][1]);
-    }
-    else if(boundTag[s2][0] == -3){
-      new_wallNodes.push_back(ns2+1);
+    if(is1){
+      if(boundTag[s1][0] == -1){
+        new_entreNodes.push_back(ns1+1);
+        new_numEntreNodes.push_back(boundTag[s1][1]);
+      }
+      if(boundTag[s1][0] == -2){
+        new_sortieNodes.push_back(ns1+1);
+        new_numSortieNodes.push_back(boundTag[s1][1]);
+      }
+      if(boundTag[s1][0] == -3){
+        new_wallNodes.push_back(ns1+1);
+      }
     }
 
-    if(boundTag[s3][0] == -1){
-      new_entreNodes.push_back(ns3+1);
-      new_numEntreNodes.push_back(boundTag[s3][1]);
-    }
-    else if(boundTag[s3][0] == -2){
-      new_sortieNodes.push_back(ns3+1);
-      new_numSortieNodes.push_back(boundTag[s3][1]);
-    }
-    else if(boundTag[s3][0] == -3){
-      new_wallNodes.push_back(ns3+1);
-    }
-
-    if(boundTag[s1][0] == -1 and boundTag[s2][0] == -1){
-      new_entreNodes.push_back(ns12+1);
-      new_numEntreNodes.push_back(boundTag[s1][1]);
-    }
-    if(boundTag[s1][0] == -2 and boundTag[s2][0] == -2){
-      new_sortieNodes.push_back(ns12+1);
-      new_numSortieNodes.push_back(boundTag[s1][1]);
-    }
-    if(boundTag[s1][0] == -3 and boundTag[s2][0] == -3){
-      new_wallNodes.push_back(ns12+1);
+    if(is2){
+      if(boundTag[s2][0] == -1){
+        new_entreNodes.push_back(ns2+1);
+        new_numEntreNodes.push_back(boundTag[s2][1]);
+      }
+      if(boundTag[s2][0] == -2){
+        new_sortieNodes.push_back(ns2+1);
+        new_numSortieNodes.push_back(boundTag[s2][1]);
+      }
+      if(boundTag[s2][0] == -3){
+        new_wallNodes.push_back(ns2+1);
+      }
     }
 
-    if(boundTag[s2][0] == -1 and boundTag[s3][0] == -1){
-      new_entreNodes.push_back(ns23+1);
-      new_numEntreNodes.push_back(boundTag[s2][1]);
-    }
-    if(boundTag[s2][0] == -2 and boundTag[s3][0] == -2){
-      new_sortieNodes.push_back(ns23+1);
-      new_numSortieNodes.push_back(boundTag[s2][1]);
-    }
-    if(boundTag[s2][0] == -3 and boundTag[s3][0] == -3){
-      new_wallNodes.push_back(ns23+1);
+    if(is3){
+      if(boundTag[s3][0] == -1){
+        new_entreNodes.push_back(ns3+1);
+        new_numEntreNodes.push_back(boundTag[s3][1]);
+      }
+      if(boundTag[s3][0] == -2){
+        new_sortieNodes.push_back(ns3+1);
+        new_numSortieNodes.push_back(boundTag[s3][1]);
+      }
+      if(boundTag[s3][0] == -3){
+        new_wallNodes.push_back(ns3+1);
+      }
     }
 
-    if(boundTag[s3][0] == -1 and boundTag[s1][0] == -1){
-      new_entreNodes.push_back(ns31+1);
-      new_numEntreNodes.push_back(boundTag[s3][1]);
+    if(is12){
+      if(boundTag[s1][0] == -1 and boundTag[s2][0] == -1){
+        new_entreNodes.push_back(ns12+1);
+        new_numEntreNodes.push_back(boundTag[s1][1]);
+      }
+      if(boundTag[s1][0] == -2 and boundTag[s2][0] == -2){
+        new_sortieNodes.push_back(ns12+1);
+        new_numSortieNodes.push_back(boundTag[s1][1]);
+      }
+      if(boundTag[s1][0] == -3 and boundTag[s2][0] == -3){
+        new_wallNodes.push_back(ns12+1);
+      }
     }
-    if(boundTag[s3][0] == -2 and boundTag[s1][0] == -2){
-      new_sortieNodes.push_back(ns31+1);
-      new_numSortieNodes.push_back(boundTag[s3][1]);
+
+    if(is23){
+      if(boundTag[s2][0] == -1 and boundTag[s3][0] == -1){
+        new_entreNodes.push_back(ns23+1);
+        new_numEntreNodes.push_back(boundTag[s2][1]);
+      }
+      if(boundTag[s2][0] == -2 and boundTag[s3][0] == -2){
+        new_sortieNodes.push_back(ns23+1);
+        new_numSortieNodes.push_back(boundTag[s2][1]);
+      }
+      if(boundTag[s2][0] == -3 and boundTag[s3][0] == -3){
+        new_wallNodes.push_back(ns23+1);
+      }
     }
-    if(boundTag[s3][0] == -3 and boundTag[s1][0] == -3){
-      new_wallNodes.push_back(ns31+1);
+
+    if(is31){
+      if(boundTag[s3][0] == -1 and boundTag[s1][0] == -1){
+        new_entreNodes.push_back(ns31+1);
+        new_numEntreNodes.push_back(boundTag[s3][1]);
+      }
+      if(boundTag[s3][0] == -2 and boundTag[s1][0] == -2){
+        new_sortieNodes.push_back(ns31+1);
+        new_numSortieNodes.push_back(boundTag[s3][1]);
+      }
+      if(boundTag[s3][0] == -3 and boundTag[s1][0] == -3){
+        new_wallNodes.push_back(ns31+1);
+      }
     }
 
   }
@@ -403,8 +423,8 @@ void lecture(bool multi_entree, bool multi_sortie, ifstream &mesh, vector<vector
   if(multi_entree){
     while(i<nEntre){
       mesh >> dum_v[0] >> dum_v[1];
-      boundTag[dum_v[0]][0] = -1; //tag -1 pour entree
-      boundTag[dum_v[0]][1] = dum_v[1]; //tag -1 pour entree
+      boundTag[dum_v[0]-1][0] = -1; //tag -1 pour entree
+      boundTag[dum_v[0]-1][1] = dum_v[1]; //tag -1 pour entree
       entreNodes.push_back(dum_v[0]);
       numEntreNodes.push_back(dum_v[1]);
       i++;
@@ -414,8 +434,8 @@ void lecture(bool multi_entree, bool multi_sortie, ifstream &mesh, vector<vector
     while(i<nEntre){
       mesh >> dum_v[0];
       dum_v[1] = 1; //unique entrée numéro 1
-      boundTag[dum_v[0]][0] = -1; //tag -1 pour entree
-      boundTag[dum_v[0]][1] = dum_v[1]; //tag -1 pour entree
+      boundTag[dum_v[0]-1][0] = -1; //tag -1 pour entree
+      boundTag[dum_v[0]-1][1] = dum_v[1]; //tag -1 pour entree
       entreNodes.push_back(dum_v[0]);
       numEntreNodes.push_back(dum_v[1]);
       i++;
@@ -435,8 +455,8 @@ void lecture(bool multi_entree, bool multi_sortie, ifstream &mesh, vector<vector
   if(multi_sortie){
     while(i<nSortie){
       mesh >> dum_v[0] >> dum_v[1];
-      boundTag[dum_v[0]][0] = -2; //tag -1 pour sortie
-      boundTag[dum_v[0]][1] = dum_v[1]; //tag -1 pour entree
+      boundTag[dum_v[0]-1][0] = -2; //tag -1 pour sortie
+      boundTag[dum_v[0]-1][1] = dum_v[1]; //tag -1 pour entree
       sortieNodes.push_back(dum_v[0]);
       numSortieNodes.push_back(dum_v[1]);
       i++;
@@ -446,8 +466,8 @@ void lecture(bool multi_entree, bool multi_sortie, ifstream &mesh, vector<vector
     while(i<nSortie){
       mesh >> dum_v[0];
       dum_v[1] = 1; //unique sortie numero 1
-      boundTag[dum_v[0]][0] = -2; //tag -1 pour sortie
-      boundTag[dum_v[0]][1] = dum_v[1]; //tag -1 pour entree
+      boundTag[dum_v[0]-1][0] = -2; //tag -1 pour sortie
+      boundTag[dum_v[0]-1][1] = dum_v[1]; //tag -1 pour entree
       sortieNodes.push_back(dum_v[0]);
       numSortieNodes.push_back(dum_v[1]);
       i++;
