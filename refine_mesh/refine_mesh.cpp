@@ -11,7 +11,7 @@ typedef Eigen::SparseMatrix<int> SpMat;
 
 using namespace std;
 
-void ecriture(bool multi_sortie, bool multi_entree, string fileName, vector<vector<double> > &nodes, vector<vector<double> > &elems, vector<int> &new_entreNodes, vector<int> &new_numEntreNodes, vector<int> &new_sortieNodes, vector<int> &new_numSortieNodes, vector<int> &new_wallNodes, int &nombreEntre, int &nombreSortie){
+void ecriture(bool multi_sortie, bool multi_entree, string fileName, vector<vector<long double> > &nodes, vector<vector<long double> > &elems, vector<int> &new_entreNodes, vector<int> &new_numEntreNodes, vector<int> &new_sortieNodes, vector<int> &new_numSortieNodes, vector<int> &new_wallNodes, int &nombreEntre, int &nombreSortie){
 
   int i, nNodes, nElems;
   nNodes = nodes.size();
@@ -23,7 +23,7 @@ void ecriture(bool multi_sortie, bool multi_entree, string fileName, vector<vect
   out_mesh.open(ss.str());
   ss.str("");
   out_mesh << fixed ;
-  out_mesh.precision(4);
+  out_mesh.precision(8);
   out_mesh << "Table de coordonnees" << endl;
   out_mesh << nNodes << endl;
 
@@ -86,22 +86,23 @@ void ecriture(bool multi_sortie, bool multi_entree, string fileName, vector<vect
   out_mesh.close();
 }
 /* refine(nodes, elems, entreNodes, numEntreNodes, sortieNodes, numSortieNodes, wallNodes, boundTag, new_nodes, new_elems, new_entreNodes, new_numEntreNodes, new_sortieNodes, new_numSortieNodes, new_wallNodes); */
-void refine(vector<vector<double> > &nodes, vector<vector<double> > &elems, vector<int> &entreNodes, vector<int> &numEntreNodes, vector<int> &sortieNodes, vector<int> &numSortieNodes, vector<int> &wallNodes, vector<vector<int> > &boundTag, vector<vector<double> > &new_nodes, vector<vector<double> > &new_elems, vector<int> &new_entreNodes, vector<int> &new_numEntreNodes, vector<int> &new_sortieNodes, vector<int> &new_numSortieNodes, vector<int> &new_wallNodes){
+void refine(vector<vector<long double> > &nodes, vector<vector<long double> > &elems, vector<int> &entreNodes, vector<int> &numEntreNodes, vector<int> &sortieNodes, vector<int> &numSortieNodes, vector<int> &wallNodes, vector<vector<int> > &boundTag, vector<vector<long double> > &new_nodes, vector<vector<long double> > &new_elems, vector<int> &new_entreNodes, vector<int> &new_numEntreNodes, vector<int> &new_sortieNodes, vector<int> &new_numSortieNodes, vector<int> &new_wallNodes){
 
-  int ns = nodes.size();
-  int s1, s2, s3;
-  double s1x, s1y, s1z, s1m;
-  double s12x, s12y, s12z, s12m;
-  double s2x, s2y, s2z, s2m;
-  double s23x, s23y, s23z, s23m;
-  double s3x, s3y, s3z, s3m;
-  double s31x, s31y, s31z, s31m;
-  int ns1, ns12, ns2, ns23, ns3, ns31;
+  /* int ns = 2*nodes.size()+1; */
+  unsigned long long int ns = nodes.size();
+  unsigned long long int s1, s2, s3;
+  long double s, r, l12, l23, l31;
+  bool ajout;
+  long double s1x, s1y, s1z, s1m;
+  long double s12x, s12y, s12z, s12m;
+  long double s2x, s2y, s2z, s2m;
+  long double s23x, s23y, s23z, s23m;
+  long double s3x, s3y, s3z, s3m;
+  long double s31x, s31y, s31z, s31m;
+  unsigned long long int ns1, ns12, ns2, ns23, ns3, ns31;
   bool is1, is2, is3, is12, is23, is31;
-  //vector<vector<int> > is_created(nodes.size(), vector<int> (nodes.size(), -1));
-  //SpMat is_created(nodes.size(), nodes.size());
-  unordered_map<int, int> is_created;
-  vector<double> v(5);
+  map<unsigned long long int, int> is_created;
+  vector<long double> v(5);
 
   for(int i=0;i<elems.size();i++){
     //Ajout des nouveaux noeuds
@@ -112,9 +113,9 @@ void refine(vector<vector<double> > &nodes, vector<vector<double> > &elems, vect
     is1=(is_created.find(s1*ns+s1)==is_created.end());
     is2=(is_created.find(s2*ns+s2)==is_created.end());
     is3=(is_created.find(s3*ns+s3)==is_created.end());
-    is12=(is_created.find(s1*ns+s2)==is_created.end() or is_created.find(s2*ns+s1)==is_created.end());
-    is23=(is_created.find(s2*ns+s3)==is_created.end() or is_created.find(s3*ns+s2)==is_created.end());
-    is31=(is_created.find(s3*ns+s1)==is_created.end() or is_created.find(s1*ns+s3)==is_created.end());
+    is12=((is_created.find(s1*ns+s2)==is_created.end()));
+    is23=((is_created.find(s2*ns+s3)==is_created.end()));
+    is31=((is_created.find(s3*ns+s1)==is_created.end()));
 
     if(is1){
       s1x = nodes[s1][1];
@@ -124,7 +125,7 @@ void refine(vector<vector<double> > &nodes, vector<vector<double> > &elems, vect
 
       v[0] = new_nodes.size()+1;
       ns1=v[0]-1;
-      is_created[s1*ns+s1] = ns1+1;
+      is_created[s1*ns+s1] = ns1;
       v[1] = s1x;
       v[2] = s1y;
       v[3] = s1z;
@@ -132,12 +133,13 @@ void refine(vector<vector<double> > &nodes, vector<vector<double> > &elems, vect
       new_nodes.push_back(v);
     }
     else{
-      ns1=is_created[s1*ns+s1]-1;
+      ns1=is_created[s1*ns+s1];
       s1x = new_nodes[ns1][1];
       s1y = new_nodes[ns1][2];
       s1z = new_nodes[ns1][3];
       s1m = new_nodes[ns1][4];
     }
+
 
     if(is2){
       s2x = nodes[s2][1];
@@ -147,7 +149,7 @@ void refine(vector<vector<double> > &nodes, vector<vector<double> > &elems, vect
 
       v[0] = new_nodes.size()+1;
       ns2=v[0]-1;
-      is_created[s2*ns+s2] = ns2+1;
+      is_created[s2*ns+s2] = ns2;
       v[1] = s2x;
       v[2] = s2y;
       v[3] = s2z;
@@ -155,7 +157,7 @@ void refine(vector<vector<double> > &nodes, vector<vector<double> > &elems, vect
       new_nodes.push_back(v);
     }
     else{
-      ns2=is_created[s2*ns+s2]-1;
+      ns2=is_created[s2*ns+s2];
       s2x = new_nodes[ns2][1];
       s2y = new_nodes[ns2][2];
       s2z = new_nodes[ns2][3];
@@ -170,7 +172,7 @@ void refine(vector<vector<double> > &nodes, vector<vector<double> > &elems, vect
 
       v[0] = new_nodes.size()+1;
       ns3=v[0]-1;
-      is_created[s3*ns+s3] = ns3+1;
+      is_created[s3*ns+s3] = ns3;
       v[1] = s3x;
       v[2] = s3y;
       v[3] = s3z;
@@ -178,115 +180,130 @@ void refine(vector<vector<double> > &nodes, vector<vector<double> > &elems, vect
       new_nodes.push_back(v);
     }
     else{
-      ns3=is_created[s3*ns+s3]-1;
+      ns3=is_created[s3*ns+s3];
       s3x = new_nodes[ns3][1];
       s3y = new_nodes[ns3][2];
       s3z = new_nodes[ns3][3];
       s3m = new_nodes[ns3][4];
     }
 
-    if(is12){
-      s12x = (s1x+s2x)/2.;
-      s12y = (s1y+s2y)/2.;
-      s12z = (s1z+s2z)/2.;
-      s12m = (s1m+s2m)/2.;
-
-      v[0] = new_nodes.size()+1;
-      ns12=v[0]-1;
-      is_created[s1*ns+s2] = ns12+1;
-      is_created[s2*ns+s1] = ns12+1;
-      v[1] = s12x;
-      v[2] = s12y;
-      v[3] = s12z;
-      v[4] = s12m;
-      new_nodes.push_back(v);
+    //Calcul du rayon du cercle inscrit pour savoir sio n ajoute ou non des elements
+    l12 = sqrt(pow(s1x-s2x,2)+pow(s1y-s2y,2));
+    l23 = sqrt(pow(s3x-s2x,2)+pow(s3y-s2y,2));
+    l31 = sqrt(pow(s1x-s3x,2)+pow(s1y-s3y,2));
+    s = (l12+l23+l31)/2.;
+    r = sqrt((s-l12)*(s-l23)*(s-l31)/s);
+    if(r<0.){
+      cout << "pb" << endl;
+      ajout=false;
     }
     else{
-      ns12=is_created[s1*ns+s2]-1;
-      s12x = new_nodes[ns12][1];
-      s12y = new_nodes[ns12][2];
-      s12z = new_nodes[ns12][3];
-      s12m = new_nodes[ns12][4];
+      ajout=true;
     }
 
-    if(is23){
-      s23x = (s3x+s2x)/2.;
-      s23y = (s3y+s2y)/2.;
-      s23z = (s3z+s2z)/2.;
-      s23m = (s3m+s2m)/2.;
+    if(ajout){
+      if(is12){
+        s12x = 0.5l*(s1x+s2x);
+        s12y = 0.5l*(s1y+s2y);
+        s12z = 0.5l*(s1z+s2z);
+        s12m = 0.5l*(s1m+s2m);
 
-      v[0] = new_nodes.size()+1;
-      ns23=v[0]-1;
-      is_created[s2*ns+s3] = ns23+1;
-      is_created[s3*ns+s2] = ns23+1;
-      v[1] = s23x;
-      v[2] = s23y;
-      v[3] = s23z;
-      v[4] = s23m;
-      new_nodes.push_back(v);
-    }
-    else{
-      ns23=is_created[s2*ns+s3]-1;
-      s23x = new_nodes[ns23][1];
-      s23y = new_nodes[ns23][2];
-      s23z = new_nodes[ns23][3];
-      s23m = new_nodes[ns23][4];
-    }
+        v[0] = new_nodes.size()+1;
+        ns12=v[0]-1;
+        is_created[s1*ns+s2] = ns12;
+        is_created[s2*ns+s1] = ns12;
+        v[1] = s12x;
+        v[2] = s12y;
+        v[3] = s12z;
+        v[4] = s12m;
+        new_nodes.push_back(v);
+      }
+      else{
+        ns12=is_created[s1*ns+s2];
+      }
 
-    if(is31){
-      s31x = (s1x+s3x)/2.;
-      s31y = (s1y+s3y)/2.;
-      s31z = (s1z+s3z)/2.;
-      s31m = (s1m+s3m)/2.;
+      if(is23){
+        s23x = 0.5l*(s2x+s3x);
+        s23y = 0.5l*(s2y+s3y);
+        s23z = 0.5l*(s2z+s3z);
+        s23m = 0.5l*(s2m+s3m);
 
-      v[0] = new_nodes.size()+1;
-      ns31=v[0]-1;
-      is_created[s1*ns+s3] = ns31+1;
-      is_created[s3*ns+s1] = ns31+1;
-      v[1] = s31x;
-      v[2] = s31y;
-      v[3] = s31z;
-      v[4] = s31m;
-      new_nodes.push_back(v);
-    }
-    else{
-      ns31=is_created[s3*ns+s1]-1;
-      s31x = new_nodes[ns31][1];
-      s31y = new_nodes[ns31][2];
-      s31z = new_nodes[ns31][3];
-      s31m = new_nodes[ns31][4];
+        v[0] = new_nodes.size()+1;
+        ns23=v[0]-1;
+        is_created[s2*ns+s3] = ns23;
+        is_created[s3*ns+s2] = ns23;
+        v[1] = s23x;
+        v[2] = s23y;
+        v[3] = s23z;
+        v[4] = s23m;
+        new_nodes.push_back(v);
+      }
+      else{
+        ns23=is_created[s2*ns+s3];
+      }
+
+      if(is31){
+        s31x = 0.5l*(s1x+s3x);
+        s31y = 0.5l*(s1y+s3y);
+        s31z = 0.5l*(s1z+s3z);
+        s31m = 0.5l*(s1m+s3m);
+
+        v[0] = new_nodes.size()+1;
+        ns31=v[0]-1;
+        is_created[s1*ns+s3] = ns31;
+        is_created[s3*ns+s1] = ns31;
+        v[1] = s31x;
+        v[2] = s31y;
+        v[3] = s31z;
+        v[4] = s31m;
+        new_nodes.push_back(v);
+      }
+      else{
+        ns31=is_created[s3*ns+s1];
+      }
+
     }
 
     /* cout << "elems " << i << endl; */
 
     //Ajout des nouveaux éléments
-    v[0] = new_elems.size()+1;
-    v[1] = ns1+1;
-    v[2] = ns12+1;
-    v[3] = ns31+1;
-    v[4] = elems[i][4];
-    new_elems.push_back(v);
+    if(ajout){
+      v[0] = new_elems.size()+1;
+      v[1] = ns1+1;
+      v[2] = ns12+1;
+      v[3] = ns31+1;
+      v[4] = elems[i][4];
+      new_elems.push_back(v);
 
-    v[0] = new_elems.size()+1;
-    v[1] = ns12+1;
-    v[2] = ns2+1;
-    v[3] = ns23+1;
-    v[4] = elems[i][4];
-    new_elems.push_back(v);
+      v[0] = new_elems.size()+1;
+      v[1] = ns12+1;
+      v[2] = ns2+1;
+      v[3] = ns23+1;
+      v[4] = elems[i][4];
+      new_elems.push_back(v);
 
-    v[0] = new_elems.size()+1;
-    v[1] = ns23+1;
-    v[2] = ns3+1;
-    v[3] = ns31+1;
-    v[4] = elems[i][4];
-    new_elems.push_back(v);
+      v[0] = new_elems.size()+1;
+      v[1] = ns23+1;
+      v[2] = ns3+1;
+      v[3] = ns31+1;
+      v[4] = elems[i][4];
+      new_elems.push_back(v);
 
-    v[0] = new_elems.size()+1;
-    v[1] = ns12+1;
-    v[2] = ns23+1;
-    v[3] = ns31+1;
-    v[4] = elems[i][4];
-    new_elems.push_back(v);
+      v[0] = new_elems.size()+1;
+      v[1] = ns12+1;
+      v[2] = ns23+1;
+      v[3] = ns31+1;
+      v[4] = elems[i][4];
+      new_elems.push_back(v);
+    }
+    else{
+      v[0] = new_elems.size()+1;
+      v[1] = ns1+1;
+      v[2] = ns2+1;
+      v[3] = ns3+1;
+      v[4] = elems[i][4];
+      new_elems.push_back(v);
+    }
 
     //Gestion des entree sorties mur
     if(is1){
@@ -331,63 +348,65 @@ void refine(vector<vector<double> > &nodes, vector<vector<double> > &elems, vect
       }
     }
 
-    if(is12){
-      if(boundTag[s1][0] == -1 and boundTag[s2][0] == -1){
-        new_entreNodes.push_back(ns12+1);
-        new_numEntreNodes.push_back(boundTag[s1][1]);
+    if(ajout){
+      if(is12){
+        if(boundTag[s1][0] == -1 and boundTag[s2][0] == -1){
+          new_entreNodes.push_back(ns12+1);
+          new_numEntreNodes.push_back(boundTag[s1][1]);
+        }
+        if(boundTag[s1][0] == -2 and boundTag[s2][0] == -2){
+          new_sortieNodes.push_back(ns12+1);
+          new_numSortieNodes.push_back(boundTag[s1][1]);
+        }
+        if(boundTag[s1][0] == -3 and boundTag[s2][0] == -3){
+          new_wallNodes.push_back(ns12+1);
+        }
       }
-      if(boundTag[s1][0] == -2 and boundTag[s2][0] == -2){
-        new_sortieNodes.push_back(ns12+1);
-        new_numSortieNodes.push_back(boundTag[s1][1]);
-      }
-      if(boundTag[s1][0] == -3 and boundTag[s2][0] == -3){
-        new_wallNodes.push_back(ns12+1);
-      }
-    }
 
-    if(is23){
-      if(boundTag[s2][0] == -1 and boundTag[s3][0] == -1){
-        new_entreNodes.push_back(ns23+1);
-        new_numEntreNodes.push_back(boundTag[s2][1]);
+      if(is23){
+        if(boundTag[s2][0] == -1 and boundTag[s3][0] == -1){
+          new_entreNodes.push_back(ns23+1);
+          new_numEntreNodes.push_back(boundTag[s2][1]);
+        }
+        if(boundTag[s2][0] == -2 and boundTag[s3][0] == -2){
+          new_sortieNodes.push_back(ns23+1);
+          new_numSortieNodes.push_back(boundTag[s2][1]);
+        }
+        if(boundTag[s2][0] == -3 and boundTag[s3][0] == -3){
+          new_wallNodes.push_back(ns23+1);
+        }
       }
-      if(boundTag[s2][0] == -2 and boundTag[s3][0] == -2){
-        new_sortieNodes.push_back(ns23+1);
-        new_numSortieNodes.push_back(boundTag[s2][1]);
-      }
-      if(boundTag[s2][0] == -3 and boundTag[s3][0] == -3){
-        new_wallNodes.push_back(ns23+1);
-      }
-    }
 
-    if(is31){
-      if(boundTag[s3][0] == -1 and boundTag[s1][0] == -1){
-        new_entreNodes.push_back(ns31+1);
-        new_numEntreNodes.push_back(boundTag[s3][1]);
-      }
-      if(boundTag[s3][0] == -2 and boundTag[s1][0] == -2){
-        new_sortieNodes.push_back(ns31+1);
-        new_numSortieNodes.push_back(boundTag[s3][1]);
-      }
-      if(boundTag[s3][0] == -3 and boundTag[s1][0] == -3){
-        new_wallNodes.push_back(ns31+1);
+      if(is31){
+        if(boundTag[s3][0] == -1 and boundTag[s1][0] == -1){
+          new_entreNodes.push_back(ns31+1);
+          new_numEntreNodes.push_back(boundTag[s3][1]);
+        }
+        if(boundTag[s3][0] == -2 and boundTag[s1][0] == -2){
+          new_sortieNodes.push_back(ns31+1);
+          new_numSortieNodes.push_back(boundTag[s3][1]);
+        }
+        if(boundTag[s3][0] == -3 and boundTag[s1][0] == -3){
+          new_wallNodes.push_back(ns31+1);
+        }
       }
     }
 
   }
 }
 
-void lecture(bool multi_entree, bool multi_sortie, ifstream &mesh, vector<vector<double> > &nodes, vector<vector<double> > &elems, vector<int> &entreNodes, vector<int> &numEntreNodes, vector<int> &sortieNodes, vector<int> &numSortieNodes, vector<int> &wallNodes, int &nombreEntre, int &nombreSortie, vector<vector<int> > &boundTag){
+void lecture(bool multi_entree, bool multi_sortie, ifstream &mesh, vector<vector<long double> > &nodes, vector<vector<long double> > &elems, vector<int> &entreNodes, vector<int> &numEntreNodes, vector<int> &sortieNodes, vector<int> &numSortieNodes, vector<int> &wallNodes, int &nombreEntre, int &nombreSortie, vector<vector<int> > &boundTag){
 
   int i, nNodes, nElems, nSortie, nEntre, nWall;
   string str;
-  vector<double> v(5);
+  vector<long double> v(5);
 
   i=0;
   getline(mesh, str);
   mesh >> nNodes;
+  mesh.precision(8);
   boundTag.resize(nNodes, vector<int> (2,0));
-  cout.precision(4);
-  //cout << fixed;
+  cout.precision(8);
   while(i<nNodes){
     v[0] = 0.;
     v[1] = 0.;
@@ -511,13 +530,13 @@ int main(int argc, char* argv[]){
   vector<int> entreNodes, sortieNodes, wallNodes, numEntreNodes, numSortieNodes;
   vector<int> new_entreNodes, new_sortieNodes, new_wallNodes, new_numEntreNodes, new_numSortieNodes;
   vector<vector<int> > boundTag;
-  vector<vector<double> > nodes, elems, new_nodes, new_elems;
+  vector<vector<long double> > nodes, elems, new_nodes, new_elems;
 
   int n, i, nNodes, nElems, nombreEntre, nombreSortie;
 
   cout << fixed;
 
-  //void lecture(bool multi_entree, bool multi_sortie, ifstream &mesh, vector<vector<double> > &nodes, vector<vector<double> > &elems, vector<int> &entreNodes, vector<int> &numEntreNodes, vector<int> &sortieNodes, vector<int> &numSortieNodes, vector<int> &wallNodes, int &nombreEntre, int &nombreSortie, vector<int> &boundTag){
+  //void lecture(bool multi_entree, bool multi_sortie, ifstream &mesh, vector<vector<long double> > &nodes, vector<vector<long double> > &elems, vector<int> &entreNodes, vector<int> &numEntreNodes, vector<int> &sortieNodes, vector<int> &numSortieNodes, vector<int> &wallNodes, int &nombreEntre, int &nombreSortie, vector<int> &boundTag){
   lecture(multi_entree, multi_sortie, mesh, nodes, elems, entreNodes, numEntreNodes, sortieNodes, numSortieNodes, wallNodes, nombreEntre, nombreSortie, boundTag);
 
   refine(nodes, elems, entreNodes, numEntreNodes, sortieNodes, numSortieNodes, wallNodes, boundTag, new_nodes, new_elems, new_entreNodes, new_numEntreNodes, new_sortieNodes, new_numSortieNodes, new_wallNodes);

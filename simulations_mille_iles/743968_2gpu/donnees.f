@@ -40,9 +40,9 @@
   is_dry_as_wall=0,                                              ! 1 pour mettre les mailles seches comme des murs
   local_time_step=0,                                             ! 1 pour utiliser le local time step
 
-  TS=2000.0, CFL=1.5,                                              ! Temps maximal de simultion, nombre CFL
+  TS=1000.0, CFL=1.5,                                              ! Temps maximal de simultion, nombre CFL
   tol_reg_perm=1.0E-15,                                          ! Tolérence relative entre debit entrée et débit sortie
-  freqaffich=10000,                                               ! Frequence de print dans outfile.[0-9]
+  freqaffich=100,                                               ! Frequence de print dans outfile.[0-9]
 
   ! Sauvegarde de la solution
   nbrjauges=0, jauges_snapshots=100,                             ! Nombre de jauges, nombre de snapshots
@@ -53,7 +53,7 @@
   coupe_a    = -0.7946,    -2.6754,    -1.4439                   ! Coeficient a de ax+b=y
   coupe_b    =  5.2585e+06, 5.7768e+06, 5.4397e+06               ! Coeficient b de ax+b=y
 
-  solrestart=1, restart_snapshots=10,                            ! Sauvegarde en overwrite la solution pour restart
+  solrestart=0, restart_snapshots=10,                            ! Sauvegarde en overwrite la solution pour restart
   solbasic=0, basic_snapshots=10,                                ! 1 pour sauvegarder h sur les noeud (pierre)
-  solvtk=1, vtk_snapshots=10,                                    ! 1 pour sauvegarder les fichiers vkt pour video
+  solvtk=0, vtk_snapshots=10,                                    ! 1 pour sauvegarder les fichiers vkt pour video
   sortie_finale_bluekenue=0/                                     ! Sauvergarde fichiers T3S à la fin

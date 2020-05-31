@@ -165,6 +165,7 @@ program general
   end interface
 
   integer         :: i, ii, j, p, kk, ss, ie, iel, nt, n_MC, i_MC, af_input
+  integer         :: nsbloc, nreste, tot
   character(4)    :: i_MC_char
   integer         :: status, l, ie_coupe_transv, ierr, dev
   real(fp_kind)   :: d2, t2, dtime2, tcm2, d, t, zero, time_start, time_stop
@@ -218,6 +219,23 @@ program general
 
   cotemin_arr_d = cotemin_arr
   call cuda_glerror('ierr <-- cotemin_arr_d = cotemin_arr',1)
+
+  !!Alocation req send recv pour echange mpi non bloquant
+  tot=0
+  do j=1,nelt_fant_envoi_bloc
+     nsbloc = ndln*elt_fant_envoi_bloc(j,2)/768 + 1
+     nreste = ndln*elt_fant_envoi_bloc(j,2)-(nsbloc-1)*768
+     tot=tot+nsbloc
+  end do
+  allocate(reqsend(tot), sendstat(MPI_STATUS_SIZE,tot))
+
+  tot=0
+  do j=1,nelt_fant_recep_bloc
+      nsbloc = ndln*elt_fant_recep_bloc(j,2)/768 + 1
+      nreste = ndln*elt_fant_recep_bloc(j,2)-(nsbloc-1)*768
+      tot=tot+nsbloc
+  end do
+  allocate(reqrecv(tot), recvstat(MPI_STATUS_SIZE,tot))
 
   !! Allocation des matrices et vecteurs
   allocate( surf(nelt), zm(nelt), gradz(ndim,nelt), gradz2(ndim,nelt) )
@@ -466,6 +484,7 @@ program general
     deallocate(elt_fant_envoi,elt_fant_recep)
     deallocate(elt_fant_envoi_bloc,elt_fant_recep_bloc)
   end if
+  deallocate(reqsend, reqrecv, sendstat, recvstat)
 
   d=tf-ti
 

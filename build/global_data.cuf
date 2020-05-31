@@ -10,6 +10,9 @@ module global
 
   !! Variables MPI
   integer :: mpi_process_id, num_mpi_process, mpi_ierr
+  integer, dimension(:), allocatable :: reqsend
+  integer, dimension(:), allocatable :: reqrecv
+  integer, dimension(:,:), allocatable :: sendstat, recvstat
 
   !! Variables donnees du terrain
   integer             :: friction, is_override_manning

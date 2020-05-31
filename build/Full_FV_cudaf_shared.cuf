@@ -612,8 +612,6 @@ subroutine Full_FV
     if(num_mpi_process>1) then
       !call gpu_echange_fant_bloc(vdlg01_d, ndln)
       call gpu_echange_fant_bloc_async(vdlg1_d, ndln)
-      call init_vdlg<<<grid, tblock>>>(vdlg_d, vdlg1_d, zm_d)
-      call cuda_glerror('ierr<-init_vdlg <-- Full_FV_cudaf_shared.cuf',1)
     end if
 
     call cpu_time(te2)
@@ -654,6 +652,15 @@ subroutine Full_FV
     !! mise à jour du temps et de la solution initiale
     tc = tc + dt
     tc_d = tc
+
+    !!Attendre fin de l'échange mémoire de vdlg1
+    !! et mise a jour vdlg avec vdlg1
+    if(num_mpi_process>1) then
+      call MPI_WAITALL(size(reqsend),reqsend,sendstat,mpi_ierr)
+      call MPI_WAITALL(size(reqrecv),reqrecv,recvstat,mpi_ierr)
+      call init_vdlg<<<grid, tblock>>>(vdlg_d, vdlg1_d, zm_d)
+      call cuda_glerror('ierr<-init_vdlg <-- Full_FV_cudaf_shared.cuf',1)
+    end if
 
     call copy_2d<<<grid_copy, block_copy>>>(vdlg01_d, vdlg1_d, nelt_d)
     call copy_2d<<<grid_copy, block_copy>>>(vdlg0_d, vdlg_d, nelt_d)
@@ -1022,36 +1029,33 @@ subroutine gpu_echange_fant_bloc_async(a, nd)
   integer, intent(in) :: nd
   real(fp_kind), device, intent(inout) :: a(nd,nelt)
   integer                     :: stat(MPI_STATUS_SIZE)
-  integer, dimension(nelt_fant_envoi_bloc) :: reqsend
-  integer, dimension(nelt_fant_recep_bloc) :: reqrecv
   integer :: j
   integer :: jloc
   integer :: id
-  integer :: p
+  integer :: p, k
   integer :: nsbloc, nreste
 
-  call MPI_BARRIER(MPI_COMM_WORLD,mpi_ierr)
+  k=1
   do j=1,nelt_fant_envoi_bloc
-     nsbloc = nd*elt_fant_envoi_bloc(j,2)/768 + 1
-     nreste = nd*elt_fant_envoi_bloc(j,2)-(nsbloc-1)*768
+     nsbloc = ndln*elt_fant_envoi_bloc(j,2)/768 + 1
+     nreste = ndln*elt_fant_envoi_bloc(j,2)-(nsbloc-1)*768
      do p=0,nsbloc-2
-       call MPI_ISEND(a(1,elt_fant_envoi_bloc(j,1)+p*768/nd),768,real_kind_mpi,elt_fant_envoi_bloc(j,3),p,MPI_COMM_WORLD,reqsend(j),mpi_ierr)
+       call MPI_ISEND(a(1,elt_fant_envoi_bloc(j,1)+p*768/nd),768,real_kind_mpi,elt_fant_envoi_bloc(j,3),p,MPI_COMM_WORLD,reqsend(k),mpi_ierr)
      end do
-     call MPI_ISEND(a(1,elt_fant_envoi_bloc(j,1)+(nsbloc-1)*768/nd),nreste,real_kind_mpi,elt_fant_envoi_bloc(j,3),nsbloc-1,MPI_COMM_WORLD,reqsend(j),mpi_ierr)
-    ! call MPI_ISEND(a(1,elt_fant_envoi_bloc(j,1)),elt_fant_envoi_bloc(j,2),real_kind_mpi,elt_fant_envoi_bloc(j,3),elt_fant_envoi_bloc(j,3),MPI_COMM_WORLD,reqsend(j),mpi_ierr)
+     call MPI_ISEND(a(1,elt_fant_envoi_bloc(j,1)+(nsbloc-1)*768/nd),nreste,real_kind_mpi,elt_fant_envoi_bloc(j,3),nsbloc-1,MPI_COMM_WORLD,reqsend(k),mpi_ierr)
+     k=k+1
   end do
 
+  k=1
   do j=1,nelt_fant_recep_bloc
-      nsbloc = nd*elt_fant_recep_bloc(j,2)/768 + 1
-      nreste = nd*elt_fant_recep_bloc(j,2)-(nsbloc-1)*768
+      nsbloc = ndln*elt_fant_recep_bloc(j,2)/768 + 1
+      nreste = ndln*elt_fant_recep_bloc(j,2)-(nsbloc-1)*768
       do p=0,nsbloc-2
-        call MPI_IRECV(a(1,elt_fant_recep_bloc(j,1)+p*768/nd),768,real_kind_mpi,elt_fant_recep_bloc(j,3),p,MPI_COMM_WORLD,reqrecv(j),mpi_ierr)
+        call MPI_IRECV(a(1,elt_fant_recep_bloc(j,1)+p*768/nd),768,real_kind_mpi,elt_fant_recep_bloc(j,3),p,MPI_COMM_WORLD,reqrecv(k),mpi_ierr)
       end do
-      call MPI_IRECV(a(1,elt_fant_recep_bloc(j,1)+(nsbloc-1)*768/nd),nreste,real_kind_mpi,elt_fant_recep_bloc(j,3),nsbloc-1,MPI_COMM_WORLD,reqrecv(j),mpi_ierr)
-      ! call MPI_IRECV(a(1,elt_fant_recep_bloc(j,1)),elt_fant_recep_bloc(j,2),real_kind_mpi,elt_fant_recep_bloc(j,3),elt_fant_recep_bloc(j,3),MPI_COMM_WORLD,reqrecv(j),mpi_ierr)
+      call MPI_IRECV(a(1,elt_fant_recep_bloc(j,1)+(nsbloc-1)*768/nd),nreste,real_kind_mpi,elt_fant_recep_bloc(j,3),nsbloc-1,MPI_COMM_WORLD,reqrecv(k),mpi_ierr)
+      k=k+1
   end do
-
-  call MPI_BARRIER(MPI_COMM_WORLD,mpi_ierr)
 
 end subroutine gpu_echange_fant_bloc_async
 
