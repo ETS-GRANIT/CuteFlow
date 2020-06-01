@@ -397,7 +397,7 @@ subroutine Full_FV
   write(*,*) 'Loop over time starts' 
   iaff = 0
   do while ( (tc - ts + 2*tol ) < tol )
-  ! do while ( nt < 5 )
+    ! do while ( nt < 5 )
     !!do while ( nt < 100 )
 
     call cpu_time(tb1)
@@ -427,8 +427,8 @@ subroutine Full_FV
         call cuda_glerror('ierr<-copy_2d{if(niter == 1)} <-- Full_FV_cudaf_shared.cuf',1)
 
         ! if(iflux==1) then
-          call mise_a_jr_zone_seche_cudaf<<<grid, tblock>>>(zm_d, vdlg_d, vdlg1_d)
-          call cuda_glerror('ierr<-mise_a_jr_zone_seche_cudaf{if(niter == 1)} <-- Full_FV_cudaf_shared.cuf',1)
+        call mise_a_jr_zone_seche_cudaf<<<grid, tblock>>>(zm_d, vdlg_d, vdlg1_d)
+        call cuda_glerror('ierr<-mise_a_jr_zone_seche_cudaf{if(niter == 1)} <-- Full_FV_cudaf_shared.cuf',1)
         ! endif
 
       elseif ( niter == 2 ) then      ! *** Second ordre ***
@@ -438,8 +438,8 @@ subroutine Full_FV
           call cuda_glerror('ierr<-copy_2d{if(niter == 2, iter == 1)} <-- Full_FV_cudaf_shared.cuf',1)
 
           ! if(iflux==1) then
-            call mise_a_jr_zone_seche_cudaf<<<grid, tblock>>>(zm_d, vdlg_d, vdlg1_d)
-            call cuda_glerror('ierr<-mise_a_jr_zone_seche_cudaf{if(niter == 2, iter == 1)} <-- Full_FV_cudaf_shared.cuf',1)
+          call mise_a_jr_zone_seche_cudaf<<<grid, tblock>>>(zm_d, vdlg_d, vdlg1_d)
+          call cuda_glerror('ierr<-mise_a_jr_zone_seche_cudaf{if(niter == 2, iter == 1)} <-- Full_FV_cudaf_shared.cuf',1)
           ! endif
 
         else
@@ -451,8 +451,8 @@ subroutine Full_FV
           call cuda_glerror('ierr<-copy_2d_1{if(niter == 2 iter == 2)} <-- Full_FV_cudaf_shared.cuf',1)
 
           ! if(iflux==1) then
-            call mise_a_jr_zone_seche_cudaf<<<grid, tblock>>>(zm_d, vdlg_d, vdlg1_d)
-            call cuda_glerror('ierr<-mise_a_jr_zone_seche_cudaf{if(niter == 2,  iter == 2)} <-- Full_FV_cudaf_shared.cuf',1)
+          call mise_a_jr_zone_seche_cudaf<<<grid, tblock>>>(zm_d, vdlg_d, vdlg1_d)
+          call cuda_glerror('ierr<-mise_a_jr_zone_seche_cudaf{if(niter == 2,  iter == 2)} <-- Full_FV_cudaf_shared.cuf',1)
           ! endif
         endif
 
@@ -463,8 +463,8 @@ subroutine Full_FV
           call cuda_glerror('ierr<-copy_2d{if(niter == 4, iter == 1)} <-- Full_FV_cudaf_shared.cuf',1)
 
           ! if(iflux==1) then
-            call mise_a_jr_zone_seche_cudaf<<<grid, tblock>>>(zm_d, vdlg_d, vdlg1_d)
-            call cuda_glerror('ierr<-mise_a_jr_zone_seche_cudaf{if(niter == 4, iter == 1)} <-- Full_FV_cudaf_shared.cuf',1)
+          call mise_a_jr_zone_seche_cudaf<<<grid, tblock>>>(zm_d, vdlg_d, vdlg1_d)
+          call cuda_glerror('ierr<-mise_a_jr_zone_seche_cudaf{if(niter == 4, iter == 1)} <-- Full_FV_cudaf_shared.cuf',1)
           ! end if
 
         elseif ( iter == 2 ) then
@@ -476,8 +476,8 @@ subroutine Full_FV
           call cuda_glerror('ierr<-copy_2d_1{if(niter == 4, iter == 2)} <-- Full_FV_cudaf_shared.cuf',1)
 
           ! if(iflux==1) then
-            call mise_a_jr_zone_seche_cudaf<<<grid, tblock>>>(zm_d, vdlg_d, vdlg1_d)
-            call cuda_glerror('ierr<-mise_a_jr_zone_seche_cudaf{if(niter == 4, iter == 2)} <-- Full_FV_cudaf_shared.cuf',1)
+          call mise_a_jr_zone_seche_cudaf<<<grid, tblock>>>(zm_d, vdlg_d, vdlg1_d)
+          call cuda_glerror('ierr<-mise_a_jr_zone_seche_cudaf{if(niter == 4, iter == 2)} <-- Full_FV_cudaf_shared.cuf',1)
           ! end if
 
         elseif ( iter == 3 ) then
@@ -489,8 +489,8 @@ subroutine Full_FV
           call cuda_glerror('ierr<-copy_2d_1{if(niter == 4, iter== 3)} <-- Full_FV_cudaf_shared.cuf',1)
 
           ! if(iflux==1) then
-            call mise_a_jr_zone_seche_cudaf<<<grid, tblock>>>(zm_d, vdlg_d, vdlg1_d)
-            call cuda_glerror('ierr<-mise_a_jr_zone_seche_cudaf{if(niter == 4, iter == 3)} <-- Full_FV_cudaf_shared.cuf',1)
+          call mise_a_jr_zone_seche_cudaf<<<grid, tblock>>>(zm_d, vdlg_d, vdlg1_d)
+          call cuda_glerror('ierr<-mise_a_jr_zone_seche_cudaf{if(niter == 4, iter == 3)} <-- Full_FV_cudaf_shared.cuf',1)
           ! end if
 
         else
@@ -502,8 +502,8 @@ subroutine Full_FV
           call cuda_glerror('ierr<-copy_2d_1{if(niter == 4, iter== 4)} <-- Full_FV_cudaf_shared.cuf',1)
 
           ! if(iflux==1) then
-            call mise_a_jr_zone_seche_cudaf<<<grid, tblock>>>(zm_d, vdlg_d, vdlg1_d)
-            call cuda_glerror('ierr<-mise_a_jr_zone_seche_cudaf{if(niter == 4, iter == 4)} <-- Full_FV_cudaf_shared.cuf',1)
+          call mise_a_jr_zone_seche_cudaf<<<grid, tblock>>>(zm_d, vdlg_d, vdlg1_d)
+          call cuda_glerror('ierr<-mise_a_jr_zone_seche_cudaf{if(niter == 4, iter == 4)} <-- Full_FV_cudaf_shared.cuf',1)
           ! end if
         endif
       endif
@@ -514,7 +514,7 @@ subroutine Full_FV
 
       !! ****** Calculation of Flux starts ******
 
-      
+
       if(iflux==1) then
         call cotes_cudaf3<<<grids, tblocks, 3*64, stream1>>>(surf_d,zm_d,gradz_d,vdlg_d)
       else if (iflux==2) then
@@ -609,8 +609,8 @@ subroutine Full_FV
 
     ! Mise a jour de la zone seche requis uniquement pour iflux==1 (zoka)
     ! if(iflux==1) then
-      call mise_a_jr_zone_seche_cudaf<<<grid, tblock>>>(zm_d, vdlg_d, vdlg1_d)
-      call cuda_glerror('mise_a_jr_zone_seche_cudaf(2) <-- Full_FV_cudaf_shared.cuf',1)
+    call mise_a_jr_zone_seche_cudaf<<<grid, tblock>>>(zm_d, vdlg_d, vdlg1_d)
+    call cuda_glerror('mise_a_jr_zone_seche_cudaf(2) <-- Full_FV_cudaf_shared.cuf',1)
     ! endif
 
     ! Calcul du pas de temps via la CFL
@@ -647,7 +647,7 @@ subroutine Full_FV
     !!Attendre fin de l'échange mémoire de vdlg1
     !! et mise a jour vdlg avec vdlg1
     if(num_mpi_process>1) then
-      call MPI_WAITALL(size(reqsend),reqsend,sendstat,mpi_ierr)
+      ! call MPI_WAITALL(size(reqsend),reqsend,sendstat,mpi_ierr)
       call MPI_WAITALL(size(reqrecv),reqrecv,recvstat,mpi_ierr)
       call init_vdlg<<<grid, tblock>>>(vdlg_d, vdlg1_d, zm_d)
       call cuda_glerror('ierr<-init_vdlg <-- Full_FV_cudaf_shared.cuf',1)
@@ -1037,24 +1037,26 @@ subroutine gpu_echange_fant_bloc_async(a, nd)
 
   k=1
   do j=1,nelt_fant_envoi_bloc
-     nsbloc = ndln*elt_fant_envoi_bloc(j,2)/768 + 1
-     nreste = ndln*elt_fant_envoi_bloc(j,2)-(nsbloc-1)*768
-     do p=0,nsbloc-2
-       call MPI_ISEND(a(1,elt_fant_envoi_bloc(j,1)+p*768/nd),768,real_kind_mpi,elt_fant_envoi_bloc(j,3),p,MPI_COMM_WORLD,reqsend(k),mpi_ierr)
-     end do
-     call MPI_ISEND(a(1,elt_fant_envoi_bloc(j,1)+(nsbloc-1)*768/nd),nreste,real_kind_mpi,elt_fant_envoi_bloc(j,3),nsbloc-1,MPI_COMM_WORLD,reqsend(k),mpi_ierr)
-     k=k+1
+    nsbloc = ndln*elt_fant_envoi_bloc(j,2)/768 + 1
+    nreste = ndln*elt_fant_envoi_bloc(j,2)-(nsbloc-1)*768
+    do p=0,nsbloc-2
+      call MPI_ISEND(a(1,elt_fant_envoi_bloc(j,1)+p*768/nd),768,real_kind_mpi,elt_fant_envoi_bloc(j,3),p,MPI_COMM_WORLD,reqsend(k),mpi_ierr)
+      k=k+1
+    end do
+    call MPI_ISEND(a(1,elt_fant_envoi_bloc(j,1)+(nsbloc-1)*768/nd),nreste,real_kind_mpi,elt_fant_envoi_bloc(j,3),nsbloc-1,MPI_COMM_WORLD,reqsend(k),mpi_ierr)
+    k=k+1
   end do
 
   k=1
   do j=1,nelt_fant_recep_bloc
-      nsbloc = ndln*elt_fant_recep_bloc(j,2)/768 + 1
-      nreste = ndln*elt_fant_recep_bloc(j,2)-(nsbloc-1)*768
-      do p=0,nsbloc-2
-        call MPI_IRECV(a(1,elt_fant_recep_bloc(j,1)+p*768/nd),768,real_kind_mpi,elt_fant_recep_bloc(j,3),p,MPI_COMM_WORLD,reqrecv(k),mpi_ierr)
-      end do
-      call MPI_IRECV(a(1,elt_fant_recep_bloc(j,1)+(nsbloc-1)*768/nd),nreste,real_kind_mpi,elt_fant_recep_bloc(j,3),nsbloc-1,MPI_COMM_WORLD,reqrecv(k),mpi_ierr)
+    nsbloc = ndln*elt_fant_recep_bloc(j,2)/768 + 1
+    nreste = ndln*elt_fant_recep_bloc(j,2)-(nsbloc-1)*768
+    do p=0,nsbloc-2
+      call MPI_IRECV(a(1,elt_fant_recep_bloc(j,1)+p*768/nd),768,real_kind_mpi,elt_fant_recep_bloc(j,3),p,MPI_COMM_WORLD,reqrecv(k),mpi_ierr)
       k=k+1
+    end do
+    call MPI_IRECV(a(1,elt_fant_recep_bloc(j,1)+(nsbloc-1)*768/nd),nreste,real_kind_mpi,elt_fant_recep_bloc(j,3),nsbloc-1,MPI_COMM_WORLD,reqrecv(k),mpi_ierr)
+    k=k+1
   end do
 
 end subroutine gpu_echange_fant_bloc_async
