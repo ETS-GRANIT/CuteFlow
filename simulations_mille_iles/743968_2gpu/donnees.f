@@ -40,7 +40,7 @@
   is_dry_as_wall=0,                                              ! 1 pour mettre les mailles seches comme des murs
   local_time_step=0,                                             ! 1 pour utiliser le local time step
 
-  TS=1000.0, CFL=1.5,                                              ! Temps maximal de simultion, nombre CFL
+  TS=300.0, CFL=1.5,                                              ! Temps maximal de simultion, nombre CFL
   tol_reg_perm=1.0E-15,                                          ! Tolérence relative entre debit entrée et débit sortie
   freqaffich=100,                                               ! Frequence de print dans outfile.[0-9]
 

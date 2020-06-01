@@ -193,6 +193,11 @@ program general
 
   zero      = 0.d0
 
+
+  !!Création des cuda stream
+  istat = cudaStreamCreate(stream1)
+  istat = cudaStreamCreate(stream2)
+
   !! Ecriture du nom de process dans une chaine de caracteres
   write(mpi_process_id_string, "(I2)") mpi_process_id
 
@@ -244,7 +249,12 @@ program general
   allocate( vdlg(ndln,nelt), vdlg0(ndln,nelt), vdlg1(ndln,nelt), vdlg01(ndln,nelt))
   allocate(tempvdlg(ndln,nelt))
 
-  allocate( vdlg_d(ndln,nelt), vdlg0_d(ndln,nelt), vdlg1_d(ndln,nelt), vdlg01_d(ndln,nelt))
+  !!Allocation des variables sur GPU avec leur pointeurs
+  allocate( vdlg_d_target(ndln,nelt), vdlg0_d_target(ndln,nelt), vdlg1_d_target(ndln,nelt), vdlg01_d_target(ndln,nelt))
+  vdlg_d => vdlg_d_target
+  vdlg0_d => vdlg0_d_target
+  vdlg1_d => vdlg1_d_target
+  vdlg01_d => vdlg01_d_target
 
   allocate( she0(nnt), sh0(nnt), shu0(nnt), shv0(nnt), su0(nnt), sv0(nnt) )
 

@@ -29,14 +29,15 @@ attributes(global) subroutine cotes_cudaf3_riadh(surf_d, zm_d,gradz_d,vdlg_d)
   real(fp_kind), dimension(:,:), intent(in)    :: gradz_d  ! remove it if not used
   real(fp_kind), dimension(:,:), intent(in)    :: vdlg_d
 
-  integer               :: i, nc1, nc2, kvoisin, dl,pp, hybrid, model, nc3
+  integer                     :: i, nc1, nc2, kvoisin, dl,pp, hybrid, model, nc3
   real(fp_kind)               :: x1, x2, y1, y2, ln, x3, y3
   real(fp_kind)               :: hautl,vitul,vitvl,hautr,vitur,vitvr,zml,zmr,hul, hvl, hur, hvr, hijet, hjiet, zij
   real(fp_kind)               :: zero, debitnorm, orient
   real(fp_kind), dimension(2) :: norm
   real(fp_kind), dimension(3) :: flux
+  real :: cond
+
   integer                     :: ti,gi, tj, gj, id_entree
-  real                        :: cond
   real(fp_kind), shared       :: s1(64,3)
 
   ti = threadIdx%x

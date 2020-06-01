@@ -160,9 +160,9 @@ subroutine Full_FV
       use global_device
       implicit none
 
-      real(fp_kind), dimension(:,:), intent(in)    :: vdlg_d
-      real(fp_kind), dimension(:), intent(in)      :: surf_d, zm_d, deltatmin_d
-      real(fp_kind), dimension(:,:), intent(in)    :: gradz_d
+      real(fp_kind), dimension(ndln_d,nelt_d), intent(in)    :: vdlg_d
+      real(fp_kind), dimension(nelt_d), intent(in)      :: surf_d, zm_d, deltatmin_d
+      real(fp_kind), dimension(ndim_d,nelt_d), intent(in)    :: gradz_d
     end subroutine source_cudaf
 
     subroutine stock_coupe2D(solh, soleta, solhu, solu)
@@ -525,13 +525,16 @@ subroutine Full_FV
 
       
       if(iflux==1) then
-        call cotes_cudaf3<<<grids, tblocks>>>(surf_d,zm_d,gradz_d,vdlg_d)
+        call cotes_cudaf3<<<grids, tblocks, 3*64, stream1>>>(surf_d,zm_d,gradz_d,vdlg_d)
       else if (iflux==2) then
-        call cotes_cudaf3_riadh<<<grids, tblocks>>>(surf_d,zm_d,gradz_d,vdlg_d)
+        call cotes_cudaf3_riadh<<<grids, tblocks, 3*64, stream1>>>(surf_d,zm_d,gradz_d,vdlg_d)
       else
         print*,"Mauvaise valeur de iflux"
       end if
 
+      !! ***** Calculation of source terms
+      call source_cudaf<<<grid, tblock, 0, stream2>>>(vdlg_d,surf_d,zm_d,gradz_d,deltatmin_d)
+      call cuda_glerror('ierr<-source_cuda <-- Full_FV_cudaf_shared.cuff',1)
 
       call cuda_glerror('ierr<-cotes_cudaf <-- Full_FV_cudaf_shared.cuf',1)
 
@@ -552,9 +555,6 @@ subroutine Full_FV
 
       call cuda_glerror('ierr<-(D->H) mem transfer debit_sortie_arr or debit_entree_arr <-- Full_FV_cudaf_shared.cuf',1)
 
-      !! ***** Calculation of source terms
-      call source_cudaf<<<grid, tblock>>>(vdlg_d,surf_d,zm_d,gradz_d,deltatmin_d)
-      call cuda_glerror('ierr<-source_cuda <-- Full_FV_cudaf_shared.cuff',1)
 
       if ( niter == 1 ) then          ! *** Euler ***
         call calcul_residue_ele_cudaf<<<grid, tblock>>>(surf_d, res1_d)
@@ -662,8 +662,17 @@ subroutine Full_FV
       call cuda_glerror('ierr<-init_vdlg <-- Full_FV_cudaf_shared.cuf',1)
     end if
 
-    call copy_2d<<<grid_copy, block_copy>>>(vdlg01_d, vdlg1_d, nelt_d)
-    call copy_2d<<<grid_copy, block_copy>>>(vdlg0_d, vdlg_d, nelt_d)
+    !!Copie à remplacer par des permutation des pointeurs
+    ! call copy_2d<<<grid_copy, block_copy>>>(vdlg01_d, vdlg1_d, nelt_d)
+    ! call copy_2d<<<grid_copy, block_copy>>>(vdlg0_d, vdlg_d, nelt_d)
+    temp_ptr_d => vdlg1_d
+    vdlg1_d => vdlg01_d
+    vdlg01_d => temp_ptr_d
+
+    temp_ptr_d => vdlg_d
+    vdlg_d => vdlg0_d
+    vdlg0_d => temp_ptr_d
+
     call cuda_glerror('ierr<-copy_2d(2) <-- Full_FV_cudaf_shared.cuf',1)
 
     ! *** Affichage de l'avancement ***

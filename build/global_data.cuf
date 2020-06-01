@@ -8,6 +8,10 @@ module global
   use precision_m
   use cudafor
 
+  !!Streams CUDA
+  integer(kind=cuda_stream_kind) :: stream1, stream2
+  integer :: istat
+
   !! Variables MPI
   integer :: mpi_process_id, num_mpi_process, mpi_ierr
   integer, dimension(:), allocatable :: reqsend

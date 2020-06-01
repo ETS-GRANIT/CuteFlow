@@ -15,16 +15,17 @@ attributes(global) subroutine source_cudaf(vdlg_d,surf_d,zm_d,gradz_d,deltatmin_
   use global_device
   implicit none
 
-  real(fp_kind), dimension(:,:), intent(in)    :: vdlg_d
-  real(fp_kind), dimension(:), intent(in)      :: surf_d, zm_d, deltatmin_d
-  real(fp_kind), dimension(:,:), intent(in)    :: gradz_d
+  real(fp_kind), dimension(ndln_d,nelt_d), intent(in)    :: vdlg_d
+  real(fp_kind), dimension(nelt_d), intent(in)      :: surf_d, zm_d, deltatmin_d
+  real(fp_kind), dimension(ndim_d,nelt_d), intent(in)    :: gradz_d
 
   real(fp_kind)                         :: chezy2, vitu, vitv, normvit, area
   real(fp_kind)                         :: x1, y1, x2, y2, x3, y3, ln, orient
   real(fp_kind)                         :: manning, dtgn2, dtgn2h, detaf, q1, q2, q3, normQ, beta, zij, hijet
   real(fp_kind), dimension(3,3)         :: af
   real(fp_kind), dimension(2)           :: norm
-  integer                               :: nc1, nc2, nc3, cond, kvol, kvoisin
+  integer                               :: nc1, nc2, nc3, kvol, kvoisin
+  integer :: cond
   integer :: ti,gi
 
   ti = threadIdx%x
