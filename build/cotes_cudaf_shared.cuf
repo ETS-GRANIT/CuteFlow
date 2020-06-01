@@ -19,15 +19,15 @@ attributes(global) subroutine cotes_cudaf3_riadh(surf_d, zm_d,gradz_d,vdlg_d)
       real(fp_kind), intent(in)                   :: hl, ul, vl, hr, ur, vr, zml, zmr, ln
       real(fp_kind), dimension(2), intent(in)     :: norm
       real(fp_kind), dimension(3), intent(inout)  :: flux
-      real(fp_kind), dimension(:), intent(in)     :: surf
-      real(fp_kind), dimension(:,:), intent(in)   :: vdlg
+      real(fp_kind), dimension(nelt_d), intent(in)     :: surf
+      real(fp_kind), dimension(ndln_d,nelt_d), intent(in)   :: vdlg
     end subroutine solver_Riemann_cudaf_riadh
 
   end interface
 
-  real(fp_kind), dimension(:), intent(in)      :: surf_d, zm_d
-  real(fp_kind), dimension(:,:), intent(in)    :: gradz_d  ! remove it if not used
-  real(fp_kind), dimension(:,:), intent(in)    :: vdlg_d
+  real(fp_kind), dimension(nelt_d), intent(in)      :: surf_d, zm_d
+  real(fp_kind), dimension(ndim_d,nelt_d), intent(in)    :: gradz_d  ! remove it if not used
+  real(fp_kind), dimension(ndln_d,nelt_d), intent(in)    :: vdlg_d
 
   integer                     :: i, nc1, nc2, kvoisin, dl,pp, hybrid, model, nc3
   real(fp_kind)               :: x1, x2, y1, y2, ln, x3, y3
@@ -217,15 +217,15 @@ attributes(global) subroutine cotes_cudaf3(surf_d, zm_d,gradz_d,vdlg_d)
       real(fp_kind), intent(in)                   :: hl, ul, vl, hr, ur, vr, zml, zmr, ln
       real(fp_kind), dimension(2), intent(in)     :: norm
       real(fp_kind), dimension(3), intent(inout)  :: flux
-      real(fp_kind), dimension(:), intent(in)     :: surf
-      real(fp_kind), dimension(:,:), intent(in)   :: vdlg
+      real(fp_kind), dimension(nelt_d), intent(in)     :: surf
+      real(fp_kind), dimension(ndln_d,nelt_d), intent(in)   :: vdlg
     end subroutine solver_Riemann_cudaf
 
   end interface
 
-  real(fp_kind), dimension(:), intent(in)      :: surf_d, zm_d
-  real(fp_kind), dimension(:,:), intent(in)    :: gradz_d  ! remove it if not used
-  real(fp_kind), dimension(:,:), intent(in)    :: vdlg_d
+  real(fp_kind), dimension(nelt_d), intent(in)      :: surf_d, zm_d
+  real(fp_kind), dimension(ndim_d,nelt_d), intent(in)    :: gradz_d  ! remove it if not used
+  real(fp_kind), dimension(ndln_d,nelt_d), intent(in)    :: vdlg_d
 
   integer               :: i, nc1, nc2, kvoisin, dl,pp, hybrid, model, nc3
   real(fp_kind)               :: x1, x2, y1, y2, ln, x3, y3
@@ -460,8 +460,8 @@ attributes(device) subroutine solver_Riemann_cudaf(kvol,kvoisin,surf,norm,vdlg,h
   real(fp_kind), intent(in)                   :: hl, ul, vl, hr, ur, vr, zml, zmr, ln
   real(fp_kind), dimension(2), intent(in)     :: norm
   real(fp_kind), dimension(3), intent(inout)  :: flux
-  real(fp_kind), dimension(:), intent(in)     :: surf
-  real(fp_kind), dimension(:,:), intent(in)   :: vdlg
+  real(fp_kind), dimension(nelt_d), intent(in)     :: surf
+  real(fp_kind), dimension(ndln_d,nelt_d), intent(in)   :: vdlg
 
   real(fp_kind)                 :: hm, cel, vitess, vitesm, vitesp, hbar !,cell, celr
   real(fp_kind)                 :: hl2, hr2, zml2, zmr2
@@ -586,8 +586,8 @@ attributes(device) subroutine solver_Riemann_cudaf_riadh(kvol,kvoisin,surf,norm,
   real(fp_kind), intent(in)                   :: hl, ul, vl, hr, ur, vr, zml, zmr, ln
   real(fp_kind), dimension(2), intent(in)     :: norm
   real(fp_kind), dimension(3), intent(inout)  :: flux
-  real(fp_kind), dimension(:), intent(in)     :: surf
-  real(fp_kind), dimension(:,:), intent(in)   :: vdlg
+  real(fp_kind), dimension(nelt_d), intent(in)     :: surf
+  real(fp_kind), dimension(ndln_d,nelt_d), intent(in)   :: vdlg
 
   integer                       :: i 
   real(fp_kind)                 :: eps

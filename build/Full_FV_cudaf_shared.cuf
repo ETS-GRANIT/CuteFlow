@@ -113,28 +113,19 @@ subroutine Full_FV
       use precision_m
       use global_device
       implicit none
-      real(fp_kind), dimension(:), intent(in)      :: surf_d, zm_d
-      real(fp_kind), dimension(:,:), intent(in)    :: gradz_d  ! remove it if not used
-      real(fp_kind), dimension(:,:), intent(in)    :: vdlg_d
+      real(fp_kind), dimension(nelt_d), intent(in)      :: surf_d, zm_d
+      real(fp_kind), dimension(ndim_d,nelt_d), intent(in)    :: gradz_d  ! remove it if not used
+      real(fp_kind), dimension(ndln_d,nelt_d), intent(in)    :: vdlg_d
     end subroutine cotes_cudaf3_riadh
 
     attributes(global) subroutine cotes_cudaf3(surf_d,zm_d,gradz_d,vdlg_d)
       use precision_m
       use global_device
       implicit none
-      real(fp_kind), dimension(:), intent(in)      :: surf_d, zm_d
-      real(fp_kind), dimension(:,:), intent(in)    :: gradz_d  ! remove it if not used
-      real(fp_kind), dimension(:,:), intent(in)    :: vdlg_d
+      real(fp_kind), dimension(nelt_d), intent(in)      :: surf_d, zm_d
+      real(fp_kind), dimension(ndim_d,nelt_d), intent(in)    :: gradz_d  ! remove it if not used
+      real(fp_kind), dimension(ndln_d,nelt_d), intent(in)    :: vdlg_d
     end subroutine cotes_cudaf3
-
-    attributes(global) subroutine cotes_cudaf4(surf_d,zm_d,gradz_d,vdlg_d)
-      use precision_m
-      use global_device
-      implicit none
-      real(fp_kind), dimension(:), intent(in)      :: surf_d, zm_d
-      real(fp_kind), dimension(:,:), intent(in)    :: gradz_d  ! remove it if not used
-      real(fp_kind), dimension(:,:), intent(in)    :: vdlg_d
-    end subroutine cotes_cudaf4
 
     subroutine gradeta(kvol,sh,greta)
       use precision_m
