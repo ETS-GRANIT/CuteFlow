@@ -568,7 +568,7 @@ subroutine Full_FV
         ierr = cudaMemcpyAsync(debit_sortie_arr,debit_sortie_arr_d,size(debit_sortie_arr),stream1)
       end if
       if(ndi>1) then
-        ierr = cudaMemcpyAsync(debit_entree_arr,debit_entree_arr_d,size(debit_sortie_arr),stream1)
+        ierr = cudaMemcpyAsync(debit_entree_arr,debit_entree_arr_d,size(debit_entree_arr),stream1)
       end if
 
       call cuda_glerror('ierr<-(D->H) mem transfer debit_sortie_arr or debit_entree_arr <-- Full_FV_cudaf_shared.cuf',1)
@@ -638,6 +638,7 @@ subroutine Full_FV
     call cflcond_cudaf<<<grid, tblock>>>(vdlg_d,deltatmin_d)
     ! call cflcond_reduc_cudaf<<<grid, tblock, tblock%x*sizeof(deltatmin_d(1))>>>(vdlg_d,deltatmin_d)
     ! call reduction<<<grid_halved, tblock, tblock%x*sizeof(deltatmin_d(1))>>>(deltatmin_d)
+    dt_d=100000.0D0
     call reduction<<<grid_reduc, tblock_reduc, tblock_reduc%x*sizeof(deltatmin_d(1))>>>(deltatmin_d)
     ierr = cudaDeviceSynchronize()
     dt = dt_d

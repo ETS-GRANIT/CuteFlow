@@ -42,7 +42,7 @@
 
   TS=300.0, CFL=1.5,                                              ! Temps maximal de simultion, nombre CFL
   tol_reg_perm=1.0E-15,                                          ! Tolérence relative entre debit entrée et débit sortie
-  freqaffich=100,                                               ! Frequence de print dans outfile.[0-9]
+  freqaffich=1000,                                               ! Frequence de print dans outfile.[0-9]
 
   ! Sauvegarde de la solution
   nbrjauges=0, jauges_snapshots=100,                             ! Nombre de jauges, nombre de snapshots

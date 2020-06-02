@@ -1035,7 +1035,7 @@ subroutine calcul_long_entree
     long_entree(ientree) = 0.
   end do
 
-  do kvol=1,nelt
+  do kvol=1,nelt-nelt_fant_recep
     do kfac=1,ns
       n1 = connectivite(kvol,kfac)
       if ( kfac < ns ) then

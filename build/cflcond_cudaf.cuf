@@ -133,7 +133,6 @@ attributes(global) subroutine reduction(deltatmin_d)
   ! gi = (blockIdx%x - 1)*(blockDim%x*2)+ ti
   gi = (blockIdx%x - 1)*blockDim%x+ ti
 
-  dt_d = 100000.0D0
   if(gi<=nelt_d-nelt_fant_recep_d) then
     s(ti) = deltatmin_d(gi)
   else
@@ -154,6 +153,9 @@ attributes(global) subroutine reduction(deltatmin_d)
     call syncthreads()
   end do
 
-  s(1) = min(s(1),s(2))
-  ierr_d = atomicmin(dt_d,s(1))
+  call syncthreads()
+  if(ti==1) then
+    ierr_d = atomicmin(dt_d,s(1))
+  end if
+  call syncthreads()
 end subroutine reduction

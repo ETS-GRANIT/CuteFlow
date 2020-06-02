@@ -205,6 +205,7 @@ program general
   call lec_donnees
 
   !! Data transfer from host to device
+  allocate(dt)
   call global_data_transfer
 
   !! Initization of the iteration counters
@@ -224,6 +225,7 @@ program general
 
   cotemin_arr_d = cotemin_arr
   call cuda_glerror('ierr <-- cotemin_arr_d = cotemin_arr',1)
+
 
   !!Alocation req send recv pour echange mpi non bloquant
   tot=0
