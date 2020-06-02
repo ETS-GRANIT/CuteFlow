@@ -9,8 +9,8 @@ attributes(global) subroutine mise_a_jr_zone_seche_cudaf(zm_d,vdlg_d, vdlg1_d)
 
   implicit none
 
-  real(fp_kind), dimension(:), intent(in)         :: zm_d
-  real(fp_kind), dimension(:,:), intent(inout)    :: vdlg_d, vdlg1_d
+  real(fp_kind), dimension(nelt_d), intent(in)         :: zm_d
+  real(fp_kind), dimension(ndln_d,nelt_d), intent(inout)    :: vdlg_d, vdlg1_d
 
   integer       :: ti,gi
   real(fp_kind) :: vdlg_dgi1

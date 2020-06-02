@@ -35,15 +35,15 @@ subroutine Full_FV
     attributes(global) subroutine cflcond_cudaf(solut_d, deltatmin_d)
       use precision_m
       use global_device 
-      real(fp_kind), dimension(:,:), intent(in)     :: solut_d
-      real(fp_kind), intent(inout)                  :: deltatmin_d(:)
+      real(fp_kind), dimension(ndln_d,nelt_d), intent(in)     :: solut_d
+      real(fp_kind), intent(inout)                  :: deltatmin_d(nelt_d-nelt_fant_recep_d)
     end subroutine cflcond_cudaf
 
     attributes(global) subroutine cflcond_sec_cudaf(solut_d, deltatmin_d, dt_d)
       use precision_m
       use global_device 
-      real(fp_kind), dimension(:,:), intent(in)     :: solut_d
-      real(fp_kind), intent(inout)                  :: deltatmin_d(:)
+      real(fp_kind), dimension(ndln_d,nelt_d), intent(in)     :: solut_d
+      real(fp_kind), intent(inout)                  :: deltatmin_d(nelt_d-nelt_fant_recep_d)
       real(fp_kind), intent(in)                     :: dt_d
     end subroutine cflcond_sec_cudaf
 
@@ -52,8 +52,8 @@ subroutine Full_FV
       use precision_m
       use global_device
 
-      real(fp_kind), dimension(:), intent(in)         :: zm_d
-      real(fp_kind), dimension(:,:), intent(inout)    :: vdlg_d, vdlg1_d
+      real(fp_kind), dimension(nelt_d), intent(in)         :: zm_d
+      real(fp_kind), dimension(ndln_d,nelt_d), intent(inout)    :: vdlg_d, vdlg1_d
     end subroutine mise_a_jr_zone_seche_cudaf
 
     attributes(global) subroutine init_vdlg(vdlg_d, vdlg1_d,  zm_d)
@@ -61,31 +61,33 @@ subroutine Full_FV
       use global_device
       implicit none
 
-      real(fp_kind), intent(in)    :: vdlg1_d(:,:), zm_d(:)
-      real(fp_kind), intent(inout) :: vdlg_d(:,:)
+      real(fp_kind), intent(in)    :: vdlg1_d(ndln_d,nelt_d), zm_d(nelt_d)
+      real(fp_kind), intent(inout) :: vdlg_d(ndln_d,nelt_d)
 
     end subroutine init_vdlg
 
-    attributes(global) subroutine copy_2d(a,b,n)
+    attributes(global) subroutine copy_2d(a,b)
       use precision_m
-      real(fp_kind), intent(inout) :: a(:,:), b(:,:)
-      integer, intent(in) :: n
+      use global_device
+      real(fp_kind), intent(inout) :: a(ndln_d,nelt_d), b(ndln_d,nelt_d)
     end subroutine copy_2d
 
     attributes(global) subroutine copy_2d_1(vdlg1_d, vdlg01_d, resj_d, niter, iter, dt_d, nelt_d, deltatmin_d)
       use precision_m
-      real(fp_kind), intent(inout) :: vdlg1_d(:,:), vdlg01_d(:,:)
-      real(fp_kind), intent(in) :: resj_d(:,:), dt_d
-      real(fp_kind), intent(inout)                  :: deltatmin_d(:)
+      use global_device
+      real(fp_kind), intent(inout) :: vdlg1_d(ndln_d,nelt_d), vdlg01_d(ndln_d,nelt_d)
+      real(fp_kind), intent(in) :: resj_d(ndln_d,nelt_d), dt_d
+      real(fp_kind), intent(inout)                  :: deltatmin_d(nelt_d)
       integer, intent(in) :: nelt_d
       integer, value :: niter, iter
     end subroutine copy_2d_1
 
     attributes(global) subroutine copy_2d_1_local_time_step(vdlg1_d, vdlg01_d, resj_d, niter, iter, dt_d, nelt_d, deltatmin_d)
       use precision_m
-      real(fp_kind), intent(inout) :: vdlg1_d(:,:), vdlg01_d(:,:)
-      real(fp_kind), intent(in) :: resj_d(:,:), dt_d
-      real(fp_kind), intent(inout)                  :: deltatmin_d(:)
+      use global_device
+      real(fp_kind), intent(inout) :: vdlg1_d(ndln_d,nelt_d), vdlg01_d(ndln_d,nelt_d)
+      real(fp_kind), intent(in) :: resj_d(ndln_d,nelt_d), dt_d
+      real(fp_kind), intent(inout)                  :: deltatmin_d(nelt_d)
       integer, intent(in) :: nelt_d
       integer, value :: niter, iter
     end subroutine copy_2d_1_local_time_step
@@ -203,8 +205,8 @@ subroutine Full_FV
       use global_device
       implicit none
 
-      real(fp_kind), intent(in) :: surf_d(:)
-      real(fp_kind), intent(inout) :: resj_d(:,:)
+      real(fp_kind), intent(in) :: surf_d(nelt_d)
+      real(fp_kind), intent(inout) :: resj_d(ndln_d,nelt_d)
     end subroutine calcul_residue_ele_cudaf
   end interface
 
@@ -423,7 +425,7 @@ subroutine Full_FV
     !Début de la boucle sur les iterations du schema temporel
     do iter=1,niter
       if ( niter == 1 ) then          ! *** Euler ***
-        call copy_2d<<<grid_copy, block_copy>>>(vdlg1_d, vdlg01_d, nelt_d)
+        call copy_2d<<<grid_copy, block_copy>>>(vdlg1_d, vdlg01_d)
         call cuda_glerror('ierr<-copy_2d{if(niter == 1)} <-- Full_FV_cudaf_shared.cuf',1)
 
         ! if(iflux==1) then
@@ -433,8 +435,7 @@ subroutine Full_FV
 
       elseif ( niter == 2 ) then      ! *** Second ordre ***
         if ( iter == 1 ) then
-          !!call copy_2d<<<grid_copy, block_copy>>>(vdlg1_d, vdlg01_d, nelt_d-nelt_fant_recep_d)
-          call copy_2d<<<grid_copy, block_copy>>>(vdlg1_d, vdlg01_d, nelt_d)
+          call copy_2d<<<grid_copy, block_copy>>>(vdlg1_d, vdlg01_d)
           call cuda_glerror('ierr<-copy_2d{if(niter == 2, iter == 1)} <-- Full_FV_cudaf_shared.cuf',1)
 
           ! if(iflux==1) then
@@ -458,8 +459,7 @@ subroutine Full_FV
 
       elseif ( niter == 4 ) then      ! *** Runge-kutta ***
         if ( iter == 1 ) then                   
-          !!call copy_2d<<<grid_copy, block_copy>>>(vdlg1_d, vdlg01_d, nelt_d-nelt_fant_recep_d)
-          call copy_2d<<<grid_copy, block_copy>>>(vdlg1_d, vdlg01_d, nelt_d)
+          call copy_2d<<<grid_copy, block_copy>>>(vdlg1_d, vdlg01_d)
           call cuda_glerror('ierr<-copy_2d{if(niter == 4, iter == 1)} <-- Full_FV_cudaf_shared.cuf',1)
 
           ! if(iflux==1) then
@@ -522,62 +522,71 @@ subroutine Full_FV
       else
         print*,"Mauvaise valeur de iflux"
       end if
+      call cuda_glerror('ierr<-cotes_cudaf <-- Full_FV_cudaf_shared.cuf',1)
 
       !! ***** Calculation of source terms
       call source_cudaf<<<grid, tblock, 0, stream2>>>(vdlg_d,surf_d,zm_d,gradz_d,deltatmin_d)
       call cuda_glerror('ierr<-source_cuda <-- Full_FV_cudaf_shared.cuff',1)
 
-      call cuda_glerror('ierr<-cotes_cudaf <-- Full_FV_cudaf_shared.cuf',1)
+      ierr = cudaDeviceSynchronize()
+
+
+      if ( niter == 1 ) then          ! *** Euler ***
+        call calcul_residue_ele_cudaf<<<grid, tblock, 0, stream2>>>(surf_d, res1_d)
+      elseif ( niter == 2 ) then      ! *** Second ordre ***
+        if ( iter.eq.1 ) then
+          call calcul_residue_ele_cudaf<<<grid, tblock, 0, stream2>>>(surf_d, res1_d)
+        else
+          call calcul_residue_ele_cudaf<<<grid, tblock, 0, stream2>>>(surf_d, res2_d)
+        endif
+      elseif ( niter == 4 ) then      ! *** Runge-kutta ***
+        if ( iter.eq.1 ) then
+          call calcul_residue_ele_cudaf<<<grid, tblock, 0, stream2>>>(surf_d, res1_d)
+        else if ( iter.eq.2 ) then
+          call calcul_residue_ele_cudaf<<<grid, tblock, 0, stream2>>>(surf_d, res2_d)
+        else if ( iter.eq.3 ) then
+          call calcul_residue_ele_cudaf<<<grid, tblock, 0, stream2>>>(surf_d, res3_d)
+        else
+          call calcul_residue_ele_cudaf<<<grid, tblock, 0, stream2>>>(surf_d, res4_d)
+        endif
+      endif
+      call cuda_glerror('ierr<-calcul_residue_ele_cudaf <-- Full_FV_cudaf_shared.cuf',1)
 
       if(ndo>0) then
-        debit_sortie_arr  = debit_sortie_arr_d
-        debit_sortie  =  debit_sortie + sum(debit_sortie_arr)
-      endif
-
+        ierr = cudaMemcpyAsync(debit_sortie_arr,debit_sortie_arr_d,size(debit_sortie_arr),stream1)
+      end if
       if(ndi>1) then
-        debit_entree_arr  = debit_entree_arr_d
+        ierr = cudaMemcpyAsync(debit_entree_arr,debit_entree_arr_d,size(debit_sortie_arr),stream1)
+      end if
+
+      call cuda_glerror('ierr<-(D->H) mem transfer debit_sortie_arr or debit_entree_arr <-- Full_FV_cudaf_shared.cuf',1)
+
+      ierr = cudaDeviceSynchronize()
+
+      if(ndo>1) then
+        debit_sortie  =  debit_sortie + sum(debit_sortie_arr)
+      end if
+      if(ndi>1) then
         !En fait on parcours les arretes numérote dans get_io_index
         do iter_nodes=1,ndi-1
           !!iter_entree = numero_ndinput(iter_nodes)
           iter_entree = debit_entree_arr(iter_nodes,2)
           debit_entree(iter_entree)  =  debit_entree(iter_entree) + debit_entree_arr(iter_nodes,1)
         end do
-      endif
-
-      call cuda_glerror('ierr<-(D->H) mem transfer debit_sortie_arr or debit_entree_arr <-- Full_FV_cudaf_shared.cuf',1)
-
-
-      if ( niter == 1 ) then          ! *** Euler ***
-        call calcul_residue_ele_cudaf<<<grid, tblock>>>(surf_d, res1_d)
-      elseif ( niter == 2 ) then      ! *** Second ordre ***
-        if ( iter.eq.1 ) then
-          call calcul_residue_ele_cudaf<<<grid, tblock>>>(surf_d, res1_d)
-        else
-          call calcul_residue_ele_cudaf<<<grid, tblock>>>(surf_d, res2_d)
-        endif
-      elseif ( niter == 4 ) then      ! *** Runge-kutta ***
-        if ( iter.eq.1 ) then
-          call calcul_residue_ele_cudaf<<<grid, tblock>>>(surf_d, res1_d)
-        else if ( iter.eq.2 ) then
-          call calcul_residue_ele_cudaf<<<grid, tblock>>>(surf_d, res2_d)
-        else if ( iter.eq.3 ) then
-          call calcul_residue_ele_cudaf<<<grid, tblock>>>(surf_d, res3_d)
-        else
-          call calcul_residue_ele_cudaf<<<grid, tblock>>>(surf_d, res4_d)
-        endif
-      endif
-
-      call cuda_glerror('ierr<-calcul_residue_ele_cudaf <-- Full_FV_cudaf_shared.cuf',1)
+      end if
 
     enddo  !!End of loop over time step iterations
 
-    if(ndi>0) then
+    
+
+    if(ndo>1) then
+      debit_sortie = debit_sortie/niter
+    endif
+
+    if(ndi>1) then
       do iter_entree=1,nombre_input
         debit_entree(iter_entree) = debit_entree(iter_entree)/niter
       end do
-    endif
-    if(ndo>0) then
-      debit_sortie = debit_sortie/niter
     endif
 
     !!Reduce sum of all debits
@@ -654,17 +663,11 @@ subroutine Full_FV
     end if
 
     !!Copie à remplacer par des permutation des pointeurs
-    ! call copy_2d<<<grid_copy, block_copy>>>(vdlg01_d, vdlg1_d, nelt_d)
-    ! call copy_2d<<<grid_copy, block_copy>>>(vdlg0_d, vdlg_d, nelt_d)
-    temp_ptr_d => vdlg1_d
-    vdlg1_d => vdlg01_d
-    vdlg01_d => temp_ptr_d
-
-    temp_ptr_d => vdlg_d
-    vdlg_d => vdlg0_d
-    vdlg0_d => temp_ptr_d
-
+    call copy_2d<<<grid_copy, block_copy, 0, stream1>>>(vdlg01_d, vdlg1_d)
+    call cuda_glerror('ierr<-copy_2d(1) <-- Full_FV_cudaf_shared.cuf',1)
+    call copy_2d<<<grid_copy, block_copy, 0, stream2>>>(vdlg0_d, vdlg_d)
     call cuda_glerror('ierr<-copy_2d(2) <-- Full_FV_cudaf_shared.cuf',1)
+    ierr = cudaDeviceSynchronize()
 
     ! *** Affichage de l'avancement ***
     if ( mod(nt,freqaffich)==0 ) then
@@ -907,10 +910,10 @@ subroutine Full_FV
   endif
 end subroutine Full_FV
 
-attributes(global) subroutine copy_2d(a,b,n)
+attributes(global) subroutine copy_2d(a,b)
   use precision_m
-  real(fp_kind), intent(inout) :: a(:,:), b(:,:)
-  integer, intent(in) :: n
+  use global_device
+  real(fp_kind), intent(inout) :: a(ndln_d,nelt_d), b(ndln_d,nelt_d)
 
   integer :: ti,gi
 
@@ -928,9 +931,9 @@ attributes(global) subroutine copy_2d_1_local_time_step(vdlg1_d, vdlg01_d, resj_
   use global
   use global_device
 
-  real(fp_kind), intent(inout) :: vdlg1_d(:,:), vdlg01_d(:,:)
-  real(fp_kind), intent(in) :: resj_d(:,:), dt_d
-  real(fp_kind), intent(in)                  :: deltatmin_d(:)
+  real(fp_kind), intent(inout) :: vdlg1_d(ndln_d,nelt_d), vdlg01_d(ndln_d,nelt_d)
+  real(fp_kind), intent(in) :: resj_d(ndln_d,nelt_d), dt_d
+  real(fp_kind), intent(inout)                  :: deltatmin_d(nelt_d)
   integer, intent(in) :: nelt_d
   integer, value :: niter, iter
 
@@ -957,9 +960,9 @@ attributes(global) subroutine copy_2d_1(vdlg1_d, vdlg01_d, resj_d, niter, iter, 
   use global
   use global_device
 
-  real(fp_kind), intent(inout) :: vdlg1_d(:,:), vdlg01_d(:,:)
-  real(fp_kind), intent(in) :: resj_d(:,:), dt_d
-  real(fp_kind), intent(in)                  :: deltatmin_d(:)
+  real(fp_kind), intent(inout) :: vdlg1_d(ndln_d,nelt_d), vdlg01_d(ndln_d,nelt_d)
+  real(fp_kind), intent(in) :: resj_d(ndln_d,nelt_d), dt_d
+  real(fp_kind), intent(inout)                  :: deltatmin_d(nelt_d)
   integer, intent(in) :: nelt_d
   integer, value :: niter, iter
 
@@ -1110,8 +1113,8 @@ attributes(global) subroutine calcul_residue_ele_cudaf(surf_d, resj_d)
   use global_device
   implicit none
 
-  real(fp_kind), intent(in) :: surf_d(:)
-  real(fp_kind), intent(inout) :: resj_d(:,:)
+  real(fp_kind), intent(in) :: surf_d(nelt_d)
+  real(fp_kind), intent(inout) :: resj_d(ndln_d,nelt_d)
 
   integer :: ti,gi, fric
   real(fp_kind) :: resini(3)
@@ -1172,8 +1175,8 @@ attributes(global) subroutine init_vdlg(vdlg_d, vdlg1_d,  zm_d)
   use global_device
   implicit none
 
-  real(fp_kind), intent(in)    :: vdlg1_d(:,:), zm_d(:)
-  real(fp_kind), intent(inout) :: vdlg_d(:,:)
+  real(fp_kind), intent(in)    :: vdlg1_d(ndln_d,nelt_d), zm_d(nelt_d)
+  real(fp_kind), intent(inout) :: vdlg_d(ndln_d,nelt_d)
 
   integer :: ti,gi
   real(fp_kind) :: vdlgtmp

@@ -1,4 +1,4 @@
-CFLAGS = -Mcuda=cc60 -O3 
+CFLAGS = -Mcuda=cc70 -O3 
 #CFLAGS = -Mcuda=cc60 -O0 -g -Mfptrap=zero,overflow,underflow -Mbounds -Mdclchk -Mchkptr -Mchkstk -Meh_frame, -Minform,inform
 CC = mpif90 
 
