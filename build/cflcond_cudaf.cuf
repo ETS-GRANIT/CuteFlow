@@ -33,6 +33,7 @@ attributes(global) subroutine cflcond_cudaf(solut_d, deltatmin_d)
       deltatmin_d(gi) = 1000000.0D0
     endif
   endif   
+  dt_d=1000000.0D0
 end subroutine cflcond_cudaf
 
 attributes(global) subroutine cflcond_sec_cudaf(solut_d, deltatmin_d, dt_d)
@@ -81,6 +82,7 @@ attributes(global) subroutine cflcond_reduc_cudaf(solut_d, deltatmin_d)
 
 
   s(ti) = 10000000.0D0
+  dt_d = s(1)
   if(gi <= nelt_d-nelt_fant_recep_d) then
     deltatmin_d(gi) = 1000000.0D0
     hauteur = solut_d(1,gi)
@@ -99,7 +101,7 @@ attributes(global) subroutine cflcond_reduc_cudaf(solut_d, deltatmin_d)
   call syncthreads()
   i = blockdim%x/2 !! Block dim doit etre divisible par 2
   do while(i/=1)
-    if(threadidx%x < i) then
+    if(threadidx%x <= i) then
       s(threadidx%x) = min(s(threadidx%x), s(threadidx%x + i))
     end if
     i = i/2
@@ -114,3 +116,44 @@ attributes(global) subroutine cflcond_reduc_cudaf(solut_d, deltatmin_d)
     ierr_d = atomicExch(mutex, 0)
   end if
 end subroutine cflcond_reduc_cudaf
+
+attributes(global) subroutine reduction(deltatmin_d)
+
+  use precision_m
+  use global_device
+
+  implicit none
+
+  real(fp_kind), dimension(nelt_d-nelt_fant_recep_d), intent(inout)         :: deltatmin_d
+
+  real(fp_kind), shared       :: s(*)
+  integer :: i, ti, gi, ierr_d
+
+  ti = threadIdx%x
+  ! gi = (blockIdx%x - 1)*(blockDim%x*2)+ ti
+  gi = (blockIdx%x - 1)*blockDim%x+ ti
+
+  dt_d = 100000.0D0
+  if(gi<=nelt_d-nelt_fant_recep_d) then
+    s(ti) = deltatmin_d(gi)
+  else
+    s(ti) = 100000.0d0
+  end if
+
+  ! if(gi+blockDim%x<=nelt_d-nelt_fant_recep_d) then
+  !   s(ti) = min(s(ti), deltatmin_d(gi+blockDim%x))
+  ! end if
+  call syncthreads()
+
+  i = blockdim%x/2
+  do while(i>=1)
+    if(ti <= i) then
+      s(ti) = min(s(ti),s(ti+i))
+    end if
+    i = i/2
+    call syncthreads()
+  end do
+
+  s(1) = min(s(1),s(2))
+  ierr_d = atomicmin(dt_d,s(1))
+end subroutine reduction

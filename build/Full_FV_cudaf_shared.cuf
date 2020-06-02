@@ -39,6 +39,13 @@ subroutine Full_FV
       real(fp_kind), intent(inout)                  :: deltatmin_d(nelt_d-nelt_fant_recep_d)
     end subroutine cflcond_cudaf
 
+    attributes(global) subroutine cflcond_reduc_cudaf(solut_d, deltatmin_d)
+      use precision_m
+      use global_device 
+      real(fp_kind), dimension(ndln_d,nelt_d), intent(in)     :: solut_d
+      real(fp_kind), intent(inout)                  :: deltatmin_d(nelt_d-nelt_fant_recep_d)
+    end subroutine cflcond_reduc_cudaf
+
     attributes(global) subroutine cflcond_sec_cudaf(solut_d, deltatmin_d, dt_d)
       use precision_m
       use global_device 
@@ -226,7 +233,7 @@ subroutine Full_FV
   real(fp_kind), dimension(2)  :: greta, grhaut
   real(fp_kind) :: d2, t2, dtime2, tcm2
 
-  type(dim3 )                             :: grid, tblock, grid_nodes, tblock_nodes, grid11, tblock11, grids, tblocks,block_copy, grid_copy 
+  type(dim3 )                             :: grid, tblock, grid_nodes, tblock_nodes, grid11, tblock11, grids, tblocks,block_copy, grid_copy , grid_halved, grid_reduc, tblock_reduc
   real(fp_kind)                           :: time_start, time_stop, tb1, tb2, te1, te2
   real(fp_kind)                           :: errf, errf1, errf2, errf3, errf4, errf5
   integer                                 :: ierr, cond_reg_perm 
@@ -342,7 +349,12 @@ subroutine Full_FV
   ! *** beginning of the loop on the temporal scheme iterations ***
   tblock = dim3(128, 1, 1)
   grid   = dim3(ceiling(real(nelt)/real(tblock%x)), 1, 1)
+  grid_halved   = dim3(ceiling(real(nelt)/real(2*tblock%x)), 1, 1)
   call check_gridlim(tblock, grid, 'err <- Full_FV_cudaf_shared.cuf (1)')
+
+  tblock_reduc = dim3(512, 1, 1)
+  grid_reduc   = dim3(ceiling(real(nelt)/real(tblock_reduc%x)), 1, 1)
+  call check_gridlim(tblock_reduc, grid_reduc, 'err <- Full_FV_cudaf_shared.cuf (1)')
 
   block_copy = dim3(32,1,1) 
   grid_copy = dim3(ceiling(real(nelt)/real(block_copy%x)),1,1)
@@ -624,8 +636,16 @@ subroutine Full_FV
 
     ! Calcul du pas de temps via la CFL
     call cflcond_cudaf<<<grid, tblock>>>(vdlg_d,deltatmin_d)
-    dt_arr = deltatmin_d
-    dt = minval(dt_arr)
+    ! call cflcond_reduc_cudaf<<<grid, tblock, tblock%x*sizeof(deltatmin_d(1))>>>(vdlg_d,deltatmin_d)
+    ! call reduction<<<grid_halved, tblock, tblock%x*sizeof(deltatmin_d(1))>>>(deltatmin_d)
+    call reduction<<<grid_reduc, tblock_reduc, tblock_reduc%x*sizeof(deltatmin_d(1))>>>(deltatmin_d)
+    ierr = cudaDeviceSynchronize()
+    dt = dt_d
+    ! print*,"-"
+    ! print*,"dt reduc ", dt
+    ! dt_arr = deltatmin_d
+    ! dt = minval(dt_arr)
+    ! print*,"dt class ", dt
     if(num_mpi_process>1) then
       call MPI_ALLREDUCE(MPI_IN_PLACE,dt,1,real_kind_mpi,MPI_MIN,MPI_COMM_WORLD, mpi_ierr)
     end if
