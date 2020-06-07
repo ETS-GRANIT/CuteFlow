@@ -38,7 +38,7 @@ attributes(global) subroutine cotes_cudaf3_riadh(surf_d, zm_d,gradz_d,vdlg_d)
   real :: cond
 
   integer                     :: ti,gi, tj, gj, id_entree
-  real(fp_kind), shared       :: s1(64,3)
+  real(fp_kind), shared       :: s1(blockdim%x,ns_d)
 
   ti = threadIdx%x
   gi = (blockIdx%x - 1)*blockDim%x + ti
@@ -235,7 +235,7 @@ attributes(global) subroutine cotes_cudaf3(surf_d, zm_d,gradz_d,vdlg_d)
   real(fp_kind), dimension(3) :: flux
   integer                     :: ti,gi, tj, gj, id_entree
   real                        :: cond
-  real(fp_kind), shared       :: s1(64,3)
+  real(fp_kind), shared       :: s1(blockdim%x,ns_d)
 
   ti = threadIdx%x
   gi = (blockIdx%x - 1)*blockDim%x + ti

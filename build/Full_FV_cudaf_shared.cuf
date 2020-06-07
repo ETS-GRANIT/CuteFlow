@@ -364,7 +364,7 @@ subroutine Full_FV
   grid11   = dim3(ceiling(real(nelt)/real(tblock11%x)), 1, 1)
   call check_gridlim(tblock11, grid11, 'err <- Full_FV_cudaf_shared.cuf (3)')
 
-  tblocks = dim3(64, ns, 1)
+  tblocks = dim3(32, ns, 1)
   grids   = dim3(ceiling(real(nelt)/real(tblocks%x)), 1, 1)
   call check_gridlim(tblocks, grids, 'err <- Full_FV_cudaf_shared.cuf (3)')
 
@@ -529,9 +529,9 @@ subroutine Full_FV
 
 
       if(iflux==1) then
-        call cotes_cudaf3<<<grids, tblocks, 3*64, stream1>>>(surf_d,zm_d,gradz_d,vdlg_d)
+        call cotes_cudaf3<<<grids, tblocks, ns*tblocks%x*sizeof(1.0D0), stream1>>>(surf_d,zm_d,gradz_d,vdlg_d)
       else if (iflux==2) then
-        call cotes_cudaf3_riadh<<<grids, tblocks, 3*64, stream1>>>(surf_d,zm_d,gradz_d,vdlg_d)
+        call cotes_cudaf3_riadh<<<grids, tblocks, ns*tblocks%x*sizeof(1.0d0), stream1>>>(surf_d,zm_d,gradz_d,vdlg_d)
       else
         print*,"Mauvaise valeur de iflux"
       end if
