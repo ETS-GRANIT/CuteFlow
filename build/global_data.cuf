@@ -9,7 +9,7 @@ module global
   use cudafor
 
   !!Streams CUDA
-  integer(kind=cuda_stream_kind) :: stream1, stream2
+  integer(kind=cuda_stream_kind) :: stream1, stream2, stream3
   integer :: istat
 
   !! Variables MPI
@@ -46,7 +46,7 @@ module global
   real(fp_kind) :: long, critere_arret, debitglob_sum!, dt
   real(fp_kind), dimension(20) :: debitglob, h_sortie
   real(fp_kind) :: ts, tsstab, cfl, tolisec, tol_reg_perm
-  real(fp_kind), allocatable, pinned :: dt
+  real(fp_kind), allocatable, pinned :: dt, dt_max
   real(fp_kind) :: tol=1e-6, tolaffiche=1e-1
   real(fp_kind), dimension(10) :: coupe_a, coupe_b
   real(fp_kind), dimension(100) :: xjauges , yjauges

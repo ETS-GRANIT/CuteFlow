@@ -413,6 +413,7 @@ subroutine Full_FV
   do while ( (tc - ts + 2*tol ) < tol )
     ! do while ( nt < 5 )
     !!do while ( nt < 100 )
+    ierr = cudaDeviceSynchronize()
 
     call cpu_time(tb1)
 
@@ -601,11 +602,6 @@ subroutine Full_FV
       end do
     endif
 
-    !!Reduce sum of all debits
-    if(num_mpi_process>1) then
-      call MPI_ALLREDUCE(MPI_IN_PLACE,debit_entree,nombre_input,real_kind_mpi,MPI_SUM,MPI_COMM_WORLD, mpi_ierr)
-      call MPI_ALLREDUCE(MPI_IN_PLACE,debit_sortie,1,real_kind_mpi,MPI_SUM,MPI_COMM_WORLD, mpi_ierr)
-    end if
 
     call copy_into_res_d<<<grid_copy, block_copy>>>(niter_d, nelt_d)
     call cuda_glerror('ierr<-copy_into_res_d  <-- Full_FV_cudaf_shared.cuf',1)
@@ -618,24 +614,17 @@ subroutine Full_FV
     end if
     call cuda_glerror('ierr<-copy_2d_1 <-- Full_FV_cudaf_shared.cuf',1)
 
-    call cpu_time(te1)
+    !!Reduce sum of all debits
+    if(num_mpi_process>1) then
+      call MPI_ALLREDUCE(MPI_IN_PLACE,debit_entree,nombre_input,real_kind_mpi,MPI_SUM,MPI_COMM_WORLD, mpi_ierr)
+      call MPI_ALLREDUCE(MPI_IN_PLACE,debit_sortie,1,real_kind_mpi,MPI_SUM,MPI_COMM_WORLD, mpi_ierr)
+    end if
+
 
     !!  Echange sur GPU directement bloc
     if(num_mpi_process>1) then
-      !call gpu_echange_fant_bloc(vdlg01_d, ndln)
       call gpu_echange_fant_bloc_async(vdlg1_d, ndln)
     end if
-
-    !!Attendre fin de l'échange mémoire de vdlg1
-    !! et mise a jour vdlg avec vdlg1
-    if(num_mpi_process>1) then
-      ! call MPI_WAITALL(size(reqsend),reqsend,sendstat,mpi_ierr)
-      call MPI_WAITALL(size(reqrecv),reqrecv,recvstat,mpi_ierr)
-      call init_vdlg<<<grid, tblock>>>(vdlg_d, vdlg1_d, zm_d)
-      call cuda_glerror('ierr<-init_vdlg <-- Full_FV_cudaf_shared.cuf',1)
-    end if
-
-    call cpu_time(te2)
 
     ! Mise a jour de la zone seche requis uniquement pour iflux==1 (zoka)
     ! if(iflux==1) then
@@ -643,20 +632,31 @@ subroutine Full_FV
     call cuda_glerror('mise_a_jr_zone_seche_cudaf(2) <-- Full_FV_cudaf_shared.cuf',1)
     ! endif
 
+
     ! Calcul du pas de temps via la CFL
-    call cflcond_cudaf<<<grid, tblock>>>(vdlg_d,deltatmin_d)
-    ! call cflcond_reduc_cudaf<<<grid, tblock, tblock%x*sizeof(deltatmin_d(1))>>>(vdlg_d,deltatmin_d)
-    ! call reduction<<<grid_halved, tblock, tblock%x*sizeof(deltatmin_d(1))>>>(deltatmin_d)
-    dt_d=100000.0D0
-    call reduction<<<grid_reduc, tblock_reduc, tblock_reduc%x*sizeof(deltatmin_d(1))>>>(deltatmin_d)
-    ierr = cudaDeviceSynchronize()
-    dt = dt_d
-    ! print*,"-"
-    ! print*,"dt reduc ", dt
-    ! dt_arr = deltatmin_d
-    ! dt = minval(dt_arr)
-    ! print*,"dt class ", dt
+    call cflcond_cudaf<<<grid, tblock,0,stream1>>>(vdlg_d,deltatmin_d)
+    !!Reset du pas de temps sur le gpu
+    ierr = cudaMemcpyAsync(dt_d,dt_max,1,stream2) 
+    ierr = cudaStreamSynchronize(stream2) !! On peut commenter cette ligne pour faire le pari que la race condition sera ok
+    call reduction<<<grid_reduc, tblock_reduc, tblock_reduc%x*sizeof(deltatmin_d(1)),stream1>>>(deltatmin_d)
+    ierr = cudaMemcpyAsync(dt,dt_d,1,stream1)
+
+    !!Attendre fin de l'échange mémoire de vdlg1
+    !! et mise a jour vdlg avec vdlg1
     if(num_mpi_process>1) then
+      ! call MPI_WAITALL(size(reqsend),reqsend,sendstat,mpi_ierr)
+      call MPI_WAITALL(size(reqrecv),reqrecv,recvstat,mpi_ierr)
+      call init_vdlg<<<grid, tblock, 0, stream2>>>(vdlg_d, vdlg1_d, zm_d)
+      call cuda_glerror('ierr<-init_vdlg <-- Full_FV_cudaf_shared.cuf',1)
+    end if
+
+    call copy_2d<<<grid_copy, block_copy, 0, stream3>>>(vdlg01_d, vdlg1_d)
+    call cuda_glerror('ierr<-copy_2d(1) <-- Full_FV_cudaf_shared.cuf',1)
+    call copy_2d<<<grid_copy, block_copy, 0, stream2>>>(vdlg0_d, vdlg_d)
+    call cuda_glerror('ierr<-copy_2d(2) <-- Full_FV_cudaf_shared.cuf',1)
+
+    if(num_mpi_process>1) then
+      ierr = cudaStreamSynchronize(stream1)
       call MPI_ALLREDUCE(MPI_IN_PLACE,dt,1,real_kind_mpi,MPI_MIN,MPI_COMM_WORLD, mpi_ierr)
     end if
 
@@ -664,40 +664,19 @@ subroutine Full_FV
       print*, "***********************************************************************"
       print*, "ERREUR !!!! DIVERGENCE NAN !!!! ERREUR !!!! DIVERGENCE NAN !!!!! ERREUR"
       print*, "***********************************************************************"
-      print*, "***********************************************************************"
-      print*, "ERREUR !!!! DIVERGENCE NAN !!!! ERREUR !!!! DIVERGENCE NAN !!!!! ERREUR"
-      print*, "***********************************************************************"
-      print*, "***********************************************************************"
-      print*, "ERREUR !!!! DIVERGENCE NAN !!!! ERREUR !!!! DIVERGENCE NAN !!!!! ERREUR"
-      print*, "***********************************************************************"
     end if
 
-    dt_d = dt
+    ierr = cudaMemcpyAsync(dt_d,dt,1,stream1)
     if(local_time_step==1) then
-      call cflcond_sec_cudaf<<<grid, tblock>>>(vdlg_d, deltatmin_d, dt_d)
+      call cflcond_sec_cudaf<<<grid, tblock, 0, stream1>>>(vdlg_d, deltatmin_d, dt_d)
+      call cuda_glerror('ierr<-cflcond_cudaf (2) <-- Full_FV_cudaf_shared.cuf',1)
     end if
 
-    call cuda_glerror('ierr<-cflcond_cudaf (2) <-- Full_FV_cudaf_shared.cuf',1)
 
     !! mise à jour du temps et de la solution initiale
     tc = tc + dt
     tc_d = tc
 
-    !!!Attendre fin de l'échange mémoire de vdlg1
-    !!! et mise a jour vdlg avec vdlg1
-    !if(num_mpi_process>1) then
-    !  ! call MPI_WAITALL(size(reqsend),reqsend,sendstat,mpi_ierr)
-    !  call MPI_WAITALL(size(reqrecv),reqrecv,recvstat,mpi_ierr)
-    !  call init_vdlg<<<grid, tblock>>>(vdlg_d, vdlg1_d, zm_d)
-    !  call cuda_glerror('ierr<-init_vdlg <-- Full_FV_cudaf_shared.cuf',1)
-    !end if
-
-    !!Copie à remplacer par des permutation des pointeurs
-    call copy_2d<<<grid_copy, block_copy, 0, stream1>>>(vdlg01_d, vdlg1_d)
-    call cuda_glerror('ierr<-copy_2d(1) <-- Full_FV_cudaf_shared.cuf',1)
-    call copy_2d<<<grid_copy, block_copy, 0, stream2>>>(vdlg0_d, vdlg_d)
-    call cuda_glerror('ierr<-copy_2d(2) <-- Full_FV_cudaf_shared.cuf',1)
-    ierr = cudaDeviceSynchronize()
 
     ! *** Affichage de l'avancement ***
     if ( mod(nt,freqaffich)==0 ) then

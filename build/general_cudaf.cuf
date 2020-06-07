@@ -197,6 +197,7 @@ program general
   !!Création des cuda stream
   istat = cudaStreamCreate(stream1)
   istat = cudaStreamCreate(stream2)
+  istat = cudaStreamCreate(stream3)
 
   !! Ecriture du nom de process dans une chaine de caracteres
   write(mpi_process_id_string, "(I2)") mpi_process_id
@@ -204,8 +205,11 @@ program general
   !! Lecture des données (terrain, maillage, initiales, simulation)
   call lec_donnees
 
-  !! Data transfer from host to device
   allocate(dt)
+  allocate(dt_max)
+  dt_max=1000000.0D0
+
+  !! Data transfer from host to device
   call global_data_transfer
 
   !! Initization of the iteration counters

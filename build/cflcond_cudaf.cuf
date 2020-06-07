@@ -126,7 +126,7 @@ attributes(global) subroutine reduction(deltatmin_d)
 
   real(fp_kind), dimension(nelt_d-nelt_fant_recep_d), intent(inout)         :: deltatmin_d
 
-  real(fp_kind), shared       :: s(*)
+  real(fp_kind), shared       :: s(blockDim%x*sizeof(deltatmin_d(1)))
   integer :: i, ti, gi, ierr_d
 
   ti = threadIdx%x

@@ -32,17 +32,17 @@
   H_sortie=29.0,                                                  ! Hauteur du niveau à la sortie du domaine
 
   ! Paramètres des schémas numériques
-  IFLUX=2,                                                       ! 1 -> HLLC zoka, 2 -> HLLC Riadh
-  tolisec=1.0E-08,                                               ! Tolérence sec/mouillé
+  IFLUX=1,                                                       ! 1 -> HLLC zoka, 2 -> HLLC Riadh
+  tolisec=1.0E-03,                                               ! Tolérence sec/mouillé
   timedisc='euler',                                              ! Schéma en temps : {euler,second,runge}
   friction=1,                                                    ! 1 pour prendre en compte la friction
   fricimplic=1,                                                  ! 0 -> explicite, 1 -> I-dt/2*J, 2 -> I-dt*B
   is_dry_as_wall=0,                                              ! 1 pour mettre les mailles seches comme des murs
   local_time_step=0,                                             ! 1 pour utiliser le local time step
 
-  TS=300.0, CFL=1.5,                                              ! Temps maximal de simultion, nombre CFL
+  TS=300.0, CFL=0.01,                                              ! Temps maximal de simultion, nombre CFL
   tol_reg_perm=1.0E-15,                                          ! Tolérence relative entre debit entrée et débit sortie
-  freqaffich=1000,                                               ! Frequence de print dans outfile.[0-9]
+  freqaffich=1,                                               ! Frequence de print dans outfile.[0-9]
 
   ! Sauvegarde de la solution
   nbrjauges=0, jauges_snapshots=100,                             ! Nombre de jauges, nombre de snapshots
