@@ -324,6 +324,7 @@ program general
   write(*,*) ' Parameters'
   write(*,*) '======================================================================'
   write(*,*) 'meshfile            = ', meshfile 
+  write(*,*) 'cotemin             = ', cotemin
   write(*,*) 'elt_bound           = ', elt_bound
   write(*,*) 'H_AMONT             = ', H_AMONT 
   write(*,*) 'U_AMONT             = ', U_AMONT

@@ -1,4 +1,4 @@
-attributes(global) subroutine cotes_cudaf3_riadh(surf_d, zm_d,gradz_d,vdlg_d)
+attributes(global) subroutine cotes_cudaf3_riadh(surf_d, zm_d,vdlg_d)
   ! Cacul du flux HLLC avec methode riadh
   ! Article : A Weighted Average Flux (WAF) scheme applied to shallow waterequations for real-life applications, Riadh et al.
 
@@ -8,13 +8,13 @@ attributes(global) subroutine cotes_cudaf3_riadh(surf_d, zm_d,gradz_d,vdlg_d)
 
   interface
 
-    attributes(device) subroutine solver_Riemann_cudaf_riadh(kvol,kvoisin,surf,norm,vdlg,hl,ul,vl,hr,ur,vr,zml,zmr,model,flux,ln,pp)
+    attributes(device) subroutine solver_Riemann_cudaf_riadh(kvol,kvoisin,surf,norm,vdlg,hl,ul,vl,hr,ur,vr,zml,zmr,flux,ln,pp)
 
       use global_device
 
       implicit none
 
-      integer, intent(in)                   :: kvol, kvoisin, model
+      integer, intent(in)                   :: kvol, kvoisin
       integer, intent(inout)                :: pp
       real(fp_kind), intent(in)                   :: hl, ul, vl, hr, ur, vr, zml, zmr, ln
       real(fp_kind), dimension(2), intent(in)     :: norm
@@ -26,10 +26,9 @@ attributes(global) subroutine cotes_cudaf3_riadh(surf_d, zm_d,gradz_d,vdlg_d)
   end interface
 
   real(fp_kind), dimension(nelt_d), intent(in)      :: surf_d, zm_d
-  real(fp_kind), dimension(ndim_d,nelt_d), intent(in)    :: gradz_d  ! remove it if not used
   real(fp_kind), dimension(ndln_d,nelt_d), intent(in)    :: vdlg_d
 
-  integer                     :: i, nc1, nc2, kvoisin, dl,pp, hybrid, model, nc3
+  integer                     :: i, nc1, nc2, kvoisin, dl,pp, nc3
   real(fp_kind)               :: x1, x2, y1, y2, ln, x3, y3
   real(fp_kind)               :: hautl,vitul,vitvl,hautr,vitur,vitvr,zml,zmr,hul, hvl, hur, hvr, hijet, hjiet, zij
   real(fp_kind)               :: zero, debitnorm, orient
@@ -46,7 +45,6 @@ attributes(global) subroutine cotes_cudaf3_riadh(surf_d, zm_d,gradz_d,vdlg_d)
   gj=  (blockIdx%y - 1)*blockDim%y + tj
 
   zero = 0.d0
-  hybrid = 0
 
   !   Retrieve a neighboring cell dry ===============================
   ! do it outside and see if un_voisin_sec is being used here    
@@ -168,8 +166,8 @@ attributes(global) subroutine cotes_cudaf3_riadh(surf_d, zm_d,gradz_d,vdlg_d)
       vitur = ( hur * norm(1) + hvr * norm(2) ) / hautr
       vitvr = ( hvr * norm(1) - hur * norm(2) ) / hautr
 
-      !call solver_Riemann_cudaf_riadh(gi,kvoisin,surf_d,norm,vdlg_d,hautl,vitul,vitvl,hautr,vitur,vitvr,zml,zmr,hybrid,flux,ln,pp)
-      call solver_Riemann_cudaf_riadh(gi,kvoisin,surf_d,norm,vdlg_d,hijet,vitul,vitvl,hjiet,vitur,vitvr,zml,zmr,hybrid,flux,ln,pp)
+      !call solver_Riemann_cudaf_riadh(gi,kvoisin,surf_d,norm,vdlg_d,hautl,vitul,vitvl,hautr,vitur,vitvr,zml,zmr,flux,ln,pp)
+      call solver_Riemann_cudaf_riadh(gi,kvoisin,surf_d,norm,vdlg_d,hijet,vitul,vitvl,hjiet,vitur,vitvr,zml,zmr,flux,ln,pp)
 
     endif ! de ( kvoisin > 0. )
 
@@ -193,7 +191,7 @@ attributes(global) subroutine cotes_cudaf3_riadh(surf_d, zm_d,gradz_d,vdlg_d)
   endif ! Fin de if(gi<nelt_d) 
 end subroutine cotes_cudaf3_riadh
 
-attributes(global) subroutine cotes_cudaf3(surf_d, zm_d,gradz_d,vdlg_d)
+attributes(global) subroutine cotes_cudaf3(surf_d, zm_d,vdlg_d)
   ! ======================================================================
   !     cotes = calcul du flux à l'interface des cotes de kvol
   !     auteur : Youssef Loukili  GRANIT ETSMTL
@@ -206,13 +204,13 @@ attributes(global) subroutine cotes_cudaf3(surf_d, zm_d,gradz_d,vdlg_d)
 
   interface
 
-    attributes(device) subroutine solver_Riemann_cudaf(kvol,kvoisin,surf,norm,vdlg,hl,ul,vl,hr,ur,vr,zml,zmr,model,flux,ln,pp)
+    attributes(device) subroutine solver_Riemann_cudaf(kvol,kvoisin,surf,norm,vdlg,hl,ul,vl,hr,ur,vr,zml,zmr,flux,ln,pp)
 
       use global_device
 
       implicit none
 
-      integer, intent(in)                   :: kvol, kvoisin, model
+      integer, intent(in)                   :: kvol, kvoisin
       integer, intent(inout)                :: pp
       real(fp_kind), intent(in)                   :: hl, ul, vl, hr, ur, vr, zml, zmr, ln
       real(fp_kind), dimension(2), intent(in)     :: norm
@@ -224,10 +222,9 @@ attributes(global) subroutine cotes_cudaf3(surf_d, zm_d,gradz_d,vdlg_d)
   end interface
 
   real(fp_kind), dimension(nelt_d), intent(in)      :: surf_d, zm_d
-  real(fp_kind), dimension(ndim_d,nelt_d), intent(in)    :: gradz_d  ! remove it if not used
   real(fp_kind), dimension(ndln_d,nelt_d), intent(in)    :: vdlg_d
 
-  integer               :: i, nc1, nc2, kvoisin, dl,pp, hybrid, model, nc3
+  integer               :: i, nc1, nc2, kvoisin, dl,pp, nc3
   real(fp_kind)               :: x1, x2, y1, y2, ln, x3, y3
   real(fp_kind)               :: hautl,vitul,vitvl,hautr,vitur,vitvr,zml,zmr,hul, hvl, hur, hvr
   real(fp_kind)               :: zero, debitnorm, orient
@@ -243,7 +240,6 @@ attributes(global) subroutine cotes_cudaf3(surf_d, zm_d,gradz_d,vdlg_d)
   gj=  (blockIdx%y - 1)*blockDim%y + tj
 
   zero = 0.d0
-  hybrid = 0
 
   !   Retrieve a neighboring cell dry ===============================
   ! do it outside and see if un_voisin_sec is being used here    
@@ -381,10 +377,9 @@ attributes(global) subroutine cotes_cudaf3(surf_d, zm_d,gradz_d,vdlg_d)
         hautr = tolisec_d
         vitur = 0.d0
         vitvr = 0.d0
-        hybrid = 0
       endif
 
-      call solver_Riemann_cudaf(gi,kvoisin,surf_d,norm,vdlg_d,hautl,vitul,vitvl,hautr,vitur,vitvr,zml,zmr,hybrid,flux,ln,pp)
+      call solver_Riemann_cudaf(gi,kvoisin,surf_d,norm,vdlg_d,hautl,vitul,vitvl,hautr,vitur,vitvr,zml,zmr,flux,ln,pp)
 
       ! *** WET and DRY
       ! *** Prolongement du niveau d'eau sur le sec pour éviter la création d'un gradient
@@ -393,7 +388,7 @@ attributes(global) subroutine cotes_cudaf3(surf_d, zm_d,gradz_d,vdlg_d)
           !Transitoire : Cellule calculée mouillée - Cellule voisine sèche ***
           if ( vitul > sqrt(2*gp_d*(zmr-zml) ) ) then
             zmr = zml+hautl  
-            call solver_Riemann_cudaf(gi,kvoisin,surf_d,norm,vdlg_d,hautl,vitul,vitvl,hautr,vitur,vitvr,zml,zmr,hybrid,flux,ln,pp)
+            call solver_Riemann_cudaf(gi,kvoisin,surf_d,norm,vdlg_d,hautl,vitul,vitvl,hautr,vitur,vitvr,zml,zmr,flux,ln,pp)
           else
             flux(1) = 0.d0
             flux(2) = norm(1) * gp_d * hautl*(hautl+zml)
@@ -406,7 +401,7 @@ attributes(global) subroutine cotes_cudaf3(surf_d, zm_d,gradz_d,vdlg_d)
           !Transitoire : Cellule calculée sèche  - Cellule voisine mouillée 
           if ( -vitur > sqrt(2*gp_d*(zml-zmr) ) .and. vitur < 0) then
             zml   = zmr+hautr
-            call solver_Riemann_cudaf(gi,kvoisin,surf_d,norm,vdlg_d,hautl,vitul,vitvl,hautr,vitur,vitvr,zml,zmr,hybrid,flux,ln,pp)
+            call solver_Riemann_cudaf(gi,kvoisin,surf_d,norm,vdlg_d,hautl,vitul,vitvl,hautr,vitur,vitvr,zml,zmr,flux,ln,pp)
           else
             flux(1) = 0.d0
             flux(2) = 0.d0
@@ -446,7 +441,7 @@ attributes(global) subroutine cotes_cudaf3(surf_d, zm_d,gradz_d,vdlg_d)
 end subroutine cotes_cudaf3
 
 
-attributes(device) subroutine solver_Riemann_cudaf(kvol,kvoisin,surf,norm,vdlg,hl,ul,vl,hr,ur,vr,zml,zmr,model,flux,ln,pp)
+attributes(device) subroutine solver_Riemann_cudaf(kvol,kvoisin,surf,norm,vdlg,hl,ul,vl,hr,ur,vr,zml,zmr,flux,ln,pp)
   ! Méthode de l'article :
   ! Modeling of wetting–drying transitions in free surfaceflows overcomplex topographies 
   ! JM Zokagoa et A. Soulaimaini
@@ -455,7 +450,7 @@ attributes(device) subroutine solver_Riemann_cudaf(kvol,kvoisin,surf,norm,vdlg,h
   use global_device
   implicit none
 
-  integer, intent(in)                         :: kvol, kvoisin, model
+  integer, intent(in)                         :: kvol, kvoisin
   integer, intent(inout)                      :: pp
   real(fp_kind), intent(in)                   :: hl, ul, vl, hr, ur, vr, zml, zmr, ln
   real(fp_kind), dimension(2), intent(in)     :: norm
@@ -568,7 +563,7 @@ attributes(device) subroutine solver_Riemann_cudaf(kvol,kvoisin,surf,norm,vdlg,h
   flux(3) = norm(2) * flux1(2) + norm(1) * flux1(3)                       
 end subroutine solver_Riemann_cudaf
 
-attributes(device) subroutine solver_Riemann_cudaf_riadh(kvol,kvoisin,surf,norm,vdlg,hl,ul,vl,hr,ur,vr,zml,zmr,model,flux,ln,pp)
+attributes(device) subroutine solver_Riemann_cudaf_riadh(kvol,kvoisin,surf,norm,vdlg,hl,ul,vl,hr,ur,vr,zml,zmr,flux,ln,pp)
   ! Import des routines de Riadh ATA pour HLLC
   ! Méthode de l'article : 
   ! A Weighted Average Flux (WAF) scheme applied to shallow waterequations for real-life applications
@@ -581,7 +576,7 @@ attributes(device) subroutine solver_Riemann_cudaf_riadh(kvol,kvoisin,surf,norm,
   use global_device
   implicit none
 
-  integer, intent(in)                         :: kvol, kvoisin, model
+  integer, intent(in)                         :: kvol, kvoisin
   integer, intent(inout)                      :: pp
   real(fp_kind), intent(in)                   :: hl, ul, vl, hr, ur, vr, zml, zmr, ln
   real(fp_kind), dimension(2), intent(in)     :: norm

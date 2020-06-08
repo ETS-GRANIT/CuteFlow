@@ -118,21 +118,19 @@ subroutine Full_FV
       implicit none
     end subroutine update_un_voisin_sec
 
-    attributes(global) subroutine cotes_cudaf3_riadh(surf_d,zm_d,gradz_d,vdlg_d)
+    attributes(global) subroutine cotes_cudaf3_riadh(surf_d,zm_d,vdlg_d)
       use precision_m
       use global_device
       implicit none
       real(fp_kind), dimension(nelt_d), intent(in)      :: surf_d, zm_d
-      real(fp_kind), dimension(ndim_d,nelt_d), intent(in)    :: gradz_d  ! remove it if not used
       real(fp_kind), dimension(ndln_d,nelt_d), intent(in)    :: vdlg_d
     end subroutine cotes_cudaf3_riadh
 
-    attributes(global) subroutine cotes_cudaf3(surf_d,zm_d,gradz_d,vdlg_d)
+    attributes(global) subroutine cotes_cudaf3(surf_d,zm_d,vdlg_d)
       use precision_m
       use global_device
       implicit none
       real(fp_kind), dimension(nelt_d), intent(in)      :: surf_d, zm_d
-      real(fp_kind), dimension(ndim_d,nelt_d), intent(in)    :: gradz_d  ! remove it if not used
       real(fp_kind), dimension(ndln_d,nelt_d), intent(in)    :: vdlg_d
     end subroutine cotes_cudaf3
 
@@ -347,7 +345,7 @@ subroutine Full_FV
   call cuda_glerror('ierr <- (H->D) data transfer into niter_d <-- Full_FV_cudaf_shared.cuf',1)
 
   ! *** beginning of the loop on the temporal scheme iterations ***
-  tblock = dim3(128, 1, 1)
+  tblock = dim3(32, 1, 1)
   grid   = dim3(ceiling(real(nelt)/real(tblock%x)), 1, 1)
   grid_halved   = dim3(ceiling(real(nelt)/real(2*tblock%x)), 1, 1)
   call check_gridlim(tblock, grid, 'err <- Full_FV_cudaf_shared.cuf (1)')
@@ -360,11 +358,11 @@ subroutine Full_FV
   grid_copy = dim3(ceiling(real(nelt)/real(block_copy%x)),1,1)
   call check_gridlim(block_copy, grid_copy, 'err <- Full_FV_cudaf_shared.cuf (2)')
 
-  tblock11 = dim3(128, 1, 1)
+  tblock11 = dim3(32, 1, 1)
   grid11   = dim3(ceiling(real(nelt)/real(tblock11%x)), 1, 1)
   call check_gridlim(tblock11, grid11, 'err <- Full_FV_cudaf_shared.cuf (3)')
 
-  tblocks = dim3(32, ns, 1)
+  tblocks = dim3(8, ns, 1)
   grids   = dim3(ceiling(real(nelt)/real(tblocks%x)), 1, 1)
   call check_gridlim(tblocks, grids, 'err <- Full_FV_cudaf_shared.cuf (3)')
 
@@ -529,9 +527,9 @@ subroutine Full_FV
 
 
       if(iflux==1) then
-        call cotes_cudaf3<<<grids, tblocks, ns*tblocks%x*sizeof(1.0D0), stream1>>>(surf_d,zm_d,gradz_d,vdlg_d)
+        call cotes_cudaf3<<<grids, tblocks, ns*tblocks%x*sizeof(1.0D0), stream1>>>(surf_d,zm_d,vdlg_d)
       else if (iflux==2) then
-        call cotes_cudaf3_riadh<<<grids, tblocks, ns*tblocks%x*sizeof(1.0d0), stream1>>>(surf_d,zm_d,gradz_d,vdlg_d)
+        call cotes_cudaf3_riadh<<<grids, tblocks, ns*tblocks%x*sizeof(1.0d0), stream1>>>(surf_d,zm_d,vdlg_d)
       else
         print*,"Mauvaise valeur de iflux"
       end if

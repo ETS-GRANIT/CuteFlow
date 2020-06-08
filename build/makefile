@@ -1,4 +1,5 @@
-CFLAGS = -Mcuda=cc70 -O3 
+#CFLAGS = -Mcuda=cc60 -O3
+CFLAGS = -Mcuda=cc60,maxrregcoun:96 -O3
 #CFLAGS = -Mcuda=cc60 -O0 -g -Mfptrap=zero,overflow,underflow -Mbounds -Mdclchk -Mchkptr -Mchkstk -Meh_frame, -Minform,inform
 CC = mpif90 
 
@@ -8,7 +9,7 @@ cotes_cudaf_shared.cuf source_cudaf.cuf Full_FV_cudaf_shared.cuf general_cudaf.c
 
 
 runfile : ${OBJS}
-	${CC} ${CFLAGS} ${OBJS} -c
+	${CC} ${CFLAGS} ${OBJS} -c 
 	${CC} ${CFLAGS} ${OBJS} -o $@
 
 clean:

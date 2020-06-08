@@ -161,6 +161,7 @@ subroutine lect_const_mail
     aire = sqrt(p*(p-ca)*(p-cb)*(p-cc))
 
     cotemin_arr(kvol) = 0.5*aire/p
+    cotemin_arr(kvol) = 1.8 * cotemin_arr(kvol) !! 1.8 * rayon du cercle inscrit
     cotemin = min(cotemin,cotemin_arr(kvol))
   enddo
 
