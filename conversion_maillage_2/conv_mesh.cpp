@@ -84,7 +84,49 @@ void ecriture(ofstream &out, vector<vector<double> > &nodes, vector<vector<int> 
   out << "0"<< endl;
 }
 
-void lecture_slc(ifstream &slc,vector<int> &entreNodes, vector<int> &numEntreNodes, vector<int> &sortieNodes, int nombre_entre_sortie){
+void lecture_slc_2(ifstream &slc,vector<int> &entreNodes, vector<int> &numEntreNodes, vector<int> &sortieNodes){
+  int n, i(0), j(0);
+  double dum;
+  string str;
+
+  slc >> n ;
+  j=0;
+  while(j<14){
+    getline(slc, str, '$');
+    getline(slc, str, '$');
+    i=0;
+    while(i<10){
+      slc >> n;
+      sortieNodes.push_back(n);
+      i++;
+    }
+    j++;
+  }
+
+  j=0;
+  while(j<11){
+    getline(slc, str, '$');
+    getline(slc, str, '$');
+    i=0;
+    while(i<10){
+      slc >> n;
+      entreNodes.push_back(n);
+      numEntreNodes.push_back(1);
+      i++;
+    }
+    j++;
+  }
+  getline(slc, str, '$');
+  getline(slc, str, '$');
+  i=0;
+  while(i<8){
+    slc >> n;
+    entreNodes.push_back(n);
+    numEntreNodes.push_back(1);
+    i++;
+  }
+}
+void lecture_slc(ifstream &slc,vector<int> &entreNodes, vector<int> &numEntreNodes, vector<int> &sortieNodes){
   int n, i(0), j(0);
   double dum;
   string str;
@@ -300,6 +342,7 @@ void lecture_mesh(ifstream &mesh, vector<vector<double> > &nodes, vector<vector<
 
 int main(int argc, char* argv[]){
 
+  int nombre_entree, nombre_sortie;
   vector<vector<double> > nodes;
   vector<vector<int> > elems;
   vector<double> manning, debits, hauteurs;
@@ -307,13 +350,16 @@ int main(int argc, char* argv[]){
 
   cout << fixed;
 
-  if(argc < 3){
-    cout << "Utilisation : ./split_mesh fichier.mesh fichier.slc" << endl;
+  if(argc < 5){
+    cout << "Utilisation : ./split_mesh fichier.mesh fichier.slc nombre_entree nombre_sortie" << endl;
     return(0);
   }
 
+  nombre_entree = atoi(argv[3]);
+  nombre_sortie = atoi(argv[4]);
   ifstream slc(argv[2]);
-  lecture_slc(slc, entreNodes, numEntreNodes, sortieNodes, 8);
+  //lecture_slc_2(slc, entreNodes, numEntreNodes, sortieNodes);
+  lecture_slc(slc, entreNodes, numEntreNodes, sortieNodes);
   slc.close();
 
   //Lecture du maillage
@@ -327,10 +373,10 @@ int main(int argc, char* argv[]){
 
   set_manning(nodes.size(), manning);
 
-  gnuplot_entree_sorties(nodes, 7, entreNodes, numEntreNodes, sortieNodes);
+  /* gnuplot_entree_sorties(nodes, nombre_entree, entreNodes, numEntreNodes, sortieNodes); */
 
   ofstream out("output_mesh.txt");
-  ecriture(out, nodes, elems, manning, entreNodes, numEntreNodes, sortieNodes, 7, 1);
+  ecriture(out, nodes, elems, manning, entreNodes, numEntreNodes, sortieNodes, nombre_entree, nombre_sortie);
   out.close();
   return(0);
 }

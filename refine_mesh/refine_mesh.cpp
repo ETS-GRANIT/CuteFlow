@@ -5,9 +5,8 @@
 #include <string>
 #include <stdio.h>
 #include <unordered_map>
-#include <Eigen/Sparse>
-
-typedef Eigen::SparseMatrix<int> SpMat;
+#include <map>
+#include <cmath>
 
 using namespace std;
 
@@ -101,7 +100,7 @@ void refine(vector<vector<long double> > &nodes, vector<vector<long double> > &e
   long double s31x, s31y, s31z, s31m;
   unsigned long long int ns1, ns12, ns2, ns23, ns3, ns31;
   bool is1, is2, is3, is12, is23, is31;
-  map<unsigned long long int, int> is_created;
+  std::map<unsigned long long int, int> is_created;
   vector<long double> v(5);
 
   for(int i=0;i<elems.size();i++){

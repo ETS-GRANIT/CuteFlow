@@ -791,11 +791,11 @@ void genInfoSendRecv(int nParts, vector<vector<vector<int> > > &fantElemsEnvoi, 
   }
 }
 
-void ecritureLiens(int n, vector<int> &nLTG, vector<int> &eLTG){
+void ecritureLiens(int n, vector<int> &nLTG, vector<int> &eLTG, vector<int> &renumSD){
   
   ofstream out;
   stringstream ss;
-  ss << n << "_liens_nodes.txt";
+  ss << renumSD[n] << "_liens_nodes.txt";
   out.open(ss.str());
 
   for(int i=0;i<nLTG.size();i++){
@@ -805,7 +805,7 @@ void ecritureLiens(int n, vector<int> &nLTG, vector<int> &eLTG){
   out.close();
 
   ss.str("");
-  ss << n << "_liens_elems.txt";
+  ss << renumSD[n] << "_liens_elems.txt";
   out.open(ss.str());
 
   for(int i=0;i<eLTG.size();i++){
@@ -915,7 +915,7 @@ int main(int argc, char* argv[]){
     //ecritureGnuplot(p, newNodes[p], newElems[p]);
     //ecritureFantGnuplot(p,newNodes[p], newElems[p], new_entreNodes[p], new_sortieNodes[p], new_wallNodes[p], fantElemsRecep[p], fantElemsEnvoi[p]);
     ecriture(multi_sortie, multi_entree, fileName, p,newNodes[p], newElems[p], new_entreNodes[p], new_numEntreNodes[p], new_sortieNodes[p], new_numSortieNodes[p], new_wallNodes[p], fantElemsRecep[p], fantElemsEnvoi[p],infoEnvoi[p], infoRecep[p], nombreEntre, nombreSortie,renumerotationSousDomaine);
-    ecritureLiens(p, nLTG[p], eLTG[p]);
+    ecritureLiens(p, nLTG[p], eLTG[p], renumerotationSousDomaine);
   }
 
   delete [] eptr;
