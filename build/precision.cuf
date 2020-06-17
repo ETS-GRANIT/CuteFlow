@@ -5,8 +5,9 @@ module precision_m
 
   ! Comment out one of the lines below
   ! integer , parameter :: fp_kind = singlePrecision
+  ! integer , parameter :: fp_kind_mpi = MPI_REAL
   integer , parameter :: fp_kind = doublePrecision
-  integer  :: real_kind_mpi
+  integer , parameter :: fp_kind_mpi = MPI_DOUBLE_PRECISION
 
 contains
   subroutine cuda_glerror(err_string, which)

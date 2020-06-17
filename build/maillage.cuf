@@ -60,9 +60,6 @@ subroutine lect_const_mail
   real(fp_kind)               :: start_cpu, stop_cpu, errf1, errf2, errf3
   real                        :: time_cuda
 
-  !! MPI type for memory excanhges
-  call MPI_TYPE_CREATE_F90_REAL(fp_kind, MPI_UNDEFINED, real_kind_mpi, mpi_ierr)
-
 
   !! ns = nombre de sommet ici 3 pour des triangles
   ns = 3
@@ -112,7 +109,7 @@ subroutine lect_const_mail
     call calcul_long_entree
   end if
 
-  call mpi_allreduce(mpi_in_place,long_entree,nombre_input,real_kind_mpi,mpi_sum,mpi_comm_world, mpi_ierr)
+  call mpi_allreduce(mpi_in_place,long_entree,nombre_input,fp_kind_mpi,mpi_sum,mpi_comm_world, mpi_ierr)
   long_entree_d=long_entree
 
   !! calculation of the elementwise coordinates table
@@ -165,7 +162,7 @@ subroutine lect_const_mail
     cotemin = min(cotemin,cotemin_arr(kvol))
   enddo
 
-  call mpi_allreduce(mpi_in_place,cotemin,1,real_kind_mpi,mpi_min,mpi_comm_world, mpi_ierr)
+  call mpi_allreduce(mpi_in_place,cotemin,1,fp_kind_mpi,mpi_min,mpi_comm_world, mpi_ierr)
   cotemin_d = cotemin
   call cuda_glerror('ierr <- (h->d) data transfer to cotemin_d <-- maillage.cuf',1)
   call cuda_glerror('ierr <- lect_const_mail (towards_end_of_function) <-- maillage.cuf',1)

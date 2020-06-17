@@ -243,9 +243,6 @@ subroutine Full_FV
   real(fp_kind), allocatable      :: res1(:,:)
   real(fp_kind), device, allocatable      :: deltatmin_d(:)
 
-  !!Création d'un type pour les échange MPI
-  call MPI_TYPE_CREATE_F90_REAL(fp_kind, MPI_UNDEFINED, real_kind_mpi, mpi_ierr)
-
   zero        = 0.d0
   tc          = 0.d0
   t_reg_perm  = 0.d0
@@ -384,7 +381,7 @@ subroutine Full_FV
   if(dt<1e-14) then
     dt = 1e-8
   endif
-  call MPI_ALLREDUCE(MPI_IN_PLACE,dt,1,real_kind_mpi,MPI_MIN,MPI_COMM_WORLD, mpi_ierr)
+  call MPI_ALLREDUCE(MPI_IN_PLACE,dt,1,fp_kind_mpi,MPI_MIN,MPI_COMM_WORLD, mpi_ierr)
   dt_d = dt
 
   !!Setting local time step in dry cells according to dt_d
@@ -614,8 +611,8 @@ subroutine Full_FV
 
     !!Reduce sum of all debits
     if(num_mpi_process>1) then
-      call MPI_ALLREDUCE(MPI_IN_PLACE,debit_entree,nombre_input,real_kind_mpi,MPI_SUM,MPI_COMM_WORLD, mpi_ierr)
-      call MPI_ALLREDUCE(MPI_IN_PLACE,debit_sortie,1,real_kind_mpi,MPI_SUM,MPI_COMM_WORLD, mpi_ierr)
+      call MPI_ALLREDUCE(MPI_IN_PLACE,debit_entree,nombre_input,fp_kind_mpi,MPI_SUM,MPI_COMM_WORLD, mpi_ierr)
+      call MPI_ALLREDUCE(MPI_IN_PLACE,debit_sortie,1,fp_kind_mpi,MPI_SUM,MPI_COMM_WORLD, mpi_ierr)
     end if
 
 
@@ -655,7 +652,7 @@ subroutine Full_FV
 
     if(num_mpi_process>1) then
       ierr = cudaStreamSynchronize(stream1)
-      call MPI_ALLREDUCE(MPI_IN_PLACE,dt,1,real_kind_mpi,MPI_MIN,MPI_COMM_WORLD, mpi_ierr)
+      call MPI_ALLREDUCE(MPI_IN_PLACE,dt,1,fp_kind_mpi,MPI_MIN,MPI_COMM_WORLD, mpi_ierr)
     end if
 
     if(dt>999999 .or. dt<1e-16) then
@@ -695,10 +692,10 @@ subroutine Full_FV
       iaff = iaff + 1
 
       !Sauvegarde de la solution a enlever
-      vdlg = vdlg_d
-      call volume_total(vdlg, total_volume)
-      call MPI_ALLREDUCE(MPI_IN_PLACE,total_volume,1,real_kind_mpi,MPI_SUM,MPI_COMM_WORLD, mpi_ierr)
-      print*,"VOLUME TOTAL ", total_volume, " M3"
+      ! vdlg = vdlg_d
+      ! call volume_total(vdlg, total_volume)
+      ! call MPI_ALLREDUCE(MPI_IN_PLACE,total_volume,1,fp_kind_mpi,MPI_SUM,MPI_COMM_WORLD, mpi_ierr)
+      ! print*,"VOLUME TOTAL ", total_volume, " M3"
     endif
 
     ! *** storage of the solution in 2D sections for the table time 'tvis2d'
@@ -831,16 +828,6 @@ subroutine Full_FV
     !endif
 
     debit_sortie0 = debit_sortie
-
-
-    if ( mod(nt,freqaffich)==0 ) then
-      print*, "Performance calculs vs echange mémoire"
-      print*, "temps calculs ", te1-tb1
-      print*, "temps echange ", te2-te1
-      print*, "%temps echange ", 100*(te2-te1)/(te2-tb1)
-      print*,"dt = ", dt
-    end if
-
   enddo 
 
   !! ***** LOOP ON TIME ENDS HERE *****
@@ -1050,10 +1037,10 @@ subroutine gpu_echange_fant_bloc_async(a, nd)
     nsbloc = ndln*elt_fant_envoi_bloc(j,2)/768 + 1
     nreste = ndln*elt_fant_envoi_bloc(j,2)-(nsbloc-1)*768
     do p=0,nsbloc-2
-      call MPI_ISEND(a(1,elt_fant_envoi_bloc(j,1)+p*768/nd),768,real_kind_mpi,elt_fant_envoi_bloc(j,3),p,MPI_COMM_WORLD,reqsend(k),mpi_ierr)
+      call MPI_ISEND(a(1,elt_fant_envoi_bloc(j,1)+p*768/nd),768,fp_kind_mpi,elt_fant_envoi_bloc(j,3),p,MPI_COMM_WORLD,reqsend(k),mpi_ierr)
       k=k+1
     end do
-    call MPI_ISEND(a(1,elt_fant_envoi_bloc(j,1)+(nsbloc-1)*768/nd),nreste,real_kind_mpi,elt_fant_envoi_bloc(j,3),nsbloc-1,MPI_COMM_WORLD,reqsend(k),mpi_ierr)
+    call MPI_ISEND(a(1,elt_fant_envoi_bloc(j,1)+(nsbloc-1)*768/nd),nreste,fp_kind_mpi,elt_fant_envoi_bloc(j,3),nsbloc-1,MPI_COMM_WORLD,reqsend(k),mpi_ierr)
     k=k+1
   end do
 
@@ -1062,10 +1049,10 @@ subroutine gpu_echange_fant_bloc_async(a, nd)
     nsbloc = ndln*elt_fant_recep_bloc(j,2)/768 + 1
     nreste = ndln*elt_fant_recep_bloc(j,2)-(nsbloc-1)*768
     do p=0,nsbloc-2
-      call MPI_IRECV(a(1,elt_fant_recep_bloc(j,1)+p*768/nd),768,real_kind_mpi,elt_fant_recep_bloc(j,3),p,MPI_COMM_WORLD,reqrecv(k),mpi_ierr)
+      call MPI_IRECV(a(1,elt_fant_recep_bloc(j,1)+p*768/nd),768,fp_kind_mpi,elt_fant_recep_bloc(j,3),p,MPI_COMM_WORLD,reqrecv(k),mpi_ierr)
       k=k+1
     end do
-    call MPI_IRECV(a(1,elt_fant_recep_bloc(j,1)+(nsbloc-1)*768/nd),nreste,real_kind_mpi,elt_fant_recep_bloc(j,3),nsbloc-1,MPI_COMM_WORLD,reqrecv(k),mpi_ierr)
+    call MPI_IRECV(a(1,elt_fant_recep_bloc(j,1)+(nsbloc-1)*768/nd),nreste,fp_kind_mpi,elt_fant_recep_bloc(j,3),nsbloc-1,MPI_COMM_WORLD,reqrecv(k),mpi_ierr)
     k=k+1
   end do
 
@@ -1093,9 +1080,9 @@ subroutine gpu_echange_fant_bloc(a, nd)
         nsbloc = nd*elt_fant_envoi_bloc(j,2)/768 + 1
         nreste = nd*elt_fant_envoi_bloc(j,2)-(nsbloc-1)*768
         do p=0,nsbloc-2
-          call MPI_SEND(a(1,elt_fant_envoi_bloc(j,1)+p*768/nd),768,real_kind_mpi,elt_fant_envoi_bloc(j,3),p,MPI_COMM_WORLD,mpi_ierr)
+          call MPI_SEND(a(1,elt_fant_envoi_bloc(j,1)+p*768/nd),768,fp_kind_mpi,elt_fant_envoi_bloc(j,3),p,MPI_COMM_WORLD,mpi_ierr)
         end do
-        call MPI_SEND(a(1,elt_fant_envoi_bloc(j,1)+(nsbloc-1)*768/nd),nreste,real_kind_mpi,elt_fant_envoi_bloc(j,3),nsbloc-1,MPI_COMM_WORLD,mpi_ierr)
+        call MPI_SEND(a(1,elt_fant_envoi_bloc(j,1)+(nsbloc-1)*768/nd),nreste,fp_kind_mpi,elt_fant_envoi_bloc(j,3),nsbloc-1,MPI_COMM_WORLD,mpi_ierr)
       end do
     else
       do j=1,nelt_fant_recep_bloc
@@ -1103,9 +1090,9 @@ subroutine gpu_echange_fant_bloc(a, nd)
           nsbloc = nd*elt_fant_recep_bloc(j,2)/768 + 1
           nreste = nd*elt_fant_recep_bloc(j,2)-(nsbloc-1)*768
           do p=0,nsbloc-2
-            call MPI_RECV(a(1,elt_fant_recep_bloc(j,1)+p*768/nd),768,real_kind_mpi,elt_fant_recep_bloc(j,3),p,MPI_COMM_WORLD,stat,mpi_ierr)
+            call MPI_RECV(a(1,elt_fant_recep_bloc(j,1)+p*768/nd),768,fp_kind_mpi,elt_fant_recep_bloc(j,3),p,MPI_COMM_WORLD,stat,mpi_ierr)
           end do
-          call MPI_RECV(a(1,elt_fant_recep_bloc(j,1)+(nsbloc-1)*768/nd),nreste,real_kind_mpi,elt_fant_recep_bloc(j,3),nsbloc-1,MPI_COMM_WORLD,stat,mpi_ierr)
+          call MPI_RECV(a(1,elt_fant_recep_bloc(j,1)+(nsbloc-1)*768/nd),nreste,fp_kind_mpi,elt_fant_recep_bloc(j,3),nsbloc-1,MPI_COMM_WORLD,stat,mpi_ierr)
         end if
       end do
     end if
