@@ -256,11 +256,7 @@ program general
   allocate(tempvdlg(ndln,nelt))
 
   !!Allocation des variables sur GPU avec leur pointeurs
-  allocate( vdlg_d_target(ndln,nelt), vdlg0_d_target(ndln,nelt), vdlg1_d_target(ndln,nelt), vdlg01_d_target(ndln,nelt))
-  vdlg_d => vdlg_d_target
-  vdlg0_d => vdlg0_d_target
-  vdlg1_d => vdlg1_d_target
-  vdlg01_d => vdlg01_d_target
+  allocate( vdlg_d(ndln,nelt), vdlg0_d(ndln,nelt), vdlg1_d(ndln,nelt), vdlg01_d(ndln,nelt))
 
   allocate( she0(nnt), sh0(nnt), shu0(nnt), shv0(nnt), su0(nnt), sv0(nnt) )
 

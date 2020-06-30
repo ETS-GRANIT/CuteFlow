@@ -6,7 +6,7 @@
 
   ! Données du maillage
   meshfile='Mille_Iles_mesh_743968_elts.txt',                    ! Fichier de maillage
-  elt_bound=0,                                                   ! 1 si le fichier boundary_table existe déja
+  elt_bound=1,                                                   ! 1 si le fichier boundary_table existe déja
   multi_entree=0, multi_sortie=0,                                ! 0 si fichier non formaté pour plusieurs entrées/sorties
 
   ! Initialisation avec un Barrage
@@ -32,15 +32,15 @@
   H_sortie=29.0,                                                  ! Hauteur du niveau à la sortie du domaine
 
   ! Paramètres des schémas numériques
-  IFLUX=1,                                                       ! 1 -> HLLC zoka, 2 -> HLLC Riadh
-  tolisec=1.0E-03,                                               ! Tolérence sec/mouillé
+  IFLUX=2,                                                       ! 1 -> HLLC zoka, 2 -> HLLC Riadh
+  tolisec=1.0E-08,                                               ! Tolérence sec/mouillé
   timedisc='euler',                                              ! Schéma en temps : {euler,second,runge}
   friction=1,                                                    ! 1 pour prendre en compte la friction
   fricimplic=1,                                                  ! 0 -> explicite, 1 -> I-dt/2*J, 2 -> I-dt*B
   is_dry_as_wall=0,                                              ! 1 pour mettre les mailles seches comme des murs
   local_time_step=0,                                             ! 1 pour utiliser le local time step
 
-  TS=300.0, CFL=0.01,                                              ! Temps maximal de simultion, nombre CFL
+  TS=0.1, CFL=0.9,                                              ! Temps maximal de simultion, nombre CFL
   tol_reg_perm=1.0E-15,                                          ! Tolérence relative entre debit entrée et débit sortie
   freqaffich=1,                                               ! Frequence de print dans outfile.[0-9]
 

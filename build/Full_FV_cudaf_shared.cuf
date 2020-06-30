@@ -619,6 +619,7 @@ subroutine Full_FV
     !!  Echange sur GPU directement bloc
     if(num_mpi_process>1) then
       call gpu_echange_fant_bloc_async(vdlg1_d, ndln)
+      ! call gpu_echange_fant_bloc(vdlg1_d, ndln)
     end if
 
     ! Mise a jour de la zone seche requis uniquement pour iflux==1 (zoka)
@@ -655,11 +656,11 @@ subroutine Full_FV
       call MPI_ALLREDUCE(MPI_IN_PLACE,dt,1,fp_kind_mpi,MPI_MIN,MPI_COMM_WORLD, mpi_ierr)
     end if
 
-    if(dt>999999 .or. dt<1e-16) then
-      print*, "***********************************************************************"
-      print*, "ERREUR !!!! DIVERGENCE NAN !!!! ERREUR !!!! DIVERGENCE NAN !!!!! ERREUR"
-      print*, "***********************************************************************"
-    end if
+    ! if(dt>999999 .or. dt<1e-16) then
+    !   print*, "***********************************************************************"
+    !   print*, "ERREUR !!!! DIVERGENCE NAN !!!! ERREUR !!!! DIVERGENCE NAN !!!!! ERREUR"
+    !   print*, "***********************************************************************"
+    ! end if
 
     ierr = cudaMemcpyAsync(dt_d,dt,1,stream1)
     if(local_time_step==1) then
@@ -914,7 +915,7 @@ attributes(global) subroutine copy_2d(a,b)
   ti = threadIdx%x
   gi = (blockIdx%x - 1)*blockDim%x + ti
 
-  if(gi <= n) then
+  if(gi <= nelt_d) then
     a(:,gi) = b(:,gi)
   endif
 

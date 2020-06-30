@@ -127,7 +127,7 @@ attributes(global) subroutine cotes_cudaf3_riadh(surf_d, zm_d,vdlg_d)
     endif
 
     if ( kvoisin == -2 ) then ! *** flux sortant ***
-      if ( vitul > 0.d0 .and. vitul/sqrt(gp_d*hautl) < 1.d0 ) then
+      if ( vitul > tolisec_d .and. vitul/sqrt(gp_d*hautl) < 1.d0 ) then
         hautl = h_sortie_d(id_entree) - zml
         hautl = max(0.0D0, hautl)
         flux(1) = hautl * vitul

@@ -126,6 +126,162 @@ void lecture_slc_2(ifstream &slc,vector<int> &entreNodes, vector<int> &numEntreN
     i++;
   }
 }
+void lecture_slc2(ifstream &slc,vector<int> &entreNodes, vector<int> &numEntreNodes, vector<int> &sortieNodes){
+  int n, i(0), j(0);
+  double dum;
+  string str;
+
+  slc >> n ;
+  j=0;
+  while(j<21){
+    getline(slc, str, '$');
+    getline(slc, str, '$');
+    i=0;
+    while(i<10){
+      slc >> n;
+      sortieNodes.push_back(n);
+      i++;
+    }
+    j++;
+  }
+  getline(slc, str, '$');
+  getline(slc, str, '$');
+  i=0;
+  while(i<9){
+    slc >> n;
+    sortieNodes.push_back(n);
+    i++;
+  }
+
+  getline(slc, str, '$');
+  getline(slc, str, '$');
+  i=0;
+  while(i<10){
+    slc >> n;
+    entreNodes.push_back(n);
+    numEntreNodes.push_back(1);
+    i++;
+  }
+  getline(slc, str, '$');
+  getline(slc, str, '$');
+  i=0;
+  while(i<4){
+    slc >> n;
+    entreNodes.push_back(n);
+    numEntreNodes.push_back(1);
+    i++;
+  }
+
+
+  getline(slc, str, '$');
+  getline(slc, str, '$');
+  i=0;
+  while(i<10){
+    slc >> n;
+    entreNodes.push_back(n);
+    numEntreNodes.push_back(2);
+    i++;
+  }
+  getline(slc, str, '$');
+  getline(slc, str, '$');
+  i=0;
+  while(i<10){
+    slc >> n;
+    entreNodes.push_back(n);
+    numEntreNodes.push_back(2);
+    i++;
+  }
+  getline(slc, str, '$');
+  getline(slc, str, '$');
+  i=0;
+  while(i<10){
+    slc >> n;
+    entreNodes.push_back(n);
+    numEntreNodes.push_back(2);
+    i++;
+  }
+
+  getline(slc, str, '$');
+  getline(slc, str, '$');
+  i=0;
+  while(i<10){
+    slc >> n;
+    entreNodes.push_back(n);
+    numEntreNodes.push_back(3);
+    i++;
+  }
+  getline(slc, str, '$');
+  getline(slc, str, '$');
+  i=0;
+  while(i<9){
+    slc >> n;
+    entreNodes.push_back(n);
+    numEntreNodes.push_back(3);
+    i++;
+  }
+
+  j=0;
+  while(j<16){
+    getline(slc, str, '$');
+    getline(slc, str, '$');
+    i=0;
+    while(i<10){
+      slc >> n;
+      entreNodes.push_back(n);
+      numEntreNodes.push_back(4);
+      i++;
+    }
+    j++;
+  }
+  getline(slc, str, '$');
+  getline(slc, str, '$');
+  i=0;
+  while(i<6){
+    slc >> n;
+    entreNodes.push_back(n);
+    numEntreNodes.push_back(4);
+    i++;
+  }
+
+  getline(slc, str, '$');
+  getline(slc, str, '$');
+  i=0;
+  while(i<8){
+    slc >> n;
+    entreNodes.push_back(n);
+    numEntreNodes.push_back(5);
+    i++;
+  }
+
+  getline(slc, str, '$');
+  getline(slc, str, '$');
+  i=0;
+  while(i<10){
+    slc >> n;
+    entreNodes.push_back(n);
+    numEntreNodes.push_back(6);
+    i++;
+  }
+  getline(slc, str, '$');
+  getline(slc, str, '$');
+  i=0;
+  while(i<4){
+    slc >> n;
+    entreNodes.push_back(n);
+    numEntreNodes.push_back(6);
+    i++;
+  }
+
+  getline(slc, str, '$');
+  getline(slc, str, '$');
+  i=0;
+  while(i<5){
+    slc >> n;
+    entreNodes.push_back(n);
+    numEntreNodes.push_back(7);
+    i++;
+  }
+}
 void lecture_slc(ifstream &slc,vector<int> &entreNodes, vector<int> &numEntreNodes, vector<int> &sortieNodes){
   int n, i(0), j(0);
   double dum;
@@ -359,7 +515,8 @@ int main(int argc, char* argv[]){
   nombre_sortie = atoi(argv[4]);
   ifstream slc(argv[2]);
   //lecture_slc_2(slc, entreNodes, numEntreNodes, sortieNodes);
-  lecture_slc(slc, entreNodes, numEntreNodes, sortieNodes);
+  lecture_slc2(slc, entreNodes, numEntreNodes, sortieNodes);
+  //lecture_slc(slc, entreNodes, numEntreNodes, sortieNodes);
   slc.close();
 
   //Lecture du maillage

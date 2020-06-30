@@ -580,6 +580,14 @@ void boundary(int nParts, vector<vector<double> > &nodes, vector<vector<double> 
     /*   out << newNodes[p][(int) (new_wallNodes[p][l])-1][1]<< " " << newNodes[p][(int) (new_wallNodes[p][l])-1][2]<< endl; */
     /* } */
     /* out.close(); */
+    /* stringstream w; */
+    /* w << p << "_entree.txt"; */
+    /* ofstream out(w.str()); */
+    /* out << fixed ; */
+    /* for(int l=0;l<new_entreNodes[p].size();l++){ */
+    /*   out << newNodes[p][(int) (new_entreNodes[p][l])-1][1]<< " " << newNodes[p][(int) (new_entreNodes[p][l])-1][2]<< endl; */
+    /* } */
+    /* out.close(); */
 }
 }
 

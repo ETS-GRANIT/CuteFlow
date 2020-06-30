@@ -13,7 +13,6 @@ module main_prog_variables
   real(fp_kind), device, dimension(:)  , allocatable :: surf_d, zm_d
 
   real(fp_kind), device, dimension(:,:), allocatable :: gradz_d, gradz2_d
-  real(fp_kind), device, pointer, dimension(:,:) :: vdlg_d, vdlg0_d, vdlg1_d, vdlg01_d, temp_ptr_d
-  real(fp_kind), device, target, dimension(:,:), allocatable :: vdlg_d_target, vdlg0_d_target, vdlg1_d_target, vdlg01_d_target
+  real(fp_kind), device, dimension(:,:), allocatable :: vdlg_d, vdlg0_d, vdlg1_d, vdlg01_d
   real(fp_kind), device, dimension(:,:), allocatable :: res_d, res1_d, res2_d, res3_d, res4_d
 end module main_prog_variables
