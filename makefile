@@ -13,8 +13,8 @@ cotes_cudaf_shared.cuf source_cudaf.cuf Full_FV_cudaf_shared.cuf general_cudaf.c
 
 CUTEFILESPREF = $(addprefix ${SRC}/cuteflow/, ${CUTEFILES})
 
-# BINFILES = cuteflow conversion_maillage_JM conversion_maillagePD refine_mesh merge_bluekenue split_mesh split_solution 
-BINFILES = cuteflow conversion_maillage_PD refine_mesh merge_bluekenue split_mesh split_solution 
+# BINFILES = cuteflow conversion_maillage_JM conversion_maillagePD refine_mesh merge_bluekenue split_mesh split_solution merge_solutions
+BINFILES = cuteflow conversion_maillage_PD refine_mesh merge_bluekenue split_mesh split_solution merge_solutions
 BINFILESPREF = $(addprefix ${BIN}/, ${BINFILES})
 
 all: ${BINFILESPREF}
@@ -47,6 +47,10 @@ ${BIN}/split_mesh : ${SRC}/split_mesh/split_mesh.cpp
 ${BIN}/split_solution : ${SRC}/split_solution/split_solution.cpp
 	module load gcc;\
 	g++ -std=c++11 -o $@ ${SRC}/split_solution/split_solution.cpp
+
+${BIN}/merge_solutions : ${SRC}/merge_solutions/merge_solutions.cpp
+	module load gcc;\
+	g++ -std=c++11 -o $@ ${SRC}/merge_solutions/merge_solutions.cpp
 
 clean:
 	-rm -f *.o *.mod *~
