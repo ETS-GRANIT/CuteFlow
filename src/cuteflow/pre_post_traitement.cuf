@@ -127,7 +127,11 @@ subroutine stock_coupe2D(solh, soleta, solhu, solu)
     do j=1,nbrcoupes
       nbr_nds_coupes(j) = 0
       write(no_coupe,'(i2)') j
-      solfile2d = trim(adjustl(mpi_process_id_string)) //'_FV-2D_coupe_' // trim(adjustl(no_coupe))  // "_" // trim(adjustl(valtemps)) // '_s.txt'
+      if(num_mpi_process>1) then
+        solfile2d = trim(adjustl(mpi_process_id_string)) //'_FV-2D_coupe_' // trim(adjustl(no_coupe))  // "_" // trim(adjustl(valtemps)) // '_s.txt'
+      else
+        solfile2d = 'FV-2D_coupe_' // trim(adjustl(no_coupe))  // "_" // trim(adjustl(valtemps)) // '_s.txt'
+      end if
       open(unit=ec_sol2d,file=solfile2d,status="unknown")
       do i=1,nnt
         coupe_y = coupe_a(j) * coordonnees(i,1) + coupe_b(j)
@@ -143,7 +147,11 @@ subroutine stock_coupe2D(solh, soleta, solhu, solu)
   else
     do j=1,nbrcoupes
       write(no_coupe,'(i2)') j            !
-      solfile2d = trim(adjustl(mpi_process_id_string)) //'_FV-2D_coupe_' // trim(adjustl(no_coupe)) // "_" // trim(adjustl(valtemps)) // '_s.txt'
+      if(num_mpi_process>1) then
+        solfile2d = trim(adjustl(mpi_process_id_string)) //'_FV-2D_coupe_' // trim(adjustl(no_coupe)) // "_" // trim(adjustl(valtemps)) // '_s.txt'
+      else
+        solfile2d = 'FV-2D_coupe_' // trim(adjustl(no_coupe)) // "_" // trim(adjustl(valtemps)) // '_s.txt'
+      end if
       open(unit=ec_sol2d,file=solfile2d,status="unknown")
       if(nbr_nds_coupes(j) > 0) then
         do i=1,nbr_nds_coupes(j)
@@ -172,8 +180,13 @@ subroutine ouv_fichiers(vdlg, vdlg1, zm)
   integer                 :: i
 
   open(unit=ec_bilan_sim,file='RAPPORT_SIMULATION.txt',status="unknown")
-  sol_elt_ts = trim(adjustl(mpi_process_id_string))    // trim(adjustl('_solution_elements_restart.txt'))
-  sol_nd_ts = trim(adjustl(mpi_process_id_string))     // trim(adjustl('_solution_noeuds.txt'))
+  if(num_mpi_process>1) then
+    sol_elt_ts = trim(adjustl(mpi_process_id_string))    // trim(adjustl('_solution_elements_restart.txt'))
+    sol_nd_ts = trim(adjustl(mpi_process_id_string))     // trim(adjustl('_solution_noeuds.txt'))
+  else
+    sol_elt_ts = trim(adjustl('solution_elements_restart.txt'))
+    sol_nd_ts = trim(adjustl('solution_noeuds.txt'))
+  end if
 
   if(solrestart==1) then
     open(ec_sol_elt_t, file=sol_elt_ts, status="unknown")
@@ -210,16 +223,29 @@ subroutine ouv_fichiers(vdlg, vdlg1, zm)
 
   !! Ouverture du fichier de stockage des solutions 2D  (Opening the 2D solution storage file)
   write(valtemps,'(f12.3)') TS
-  solfile2d_MC = trim(adjustl(mpi_process_id_string)) // '_FV--Q' // trim(adjustl(debit_tot)) // '_n_'// trim(adjustl(coef_frot))// '_t_' // trim(adjustl(valtemps)) // '_s'// '.txt'
+  if(num_mpi_process>1) then
+    solfile2d_MC = trim(adjustl(mpi_process_id_string)) // '_FV--Q' // trim(adjustl(debit_tot)) // '_n_'// trim(adjustl(coef_frot))// '_t_' // trim(adjustl(valtemps)) // '_s'// '.txt'
+  else
+    solfile2d_MC = 'FV--Q' // trim(adjustl(debit_tot)) // '_n_'// trim(adjustl(coef_frot))// '_t_' // trim(adjustl(valtemps)) // '_s'// '.txt'
+  end if
   if (monte_carlo==1 ) then
-    solfile2d_MC = trim(adjustl(mpi_process_id_string)) // '_SOL_FV_MULTISIM_2D.txt'
-    solfile3d_MC = trim(adjustl(mpi_process_id_string)) // '_SOL_FV_MULTISIM_3D.txt'
+    if(num_mpi_process>1) then
+      solfile2d_MC = trim(adjustl(mpi_process_id_string)) // '_SOL_FV_MULTISIM_2D.txt'
+      solfile3d_MC = trim(adjustl(mpi_process_id_string)) // '_SOL_FV_MULTISIM_3D.txt'
+    else
+      solfile2d_MC = 'SOL_FV_MULTISIM_2D.txt'
+      solfile3d_MC = 'SOL_FV_MULTISIM_3D.txt'
+    end if
     open(unit=3002,file=solfile2d_MC,status="unknown")
     open(unit=3003,file=solfile3d_MC,status="unknown")
   endif
 
   if (nbrcoupes>1) then
-    file_Q_coupes = trim(adjustl(mpi_process_id_string)) // '_FV-debit_coupes.txt'
+    if(num_mpi_process>1) then
+      file_Q_coupes = trim(adjustl(mpi_process_id_string)) // '_FV-debit_coupes.txt'
+    else
+      file_Q_coupes = 'FV-debit_coupes.txt'
+    end if
     open(unit=ec_Q_coupes,file=file_Q_coupes,status="unknown")
   endif
 
@@ -244,10 +270,17 @@ subroutine bluekenue_export(solh, soleta, solhu, solhv)
   real(fp_kind) :: solu, solv
 
   write(valtemps,'(f12.3)') tc 
-  solfile_eta_T3S = trim(adjustl(mpi_process_id_string)) // '_FV-ETA-Bluekenue_t_'// trim(adjustl(valtemps)) // 's.T3S'
-  solfile_h_T3S   = trim(adjustl(mpi_process_id_string)) //   '_FV-H-Bluekenue_t_'// trim(adjustl(valtemps)) // 's.T3S'
-  solfile_u_T3S   = trim(adjustl(mpi_process_id_string)) //   '_FV-U-Bluekenue_t_'// trim(adjustl(valtemps)) // 's.T3S'
-  solfile_v_T3S   = trim(adjustl(mpi_process_id_string)) //   '_FV-V-Bluekenue_t_'// trim(adjustl(valtemps)) // 's.T3S'
+  if(num_mpi_process>1) then
+    solfile_eta_T3S = trim(adjustl(mpi_process_id_string)) // '_FV-ETA-Bluekenue_t_'// trim(adjustl(valtemps)) // 's.T3S'
+    solfile_h_T3S   = trim(adjustl(mpi_process_id_string)) //   '_FV-H-Bluekenue_t_'// trim(adjustl(valtemps)) // 's.T3S'
+    solfile_u_T3S   = trim(adjustl(mpi_process_id_string)) //   '_FV-U-Bluekenue_t_'// trim(adjustl(valtemps)) // 's.T3S'
+    solfile_v_T3S   = trim(adjustl(mpi_process_id_string)) //   '_FV-V-Bluekenue_t_'// trim(adjustl(valtemps)) // 's.T3S'
+  else
+    solfile_eta_T3S = 'FV-ETA-Bluekenue_t_'// trim(adjustl(valtemps)) // 's.T3S'
+    solfile_h_T3S   = 'FV-H-Bluekenue_t_'// trim(adjustl(valtemps)) // 's.T3S'
+    solfile_u_T3S   = 'FV-U-Bluekenue_t_'// trim(adjustl(valtemps)) // 's.T3S'
+    solfile_v_T3S   = 'FV-V-Bluekenue_t_'// trim(adjustl(valtemps)) // 's.T3S'
+  end if
 
   open(unit=ec_Bluekenu_eta,file=solfile_ETA_T3S,status="unknown")
   open(unit=ec_Bluekenu_h,file=solfile_H_T3S,    status="unknown")
@@ -322,14 +355,22 @@ subroutine basic_export(vdlg1, solh, soleta, solhu, solhv, ci, id)
   end if
 
   if(id==0 .or. id==2) then 
-    solfile_basic = trim(adjustl(trim(mpi_process_id_string)))//'_solution_noeuds_basic_'//trim(adjustl(trim(valtemps)))//adjustl(trim('.txt'))
+    if(num_mpi_process>1) then
+      solfile_basic = trim(adjustl(trim(mpi_process_id_string)))//'_solution_noeuds_basic_'//trim(adjustl(trim(valtemps)))//adjustl(trim('.txt'))
+    else
+      solfile_basic = 'solution_noeuds_basic_'//trim(adjustl(trim(valtemps)))//adjustl(trim('.txt'))
+    end if
     open(unit=ec_sol_basic_nd,file=solfile_basic,status="unknown")
     do nd=1,nnt
       write(ec_sol_basic_nd,'(f16.6)') soleta(nd)
     end do
     close(ec_sol_basic_nd)
   else if(id==1 .or. id==2) then 
-    solfile_basic = trim(adjustl(trim(mpi_process_id_string)))//'_solution_elements_basic_'//trim(adjustl(trim(valtemps)))//adjustl(trim('.txt'))
+    if(num_mpi_process>1) then
+      solfile_basic = trim(adjustl(trim(mpi_process_id_string)))//'_solution_elements_basic_'//trim(adjustl(trim(valtemps)))//adjustl(trim('.txt'))
+    else
+      solfile_basic = 'solution_elements_basic_'//trim(adjustl(trim(valtemps)))//adjustl(trim('.txt'))
+    end if
     open(unit=ec_sol_basic_elt,file=solfile_basic,status="unknown")
     do iel=1,nelt
       write(ec_sol_basic_elt,'(f16.6)') vdlg1(1,iel)

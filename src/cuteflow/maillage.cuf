@@ -78,7 +78,12 @@ subroutine lect_const_mail
   endif
 
   !!  Construction/Lecture des éléments voisins
-  file_bc = trim(adjustl(mpi_process_id_string)) //'_boundary_table_' // trim(adjustl(meshfile))
+  if(num_mpi_process>1) then
+    file_bc = trim(adjustl(mpi_process_id_string)) //'_boundary_table_' // trim(adjustl(meshfile))
+  else
+    file_bc = 'boundary_table_' // trim(adjustl(meshfile))
+  end if
+
   if (elt_bound==0) then
     !! On construit puis sauvegarde la table des éléments voisins
     open(unit=1100,file=file_bc,status="unknown")
@@ -181,8 +186,13 @@ subroutine lec_donnees
   close(lu_fich)
 
   !! Ajout du numéro de process MPI en préfixe des fichiers de maillage et de solution initiale
-  meshfile = trim(mpi_process_id_string)//'_'//trim(meshfile)
-  fich_sol_init = trim(mpi_process_id_string)//'_'//trim(fich_sol_init)
+  if(num_mpi_process>1) then
+    meshfile = trim(mpi_process_id_string)//'_'//trim(meshfile)
+    fich_sol_init = trim(mpi_process_id_string)//'_'//trim(fich_sol_init)
+  else
+    meshfile = trim(meshfile)
+    fich_sol_init = trim(fich_sol_init)
+  end if
 
 end subroutine lec_donnees
 

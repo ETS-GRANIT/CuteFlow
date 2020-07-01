@@ -5,8 +5,8 @@ for i in 1 2 4 8 12 16 20 24 28 32;do
   # cp ../../11M_all_opt3/${i}gpu/${i}_gpu.sh .
   cp ../donnees.f .
   rm *RAPPORT*
-  # cp ../../build/runfile .
-  cp ../runfile .
+  # cp ../../build/cuteflow .
+  cp ../cuteflow .
   sbatch ${i}_gpu.sh
   cd ..
 done
