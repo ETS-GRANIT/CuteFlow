@@ -41,7 +41,7 @@ module global
   character(len=6)    :: inlet
   character(len=30)   :: loi_debitglob
   integer :: iflux, fricimplic, debit_var  
-  integer :: freqaffich, nbrjauges, nbrcoupes, jauges_snapshots, solrestart, restart_snapshots, coupes_snapshots
+  integer :: freqaffich, nbrjauges, nbrcoupes, jauges_snapshots, solrestart, restart_snapshots, coupes_snapshots, basic_snapshots
   integer :: comptvisu, cptsolvtk, cptsoljauge, cptsolrestart, cptdebit, cptviscoupe, cptsolbasic
   real(fp_kind) :: long, critere_arret, debitglob_sum!, dt
   real(fp_kind), dimension(20) :: debitglob, h_sortie

@@ -240,7 +240,6 @@ subroutine Full_FV
 
   integer, device                         :: niter_d
   real(fp_kind), allocatable, pinned      :: dt_arr(:)
-  real(fp_kind), allocatable      :: res1(:,:)
   real(fp_kind), device, allocatable      :: deltatmin_d(:)
 
   zero        = 0.d0
@@ -260,8 +259,12 @@ subroutine Full_FV
   print*, 'FULL-ORDER : VOLUMES FINIS'
   print*, ''
 
-  allocate(res1( ndln,nelt))
   allocate(resc_d( ndln,nelt),res_d( ndln,nelt), res1_d( ndln,nelt))
+  resc_d = 0.d0
+  res_d = 0.d0
+  res1_d = 0.d0
+
+
   allocate(sourcfric_d(ndln,nelt))
   allocate(sourcbath_d(ndln,nelt))
   allocate(io_identifier(nelt), io_identifier_d(nelt))
@@ -382,6 +385,7 @@ subroutine Full_FV
     dt = 1e-8
   endif
   call MPI_ALLREDUCE(MPI_IN_PLACE,dt,1,fp_kind_mpi,MPI_MIN,MPI_COMM_WORLD, mpi_ierr)
+  ! call MPI_BARRIER(MPI_COMM_WORLD,mpi_ierr)
   dt_d = dt
 
   !!Setting local time step in dry cells according to dt_d
@@ -612,7 +616,9 @@ subroutine Full_FV
     !!Reduce sum of all debits
     if(num_mpi_process>1) then
       call MPI_ALLREDUCE(MPI_IN_PLACE,debit_entree,nombre_input,fp_kind_mpi,MPI_SUM,MPI_COMM_WORLD, mpi_ierr)
+      ! call MPI_BARRIER(MPI_COMM_WORLD,mpi_ierr)
       call MPI_ALLREDUCE(MPI_IN_PLACE,debit_sortie,1,fp_kind_mpi,MPI_SUM,MPI_COMM_WORLD, mpi_ierr)
+      ! call MPI_BARRIER(MPI_COMM_WORLD,mpi_ierr)
     end if
 
 
@@ -640,8 +646,9 @@ subroutine Full_FV
     !!Attendre fin de l'échange mémoire de vdlg1
     !! et mise a jour vdlg avec vdlg1
     if(num_mpi_process>1) then
-      ! call MPI_WAITALL(size(reqsend),reqsend,sendstat,mpi_ierr)
+      call MPI_WAITALL(size(reqsend),reqsend,sendstat,mpi_ierr)
       call MPI_WAITALL(size(reqrecv),reqrecv,recvstat,mpi_ierr)
+      ! call MPI_BARRIER(MPI_COMM_WORLD,mpi_ierr)
       call init_vdlg<<<grid, tblock, 0, stream2>>>(vdlg_d, vdlg1_d, zm_d)
       call cuda_glerror('ierr<-init_vdlg <-- Full_FV_cudaf_shared.cuf',1)
     end if
@@ -654,6 +661,7 @@ subroutine Full_FV
     if(num_mpi_process>1) then
       ierr = cudaStreamSynchronize(stream1)
       call MPI_ALLREDUCE(MPI_IN_PLACE,dt,1,fp_kind_mpi,MPI_MIN,MPI_COMM_WORLD, mpi_ierr)
+      ! call MPI_BARRIER(MPI_COMM_WORLD,mpi_ierr)
     end if
 
     ! if(dt>999999 .or. dt<1e-16) then
@@ -696,6 +704,7 @@ subroutine Full_FV
       ! vdlg = vdlg_d
       ! call volume_total(vdlg, total_volume)
       ! call MPI_ALLREDUCE(MPI_IN_PLACE,total_volume,1,fp_kind_mpi,MPI_SUM,MPI_COMM_WORLD, mpi_ierr)
+      !call MPI_BARRIER(MPI_COMM_WORLD,mpi_ierr)
       ! print*,"VOLUME TOTAL ", total_volume, " M3"
     endif
 
@@ -887,7 +896,6 @@ subroutine Full_FV
   deallocate(sourcbath_d)
   deallocate(un_voisin_sec1_d)
   deallocate(afm1_d)
-  deallocate(res1)
   deallocate(io_identifier, io_identifier_d)
   deallocate(dt_arr, deltatmin_d)
 
