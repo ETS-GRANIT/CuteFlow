@@ -39,6 +39,8 @@
         integer, parameter :: ec_bilan_sim        = 1000      ! fichier ecriture bilan de la simulation (file write simulation report) 
         integer, parameter :: ec_sol_elt_t        = 1006      ! fichier ecriture stockage des solutions dans les cellules a intervalle de temps (file write storage solutions in cells at time interval)
         integer, parameter :: ec_sol_nd_t         = 1008      ! fichier ecriture stockage des solutions dans les cellules a intervalle de temps (file write storage solutions in cells at time interval)
+        integer, parameter :: ec_sol_elt_t_recons        = 1007      ! fichier ecriture stockage des solutions dans les cellules a intervalle de temps (file write storage solutions in cells at time interval)
+        integer, parameter :: ec_sol_nd_t_recons         = 1009      ! fichier ecriture stockage des solutions dans les cellules a intervalle de temps (file write storage solutions in cells at time interval)
         integer, parameter :: ec_sol_basic_nd     = 1010       
         integer, parameter :: ec_sol_basic_elt     = 1011    
         ! ... fin du module

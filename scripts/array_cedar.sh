@@ -4,7 +4,7 @@
 #SBATCH --gres=gpu:2
 #SBATCH --mem=4000M
 #SBATCH --time=0-00:10
-#SBATCH --account=def-soulaima
+#SBATCH --account=rrg-soulaima-ac
 #SBATCH --array=1-5
 
 module load pgi/19.4 cuda/10.0.130 openmpi/3.1.2

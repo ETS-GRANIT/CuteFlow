@@ -50,6 +50,14 @@ module global
   real(fp_kind) :: tol=1e-6, tolaffiche=1e-1
   real(fp_kind), dimension(10) :: coupe_a, coupe_b
   real(fp_kind), dimension(100) :: xjauges , yjauges
+  integer :: merged_solution
+  integer, dimension(:,:), allocatable :: liens_elems, liens_nodes
+  real(fp_kind), dimension(:,:,:), allocatable :: vdlg1_vect, sol_nodes_vect, vdlg_vect
+  real(fp_kind), dimension(:,:), allocatable :: vdlg1_global, sol_nodes_global, vdlg_global
+  integer, dimension(:), allocatable :: mpi_nelts, mpi_nelts_non_fant
+  integer, dimension(:), allocatable :: mpi_nnts
+  integer :: nelt_global, nelt_global_non_fant
+  integer :: nnt_global
   integer :: vtk_snapshots, base_unique, nonlin, solvtk, k_base
   integer :: monte_carlo, is_dry_as_wall, local_time_step
 
@@ -73,7 +81,8 @@ module global
   & is_dry_as_wall, local_time_step,&
    
   & ts, cfl, tol_reg_perm,& 
-  & freqaffich,&
+  & freqaffich,tolaffiche&
+  & merged_solution,&
   & nbrjauges, jauges_snapshots &
   & xjauges, yjauges, &
   & nbrcoupes, coupes_snapshots, coupe_a, coupe_b,&
@@ -92,6 +101,7 @@ module global
   character (200):: SOLFILE2D, SOLFILE3D, SOLFILE2D_MC, SOLFILE3D_MC, TECPLOT, SOLFILEMC, fichsolfile3d_MC_FV 
   character (200):: SOLFILEJ_ETA, SOLFILEJ_H, SOLFILEJ_U, SOLFILEJ_V, fich_debit_coupe, file_BC, file_Q_coupes
   character (200):: sol_elt_ts, sol_elt_final, sol_nd_ts, sol_nd_final 
+  character (200):: sol_elt_ts_recons, sol_nd_ts_recons
   character (200):: solfile_eta_T3S, solfile_h_T3S, solfile_u_T3S, solfile_v_T3S
   character (200):: solfile_para, solfile_basic
 

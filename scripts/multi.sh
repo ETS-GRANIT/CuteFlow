@@ -26,18 +26,11 @@ while read -r line;do
     cp ../base_files/* .
 
     #Utilisation du script gen_donnees pour générer le fichier
-    #de données pour le cas actuel
+    #de donnée pour le cas actuel
     ../gen_donnees.sh $debit $hamont $haval $maning
-
-    #Clean du dossier
-    make clean
 
     #On sort du dossier multi_$i
     cd ..
-  else
-    #la premiere ligne contient le nombre de cas a traiter
-    #ça ne nous sert pas ici
-    nb=$line
   fi
   let i=$i+1
 done < $1

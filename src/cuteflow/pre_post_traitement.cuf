@@ -1,3 +1,151 @@
+subroutine reconstruction(vdlg, vdlg1, solh, soleta, solhu, solhv)
+  use precision_m
+  use global
+  use m_param
+
+  real(fp_kind), dimension(:), intent(in)  :: soleta, solh, solhu, solhv
+  real(fp_kind), dimension(:,:), intent(in)  :: vdlg1, vdlg
+
+  integer :: nd, iel, i
+  integer                     :: stat(MPI_STATUS_SIZE)
+
+
+  !! Echanges mémoire pour récuperere les solutions sur les éléments des domaines
+  if(mpi_process_id/=0) then
+    call MPI_SEND(vdlg1,3*nelt,fp_kind_mpi,0,mpi_process_id,MPI_COMM_WORLD,mpi_ierr)
+  else
+    do i=2,num_mpi_process
+      call MPI_RECV(vdlg1_vect(1,1,i), 3*mpi_nelts(i), fp_kind_mpi, i-1, i-1, MPI_COMM_WORLD, stat, mpi_ierr)
+    end do
+  end if
+  call MPI_BARRIER(MPI_COMM_WORLD,mpi_ierr)
+
+  if(mpi_process_id/=0) then
+    call MPI_SEND(vdlg,3*nelt,fp_kind_mpi,0,mpi_process_id,MPI_COMM_WORLD,mpi_ierr)
+  else
+    do i=2,num_mpi_process
+      call MPI_RECV(vdlg_vect(1,1,i), 3*mpi_nelts(i), fp_kind_mpi, i-1, i-1, MPI_COMM_WORLD, stat, mpi_ierr)
+    end do
+  end if
+  call MPI_BARRIER(MPI_COMM_WORLD,mpi_ierr)
+
+  ! Echanges mémoire pour récuperere les solutions sur les noeuds des domaines
+  ! solh, soleta, solhu, solhv,
+  if(mpi_process_id/=0) then
+    call MPI_SEND(solh,nnt,fp_kind_mpi,0,mpi_process_id,MPI_COMM_WORLD,mpi_ierr)
+  else
+    do i=2,num_mpi_process
+      call MPI_RECV(sol_nodes_vect(1,1,i), mpi_nnts(i), fp_kind_mpi, i-1, i-1, MPI_COMM_WORLD, stat, mpi_ierr)
+    end do
+  end if
+  call MPI_BARRIER(MPI_COMM_WORLD,mpi_ierr)
+
+  if(mpi_process_id/=0) then
+    call MPI_SEND(soleta,nnt,fp_kind_mpi,0,mpi_process_id,MPI_COMM_WORLD,mpi_ierr)
+  else
+    do i=2,num_mpi_process
+      call MPI_RECV(sol_nodes_vect(1,2,i), mpi_nnts(i), fp_kind_mpi, i-1, i-1, MPI_COMM_WORLD, stat, mpi_ierr)
+    end do
+  end if
+  call MPI_BARRIER(MPI_COMM_WORLD,mpi_ierr)
+  if(mpi_process_id/=0) then
+    call MPI_SEND(solhu,nnt,fp_kind_mpi,0,mpi_process_id,MPI_COMM_WORLD,mpi_ierr)
+  else
+    do i=2,num_mpi_process
+      call MPI_RECV(sol_nodes_vect(1,3,i), mpi_nnts(i), fp_kind_mpi, i-1, i-1, MPI_COMM_WORLD, stat, mpi_ierr)
+    end do
+  end if
+  call MPI_BARRIER(MPI_COMM_WORLD,mpi_ierr)
+  if(mpi_process_id/=0) then
+    call MPI_SEND(solhv,nnt,fp_kind_mpi,0,mpi_process_id,MPI_COMM_WORLD,mpi_ierr)
+  else
+    do i=2,num_mpi_process
+      call MPI_RECV(sol_nodes_vect(1,4,i), mpi_nnts(i), fp_kind_mpi, i-1, i-1, MPI_COMM_WORLD, stat, mpi_ierr)
+    end do
+  end if
+  call MPI_BARRIER(MPI_COMM_WORLD,mpi_ierr)
+
+  if(mpi_process_id==0)then
+    do i=1,nelt
+      vdlg1_vect(1,i,1) = vdlg1(1,i)
+      vdlg1_vect(2,i,1) = vdlg1(2,i)
+      vdlg1_vect(3,i,1) = vdlg1(3,i)
+
+      vdlg_vect(1,i,1) = vdlg(1,i)
+      vdlg_vect(2,i,1) = vdlg(2,i)
+      vdlg_vect(3,i,1) = vdlg(3,i)
+    end do
+
+    do i=1,nnt
+      sol_nodes_vect(i,1,1) = soleta(i)
+      sol_nodes_vect(i,2,1) = solh(i)
+      sol_nodes_vect(i,3,1) = solhu(i)
+      sol_nodes_vect(i,4,1) = solhv(i)
+    end do
+
+    !!Construction du vecteur solution aux éléments sur le domaine global
+    vdlg1_global = -2
+    vdlg_global = -2
+    do i=1,num_mpi_process
+      do iel=1,mpi_nelts_non_fant(i)
+        vdlg1_global(1,liens_elems(i,iel)) = vdlg1_vect(1,iel,i)
+        vdlg1_global(2,liens_elems(i,iel)) = vdlg1_vect(2,iel,i)
+        vdlg1_global(3,liens_elems(i,iel)) = vdlg1_vect(3,iel,i)
+
+        vdlg_global(1,liens_elems(i,iel)) = vdlg_vect(1,iel,i)
+        vdlg_global(2,liens_elems(i,iel)) = vdlg_vect(2,iel,i)
+        vdlg_global(3,liens_elems(i,iel)) = vdlg_vect(3,iel,i)
+      end do
+    end do
+
+    !Construction du vecteur solution aux noeuds sur le domaine global
+    sol_nodes_global = -2
+    do i=1,num_mpi_process
+      do iel=1,mpi_nnts(i)
+        sol_nodes_global(1,liens_nodes(i,iel)) = sol_nodes_vect(iel,1,i)
+        sol_nodes_global(2,liens_nodes(i,iel)) = sol_nodes_vect(iel,2,i)
+        sol_nodes_global(3,liens_nodes(i,iel)) = sol_nodes_vect(iel,3,i)
+        sol_nodes_global(4,liens_nodes(i,iel)) = sol_nodes_vect(iel,4,i)
+      end do
+    end do
+  end if
+end subroutine reconstruction
+
+subroutine lect_liens()
+  use precision_m
+  use global
+  use m_param
+
+  integer :: i,j,dummy
+  character(100) :: fileinput, id_string
+
+
+  do i=1,num_mpi_process
+    write(id_string, "(I3)") i-1
+    fileinput = trim(adjustl(id_string)) //'_liens_nodes.txt'
+    open(unit=11,file=fileinput,form='formatted',status='old')
+    j=1
+    do
+      read(11,*,IOSTAT=io) dummy, liens_nodes(i,j)
+      if(io/=0) exit
+      j=j+1
+    end do
+    close(11)
+
+    fileinput = trim(adjustl(id_string)) //'_liens_elems.txt'
+    open(unit=11,file=fileinput,form='formatted',status='old')
+    j=1
+    do
+      read(11,*,IOSTAT=io) dummy, liens_elems(i,j)
+      if(io/=0) exit
+      j=j+1
+    end do
+    close(11)
+  end do
+
+end subroutine lect_liens
+
+
 attributes(global) subroutine mise_a_jr_zone_seche_cudaf(zm_d,vdlg_d, vdlg1_d)
   !==================================================================
   !     mise_a_jr_zone_seche = met jour les zones seches (update the dry areas)
@@ -183,6 +331,8 @@ subroutine ouv_fichiers(vdlg, vdlg1, zm)
   if(num_mpi_process>1) then
     sol_elt_ts = trim(adjustl(mpi_process_id_string))    // trim(adjustl('_solution_elements_restart.txt'))
     sol_nd_ts = trim(adjustl(mpi_process_id_string))     // trim(adjustl('_solution_noeuds.txt'))
+    sol_elt_ts_recons = trim(adjustl('solution_elements_restart.txt'))
+    sol_nd_ts_recons = trim(adjustl('solution_noeuds.txt'))
   else
     sol_elt_ts = trim(adjustl('solution_elements_restart.txt'))
     sol_nd_ts = trim(adjustl('solution_noeuds.txt'))
@@ -191,6 +341,11 @@ subroutine ouv_fichiers(vdlg, vdlg1, zm)
   if(solrestart==1) then
     open(ec_sol_elt_t, file=sol_elt_ts, status="unknown")
     open(ec_sol_nd_t,  file=sol_nd_ts,  status="unknown")
+  endif
+
+  if(merged_solution==1) then
+    open(ec_sol_elt_t_recons, file=sol_elt_ts_recons, status="unknown")
+    open(ec_sol_nd_t_recons,  file=sol_nd_ts_recons,  status="unknown")
   endif
 
   !! Eriture de nombre total d elements en chaine de caracteres dans ntrirec
@@ -334,7 +489,7 @@ subroutine bluekenue_export(solh, soleta, solhu, solhv)
 
 end subroutine bluekenue_export
 
-subroutine basic_export(vdlg1, solh, soleta, solhu, solhv, ci, id)
+subroutine basic_export(vdlg, vdlg1, solh, soleta, solhu, solhv, ci)
 
   use precision_m
   use global
@@ -342,11 +497,12 @@ subroutine basic_export(vdlg1, solh, soleta, solhu, solhv, ci, id)
 
   implicit none
 
-  integer, intent(in) :: id, ci
+  integer, intent(in) :: ci
   real(fp_kind), dimension(:), intent(in)  :: soleta, solh, solhu, solhv
-  real(fp_kind), dimension(:,:), intent(in)  :: vdlg1
+  real(fp_kind), dimension(:,:), intent(in)  :: vdlg1, vdlg
 
-  integer :: nd, iel
+  integer :: nd, iel, i
+  integer                     :: stat(MPI_STATUS_SIZE)
 
   if(ci==-1) then
     write(valtemps,*) "Final"
@@ -354,7 +510,7 @@ subroutine basic_export(vdlg1, solh, soleta, solhu, solhv, ci, id)
     write(valtemps,'(I20)') ci
   end if
 
-  if(id==0 .or. id==2) then 
+  if(solbasic==1 .or. solbasic==3) then 
     if(num_mpi_process>1) then
       solfile_basic = trim(adjustl(trim(mpi_process_id_string)))//'_solution_noeuds_basic_'//trim(adjustl(trim(valtemps)))//adjustl(trim('.txt'))
     else
@@ -362,10 +518,12 @@ subroutine basic_export(vdlg1, solh, soleta, solhu, solhv, ci, id)
     end if
     open(unit=ec_sol_basic_nd,file=solfile_basic,status="unknown")
     do nd=1,nnt
-      write(ec_sol_basic_nd,'(f16.6)') soleta(nd)
+      write(ec_sol_basic_nd,'(4f16.6)') solh(nd), soleta(nd), solhu(nd), solhv(nd)
     end do
     close(ec_sol_basic_nd)
-  else if(id==1 .or. id==2) then 
+  end if
+
+  if(solbasic==2 .or. solbasic==3) then 
     if(num_mpi_process>1) then
       solfile_basic = trim(adjustl(trim(mpi_process_id_string)))//'_solution_elements_basic_'//trim(adjustl(trim(valtemps)))//adjustl(trim('.txt'))
     else
@@ -373,11 +531,35 @@ subroutine basic_export(vdlg1, solh, soleta, solhu, solhv, ci, id)
     end if
     open(unit=ec_sol_basic_elt,file=solfile_basic,status="unknown")
     do iel=1,nelt
-      write(ec_sol_basic_elt,'(f16.6)') vdlg1(1,iel)
+      write(ec_sol_basic_elt,'(3f16.6)') vdlg(1,iel), vdlg1(1,iel), vdlg1(2,iel), vdlg1(3,iel)
     end do
     close(ec_sol_basic_elt)
   end if
 
+
+  !!Reception des solutions des autres process MPI
+  if(merged_solution==1 .and. num_mpi_process>1 .and. mpi_process_id==0)then
+    if(solbasic==1 .or. solbasic==3) then 
+      solfile_basic = 'solution_noeuds_basic_'//trim(adjustl(trim(valtemps)))//adjustl(trim('.txt'))
+      open(unit=ec_sol_basic_nd,file=solfile_basic,status="unknown")
+      i=1
+      do while(sol_nodes_global(1,i)>-1 .and. i<=nnt_global)
+        write(ec_sol_basic_nd,'(4f16.6)') sol_nodes_global(1,i), sol_nodes_global(2,i), sol_nodes_global(3,i), sol_nodes_global(4,i)
+        i=i+1
+      end do
+      close(ec_sol_basic_nd)
+    end if
+
+    if(solbasic==2 .or. solbasic==3) then 
+      solfile_basic = 'solution_elements_basic_'//trim(adjustl(trim(valtemps)))//adjustl(trim('.txt'))
+      open(unit=ec_sol_basic_elt,file=solfile_basic,status="unknown")
+      do iel=1,nelt_global_non_fant
+        write(ec_sol_basic_elt,'(4f16.6)') vdlg_global(1,iel), vdlg1_global(1,iel), vdlg1_global(2,iel), vdlg1_global(3,iel)
+      end do
+      close(ec_sol_basic_elt)
+    end if
+  end if
+  call MPI_BARRIER(MPI_COMM_WORLD,mpi_ierr)
 end subroutine basic_export
 
 subroutine paraview_export(solh, soleta, solhu, solhv, ci)

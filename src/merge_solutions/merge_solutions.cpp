@@ -94,7 +94,7 @@ int main(int argc, char* argv[]){
   string fileName, mode;
 
   if(argc < 4){
-    cout << "Utilisation : ./merge_solutions {restart|sol2d|sol3d|noeud} nom_de_base_fichiers_a_combiner nombre_de_fichiers" << endl;
+    cout << "Utilisation : ./merge_solutions {restart|sol2d|sol3d|noeuds} nom_de_base_fichiers_a_combiner nombre_de_fichiers" << endl;
     return(0);
   }
 
@@ -102,8 +102,8 @@ int main(int argc, char* argv[]){
   fileName = argv[2];
   nParts = atoi(argv[3]);
 
-  if((mode!="restart")and(mode!="sol2d")and(mode!="sol3d")and(mode!="noeud")){
-    cout << "Utilisation : ./merge_solutions {restart|sol2d|sol3d} nom_de_base_fichiers_a_combiner nombre_de_fichiers" << endl;
+  if((mode!="restart")and(mode!="sol2d")and(mode!="sol3d")and(mode!="noeuds")){
+    cout << "Utilisation : ./merge_solutions {restart|sol2d|sol3d|noeuds} nom_de_base_fichiers_a_combiner nombre_de_fichiers" << endl;
     return(0);
   }
 
@@ -134,8 +134,8 @@ int main(int argc, char* argv[]){
     else if(mode == "sol3d"){
       lecture_3d(file, sol[p]);
     }
-    else if(mode == "noeud"){
-      cout << "lecture par noeud" << endl;
+    else if(mode == "noeuds"){
+      cout << "lecture par noeuds" << endl;
       lecture_par_noeud(file, tsol[p], sol[p]);
     }
     file.close();
@@ -182,7 +182,7 @@ int main(int argc, char* argv[]){
   outfile << fixed ;
   outfile.precision(6);
 
-  if((mode == "restart")or(mode == "noeud")){
+  if((mode == "restart")or(mode == "noeuds")){
     outfile << "    " << tsol[0] << endl;
   }
   int i=0;
@@ -197,7 +197,7 @@ int main(int argc, char* argv[]){
     else if(mode == "sol3d"){
       outfile << "      " << (int) sol[p][lien[i][0]][0] << "       " << sol[p][lien[i][0]][1] << "       " << sol[p][lien[i][0]][2] << "       " << sol[p][lien[i][0]][3]<< "      " << sol[p][lien[i][0]][4] << "       " << sol[p][lien[i][0]][5] << "       " << sol[p][lien[i][0]][6] << "       " << sol[p][lien[i][0]][7] << endl;
     }
-    else if(mode == "noeud"){
+    else if(mode == "noeuds"){
       outfile << sol[p][lien[i][0]][0] << "\t" << sol[p][lien[i][0]][1] << "\t" << sol[p][lien[i][0]][2] << "\t" << sol[p][lien[i][0]][3]<< "\t" << sol[p][lien[i][0]][4] << "\t" << sol[p][lien[i][0]][5] << "\t" << sol[p][lien[i][0]][6] << "\t" << endl;
     }
     i++;
