@@ -29,7 +29,7 @@ program general
       real(fp_kind), dimension(:), intent(inout)  :: soleta, solh, solhu, solhv
     end subroutine paraview_export
 
-    subroutine basic_export(vdlg, vdlg1, solh, soleta, solhu, solhv, ci)
+    subroutine simple_export(vdlg, vdlg1, solh, soleta, solhu, solhv, ci)
 
       use precision_m
       use global
@@ -40,7 +40,7 @@ program general
       integer, intent(in) :: ci
       real(fp_kind), dimension(:), intent(in)  :: soleta, solh, solhu, solhv
       real(fp_kind), dimension(:,:), intent(in)  :: vdlg1, vdlg
-    end subroutine basic_export
+    end subroutine simple_export
 
     subroutine reconstruction(vdlg, vdlg1, solh, soleta, solhu, solhv)
 
@@ -231,7 +231,7 @@ program general
   cptsolvtk        = 0
   cptsoljauge      = 1
   cptsolrestart    = 1
-  cptsolbasic      = 0
+  cptsolsimple      = 0
   ie_coupe_transv  = 0
   tc_init          = 0
   tc_init_d        = tc_init
@@ -334,7 +334,7 @@ program general
   allocate( she0(nnt), sh0(nnt), shu0(nnt), shv0(nnt), su0(nnt), sv0(nnt) )
 
   allocate( nds_coupes(nbrcoupes,nnt), nbr_nds_coupes(nbrcoupes) )
-  allocate( tsolcoupes(200000), tsoljauge(200000), tsolrestart(200000), tsolvtk(200000), tsolbasic(200000))
+  allocate( tsolcoupes(200000), tsoljauge(200000), tsolrestart(200000), tsolvtk(200000), tsolsimple(200000))
   call cuda_glerror('ierr <- device memory allocation <-- general_cudaf.cuf',1)
 
   !! Ouverture/creation des fichiers (opening / creating files)
@@ -351,9 +351,9 @@ program general
     enddo
   endif
 
-  if (solbasic /= 0) then
-    do ii = 1,basic_snapshots
-      tsolbasic(ii) = ii*ts/(1.0*basic_snapshots)
+  if (solsimple /= 0) then
+    do ii = 1,simple_snapshots
+      tsolsimple(ii) = ii*ts/(1.0*simple_snapshots)
     enddo
   endif
 
@@ -485,10 +485,10 @@ program general
     cptsolvtk = cptsolvtk + 1
   endif
 
-  if(solbasic/=0) then
+  if(solsimple/=0) then
     start=1
-    call basic_export(vdlg0, vdlg01, she0, sh0, shu0, shv0, cptsolbasic)
-    cptsolbasic = cptsolbasic + 1
+    call simple_export(vdlg0, vdlg01, she0, sh0, shu0, shv0, cptsolsimple)
+    cptsolsimple = cptsolsimple + 1
   end if
 
   !! Storage solution for 2D slices
@@ -546,7 +546,7 @@ program general
     deallocate(nds_coupes, nbr_nds_coupes)
   end if
 
-  deallocate(tsolcoupes, tsoljauge, tsolrestart, tsolvtk, tsolbasic)
+  deallocate(tsolcoupes, tsoljauge, tsolrestart, tsolvtk, tsolsimple)
 
   deallocate(boundary, boundary_d)
   deallocate(coo_table_elemwise, coo_table_elemwise_d)

@@ -276,9 +276,9 @@ subroutine stock_coupe2D(solh, soleta, solhu, solu)
       nbr_nds_coupes(j) = 0
       write(no_coupe,'(i2)') j
       if(num_mpi_process>1) then
-        solfile2d = trim(adjustl(mpi_process_id_string)) //'_FV-2D_coupe_' // trim(adjustl(no_coupe))  // "_" // trim(adjustl(valtemps)) // '_s.txt'
+        solfile2d = trim(adjustl(mpi_process_id_string)) //'_solution-2D_coupe_' // trim(adjustl(no_coupe))  // "_" // trim(adjustl(valtemps)) // '_s.txt'
       else
-        solfile2d = 'FV-2D_coupe_' // trim(adjustl(no_coupe))  // "_" // trim(adjustl(valtemps)) // '_s.txt'
+        solfile2d = 'solution-2D_coupe_' // trim(adjustl(no_coupe))  // "_" // trim(adjustl(valtemps)) // '_s.txt'
       end if
       open(unit=ec_sol2d,file=solfile2d,status="unknown")
       do i=1,nnt
@@ -296,9 +296,9 @@ subroutine stock_coupe2D(solh, soleta, solhu, solu)
     do j=1,nbrcoupes
       write(no_coupe,'(i2)') j            !
       if(num_mpi_process>1) then
-        solfile2d = trim(adjustl(mpi_process_id_string)) //'_FV-2D_coupe_' // trim(adjustl(no_coupe)) // "_" // trim(adjustl(valtemps)) // '_s.txt'
+        solfile2d = trim(adjustl(mpi_process_id_string)) //'_solution-2D_coupe_' // trim(adjustl(no_coupe)) // "_" // trim(adjustl(valtemps)) // '_s.txt'
       else
-        solfile2d = 'FV-2D_coupe_' // trim(adjustl(no_coupe)) // "_" // trim(adjustl(valtemps)) // '_s.txt'
+        solfile2d = 'solution-2D_coupe_' // trim(adjustl(no_coupe)) // "_" // trim(adjustl(valtemps)) // '_s.txt'
       end if
       open(unit=ec_sol2d,file=solfile2d,status="unknown")
       if(nbr_nds_coupes(j) > 0) then
@@ -379,9 +379,9 @@ subroutine ouv_fichiers(vdlg, vdlg1, zm)
   !! Ouverture du fichier de stockage des solutions 2D  (Opening the 2D solution storage file)
   write(valtemps,'(f12.3)') TS
   if(num_mpi_process>1) then
-    solfile2d_MC = trim(adjustl(mpi_process_id_string)) // '_FV--Q' // trim(adjustl(debit_tot)) // '_n_'// trim(adjustl(coef_frot))// '_t_' // trim(adjustl(valtemps)) // '_s'// '.txt'
+    solfile2d_MC = trim(adjustl(mpi_process_id_string)) // '_solutin-Q' // trim(adjustl(debit_tot)) // '_n_'// trim(adjustl(coef_frot))// '_t_' // trim(adjustl(valtemps)) // '_s'// '.txt'
   else
-    solfile2d_MC = 'FV--Q' // trim(adjustl(debit_tot)) // '_n_'// trim(adjustl(coef_frot))// '_t_' // trim(adjustl(valtemps)) // '_s'// '.txt'
+    solfile2d_MC = 'solution-Q' // trim(adjustl(debit_tot)) // '_n_'// trim(adjustl(coef_frot))// '_t_' // trim(adjustl(valtemps)) // '_s'// '.txt'
   end if
   if (monte_carlo==1 ) then
     if(num_mpi_process>1) then
@@ -397,9 +397,9 @@ subroutine ouv_fichiers(vdlg, vdlg1, zm)
 
   if (nbrcoupes>1) then
     if(num_mpi_process>1) then
-      file_Q_coupes = trim(adjustl(mpi_process_id_string)) // '_FV-debit_coupes.txt'
+      file_Q_coupes = trim(adjustl(mpi_process_id_string)) // '_solution-debit_coupes.txt'
     else
-      file_Q_coupes = 'FV-debit_coupes.txt'
+      file_Q_coupes = 'solution-debit_coupes.txt'
     end if
     open(unit=ec_Q_coupes,file=file_Q_coupes,status="unknown")
   endif
@@ -426,15 +426,15 @@ subroutine bluekenue_export(solh, soleta, solhu, solhv)
 
   write(valtemps,'(f12.3)') tc 
   if(num_mpi_process>1) then
-    solfile_eta_T3S = trim(adjustl(mpi_process_id_string)) // '_FV-ETA-Bluekenue_t_'// trim(adjustl(valtemps)) // 's.T3S'
-    solfile_h_T3S   = trim(adjustl(mpi_process_id_string)) //   '_FV-H-Bluekenue_t_'// trim(adjustl(valtemps)) // 's.T3S'
-    solfile_u_T3S   = trim(adjustl(mpi_process_id_string)) //   '_FV-U-Bluekenue_t_'// trim(adjustl(valtemps)) // 's.T3S'
-    solfile_v_T3S   = trim(adjustl(mpi_process_id_string)) //   '_FV-V-Bluekenue_t_'// trim(adjustl(valtemps)) // 's.T3S'
+    solfile_eta_T3S = trim(adjustl(mpi_process_id_string)) // '_solution-ETA-Bluekenue_t_'// trim(adjustl(valtemps)) // 's.T3S'
+    solfile_h_T3S   = trim(adjustl(mpi_process_id_string)) //   '_solution-H-Bluekenue_t_'// trim(adjustl(valtemps)) // 's.T3S'
+    solfile_u_T3S   = trim(adjustl(mpi_process_id_string)) //   '_solution-U-Bluekenue_t_'// trim(adjustl(valtemps)) // 's.T3S'
+    solfile_v_T3S   = trim(adjustl(mpi_process_id_string)) //   '_solution-V-Bluekenue_t_'// trim(adjustl(valtemps)) // 's.T3S'
   else
-    solfile_eta_T3S = 'FV-ETA-Bluekenue_t_'// trim(adjustl(valtemps)) // 's.T3S'
-    solfile_h_T3S   = 'FV-H-Bluekenue_t_'// trim(adjustl(valtemps)) // 's.T3S'
-    solfile_u_T3S   = 'FV-U-Bluekenue_t_'// trim(adjustl(valtemps)) // 's.T3S'
-    solfile_v_T3S   = 'FV-V-Bluekenue_t_'// trim(adjustl(valtemps)) // 's.T3S'
+    solfile_eta_T3S = 'solution-ETA-Bluekenue_t_'// trim(adjustl(valtemps)) // 's.T3S'
+    solfile_h_T3S   = 'solution-H-Bluekenue_t_'// trim(adjustl(valtemps)) // 's.T3S'
+    solfile_u_T3S   = 'solution-U-Bluekenue_t_'// trim(adjustl(valtemps)) // 's.T3S'
+    solfile_v_T3S   = 'solution-V-Bluekenue_t_'// trim(adjustl(valtemps)) // 's.T3S'
   end if
 
   open(unit=ec_Bluekenu_eta,file=solfile_ETA_T3S,status="unknown")
@@ -489,7 +489,7 @@ subroutine bluekenue_export(solh, soleta, solhu, solhv)
 
 end subroutine bluekenue_export
 
-subroutine basic_export(vdlg, vdlg1, solh, soleta, solhu, solhv, ci)
+subroutine simple_export(vdlg, vdlg1, solh, soleta, solhu, solhv, ci)
 
   use precision_m
   use global
@@ -510,57 +510,57 @@ subroutine basic_export(vdlg, vdlg1, solh, soleta, solhu, solhv, ci)
     write(valtemps,'(I20)') ci
   end if
 
-  if(solbasic==1 .or. solbasic==3) then 
+  if(solsimple==1 .or. solsimple==3) then 
     if(num_mpi_process>1) then
-      solfile_basic = trim(adjustl(trim(mpi_process_id_string)))//'_solution_noeuds_basic_'//trim(adjustl(trim(valtemps)))//adjustl(trim('.txt'))
+      solfile_simple = trim(adjustl(trim(mpi_process_id_string)))//'_solution_noeuds_simple_'//trim(adjustl(trim(valtemps)))//adjustl(trim('.txt'))
     else
-      solfile_basic = 'solution_noeuds_basic_'//trim(adjustl(trim(valtemps)))//adjustl(trim('.txt'))
+      solfile_simple = 'solution_noeuds_simple_'//trim(adjustl(trim(valtemps)))//adjustl(trim('.txt'))
     end if
-    open(unit=ec_sol_basic_nd,file=solfile_basic,status="unknown")
+    open(unit=ec_sol_simple_nd,file=solfile_simple,status="unknown")
     do nd=1,nnt
-      write(ec_sol_basic_nd,'(4f16.6)') solh(nd), soleta(nd), solhu(nd), solhv(nd)
+      write(ec_sol_simple_nd,'(4f16.6)') solh(nd), soleta(nd), solhu(nd), solhv(nd)
     end do
-    close(ec_sol_basic_nd)
+    close(ec_sol_simple_nd)
   end if
 
-  if(solbasic==2 .or. solbasic==3) then 
+  if(solsimple==2 .or. solsimple==3) then 
     if(num_mpi_process>1) then
-      solfile_basic = trim(adjustl(trim(mpi_process_id_string)))//'_solution_elements_basic_'//trim(adjustl(trim(valtemps)))//adjustl(trim('.txt'))
+      solfile_simple = trim(adjustl(trim(mpi_process_id_string)))//'_solution_elements_simple_'//trim(adjustl(trim(valtemps)))//adjustl(trim('.txt'))
     else
-      solfile_basic = 'solution_elements_basic_'//trim(adjustl(trim(valtemps)))//adjustl(trim('.txt'))
+      solfile_simple = 'solution_elements_simple_'//trim(adjustl(trim(valtemps)))//adjustl(trim('.txt'))
     end if
-    open(unit=ec_sol_basic_elt,file=solfile_basic,status="unknown")
+    open(unit=ec_sol_simple_elt,file=solfile_simple,status="unknown")
     do iel=1,nelt
-      write(ec_sol_basic_elt,'(3f16.6)') vdlg(1,iel), vdlg1(1,iel), vdlg1(2,iel), vdlg1(3,iel)
+      write(ec_sol_simple_elt,'(3f16.6)') vdlg(1,iel), vdlg1(1,iel), vdlg1(2,iel), vdlg1(3,iel)
     end do
-    close(ec_sol_basic_elt)
+    close(ec_sol_simple_elt)
   end if
 
 
   !!Reception des solutions des autres process MPI
   if(merged_solution==1 .and. num_mpi_process>1 .and. mpi_process_id==0)then
-    if(solbasic==1 .or. solbasic==3) then 
-      solfile_basic = 'solution_noeuds_basic_'//trim(adjustl(trim(valtemps)))//adjustl(trim('.txt'))
-      open(unit=ec_sol_basic_nd,file=solfile_basic,status="unknown")
+    if(solsimple==1 .or. solsimple==3) then 
+      solfile_simple = 'solution_noeuds_simple_'//trim(adjustl(trim(valtemps)))//adjustl(trim('.txt'))
+      open(unit=ec_sol_simple_nd,file=solfile_simple,status="unknown")
       i=1
       do while(sol_nodes_global(1,i)>-1 .and. i<=nnt_global)
-        write(ec_sol_basic_nd,'(4f16.6)') sol_nodes_global(1,i), sol_nodes_global(2,i), sol_nodes_global(3,i), sol_nodes_global(4,i)
+        write(ec_sol_simple_nd,'(4f16.6)') sol_nodes_global(1,i), sol_nodes_global(2,i), sol_nodes_global(3,i), sol_nodes_global(4,i)
         i=i+1
       end do
-      close(ec_sol_basic_nd)
+      close(ec_sol_simple_nd)
     end if
 
-    if(solbasic==2 .or. solbasic==3) then 
-      solfile_basic = 'solution_elements_basic_'//trim(adjustl(trim(valtemps)))//adjustl(trim('.txt'))
-      open(unit=ec_sol_basic_elt,file=solfile_basic,status="unknown")
+    if(solsimple==2 .or. solsimple==3) then 
+      solfile_simple = 'solution_elements_simple_'//trim(adjustl(trim(valtemps)))//adjustl(trim('.txt'))
+      open(unit=ec_sol_simple_elt,file=solfile_simple,status="unknown")
       do iel=1,nelt_global_non_fant
-        write(ec_sol_basic_elt,'(4f16.6)') vdlg_global(1,iel), vdlg1_global(1,iel), vdlg1_global(2,iel), vdlg1_global(3,iel)
+        write(ec_sol_simple_elt,'(4f16.6)') vdlg_global(1,iel), vdlg1_global(1,iel), vdlg1_global(2,iel), vdlg1_global(3,iel)
       end do
-      close(ec_sol_basic_elt)
+      close(ec_sol_simple_elt)
     end if
   end if
   call MPI_BARRIER(MPI_COMM_WORLD,mpi_ierr)
-end subroutine basic_export
+end subroutine simple_export
 
 subroutine paraview_export(solh, soleta, solhu, solhv, ci)
   ! ==============================================================================
@@ -586,7 +586,7 @@ subroutine paraview_export(solh, soleta, solhu, solhv, ci)
     write(valtemps,'(I20)') ci
   end if
 
-  solfile_para = trim(adjustl(trim(mpi_process_id_string)))//'_FV-Paraview_'//trim(adjustl(trim(valtemps)))//adjustl(trim('.vtk'))
+  solfile_para = trim(adjustl(trim(mpi_process_id_string)))//'_solution-Paraview_'//trim(adjustl(trim(valtemps)))//adjustl(trim('.vtk'))
 
   open(unit=ec_Paraview,file=solfile_para,status="unknown")
 
@@ -673,7 +673,7 @@ subroutine tecplot_export(solh, soleta, solhu, solhv)
 
   if ( start == 1 ) then
 
-    tecplot   =  trim(adjustl(mpi_process_id_string))//'_FV-Tecplot.dat'
+    tecplot   =  trim(adjustl(mpi_process_id_string))//'_solution-Tecplot.dat'
 
     open(unit=ec_tecplot,file=tecplot,status="unknown")
 

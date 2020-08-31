@@ -31,7 +31,7 @@ module global
 
   !! Variables donnees initiales
   character(len=200)  :: fich_sol_init
-  integer             :: solinit, eqlin_barrage, plan, sortie_finale_bluekenue, solbasic
+  integer             :: solinit, eqlin_barrage, plan, sortie_finale_bluekenue, solsimple
   real(fp_kind)             :: h_amont, u_amont, v_amont, h_aval, u_aval, v_aval
   real(fp_kind)             :: xplan, yplan, zplan, xpoint, ypoint, zpoint
   real(fp_kind)             :: x1eqbar, x2eqbar, y1eqbar, y2eqbar
@@ -41,8 +41,8 @@ module global
   character(len=6)    :: inlet
   character(len=30)   :: loi_debitglob
   integer :: iflux, fricimplic, debit_var  
-  integer :: freqaffich, nbrjauges, nbrcoupes, jauges_snapshots, solrestart, restart_snapshots, coupes_snapshots, basic_snapshots
-  integer :: comptvisu, cptsolvtk, cptsoljauge, cptsolrestart, cptdebit, cptviscoupe, cptsolbasic
+  integer :: freqaffich, nbrjauges, nbrcoupes, jauges_snapshots, solrestart, restart_snapshots, coupes_snapshots, simple_snapshots
+  integer :: comptvisu, cptsolvtk, cptsoljauge, cptsolrestart, cptdebit, cptviscoupe, cptsolsimple
   real(fp_kind) :: long, critere_arret, debitglob_sum!, dt
   real(fp_kind), dimension(20) :: debitglob, h_sortie
   real(fp_kind) :: ts, tsstab, cfl, tolisec, tol_reg_perm
@@ -87,7 +87,7 @@ module global
   & xjauges, yjauges, &
   & nbrcoupes, coupes_snapshots, coupe_a, coupe_b,&
   & solrestart, restart_snapshots,& 
-  & solbasic, basic_snapshots, &
+  & solsimple, simple_snapshots, &
   & solvtk, vtk_snapshots,&
   & sortie_finale_bluekenue
 
@@ -103,7 +103,7 @@ module global
   character (200):: sol_elt_ts, sol_elt_final, sol_nd_ts, sol_nd_final 
   character (200):: sol_elt_ts_recons, sol_nd_ts_recons
   character (200):: solfile_eta_T3S, solfile_h_T3S, solfile_u_T3S, solfile_v_T3S
-  character (200):: solfile_para, solfile_basic
+  character (200):: solfile_para, solfile_simple
 
   character (20):: base_h_num, base_eta_num, base_eta_tild_num, base_hu_num, base_hv_num, base_u_num, base_v_num, lamda_moy_num, lamda_max_num
   character (1)::  num_seq_base1
@@ -126,7 +126,7 @@ module global
   real(fp_kind) :: h0, coef_bol  ! Pour le problème du bol parabolique 
 
   !real(fp_kind), dimension(200000)             :: tvis3d2 , tvis2d2, tsoljauge, tsolrestart, tsolvtk
-  real(fp_kind), dimension(:), allocatable             :: tvis3d2 , tvis2d2, tsoljauge, tsolrestart, tsolvtk, long_entree, cotemin_arr, tsolcoupes, tsolbasic
+  real(fp_kind), dimension(:), allocatable             :: tvis3d2 , tvis2d2, tsoljauge, tsolrestart, tsolvtk, long_entree, cotemin_arr, tsolcoupes, tsolsimple
   integer, dimension(:)  ,   allocatable :: ndinput, ndoutput, ndwall, i_dry_wet, nbr_nds_coupes, numero_ndinput, numero_ndoutput
   integer, dimension(:,:), allocatable :: elt_fant_recep, elt_fant_envoi
   integer, dimension(:,:), allocatable :: elt_fant_recep_bloc, elt_fant_envoi_bloc
