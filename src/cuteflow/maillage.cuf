@@ -228,7 +228,14 @@ subroutine lec_mail_tri
 
   !! table de connectivité :
   read(lec_mesh,*) tarati
-  read(lec_mesh,*) nelt
+  if(num_mpi_process>1) then
+    read(lec_mesh,*) nelt, nelt_non_fant
+    nelt_fant_recep = nelt-nelt_non_fant
+  else
+    read(lec_mesh,*) nelt
+    nelt_non_fant=nelt
+    nelt_fant_recep = 0
+  end if
   print*,"id ", mpi_process_id, ", ", nelt, " elems"
   allocate(connectivite(nelt,3), manning_nelt(nelt))
 
@@ -311,27 +318,27 @@ subroutine lec_mail_tri
   endif
 
   if(num_mpi_process>1) then
-    !! table des mailles fantomes a recep:
-    read(lec_mesh,*) tarati
-    read(lec_mesh,*) nelt_fant_recep
-    print*,"id ", mpi_process_id, ", ", nelt_fant_recep, " mailles fantomes a recep"
-    if (nelt_fant_recep>0) then
-      allocate(elt_fant_recep(nelt_fant_recep,3))
-      do i=1,nelt_fant_recep
-        read(lec_mesh,*) elt_fant_recep(i, 1), elt_fant_recep(i, 2), elt_fant_recep(i, 3)
-      enddo
-    endif
+    ! !! table des mailles fantomes a recep:
+    ! read(lec_mesh,*) tarati
+    ! read(lec_mesh,*) nelt_fant_recep
+    ! print*,"id ", mpi_process_id, ", ", nelt_fant_recep, " mailles fantomes a recep"
+    ! if (nelt_fant_recep>0) then
+    !   allocate(elt_fant_recep(nelt_fant_recep,3))
+    !   do i=1,nelt_fant_recep
+    !     read(lec_mesh,*) elt_fant_recep(i, 1), elt_fant_recep(i, 2), elt_fant_recep(i, 3)
+    !   enddo
+    ! endif
 
-    !! table des mailles fantomes a envoyer:
-    read(lec_mesh,*) tarati
-    read(lec_mesh,*) nelt_fant_envoi
-    print*,"id ", mpi_process_id, ", ", nelt_fant_envoi, " mailles fantomes a envoyer"
-    if (nelt_fant_envoi>0) then
-      allocate(elt_fant_envoi(nelt_fant_envoi,3))
-      do i=1,nelt_fant_envoi
-        read(lec_mesh,*) elt_fant_envoi(i, 1), elt_fant_envoi(i, 2), elt_fant_envoi(i, 3)
-      enddo
-    endif
+    ! !! table des mailles fantomes a envoyer:
+    ! read(lec_mesh,*) tarati
+    ! read(lec_mesh,*) nelt_fant_envoi
+    ! print*,"id ", mpi_process_id, ", ", nelt_fant_envoi, " mailles fantomes a envoyer"
+    ! if (nelt_fant_envoi>0) then
+    !   allocate(elt_fant_envoi(nelt_fant_envoi,3))
+    !   do i=1,nelt_fant_envoi
+    !     read(lec_mesh,*) elt_fant_envoi(i, 1), elt_fant_envoi(i, 2), elt_fant_envoi(i, 3)
+    !   enddo
+    ! endif
 
     !! table des mailles fantomes à receptionner par bloc
     read(lec_mesh,*) tarati
@@ -387,7 +394,7 @@ subroutine lec_mail_tri
 
   if(num_mpi_process>1) then
     nelt_fant_recep_d = nelt_fant_recep
-    nelt_fant_envoi_d = nelt_fant_envoi
+    ! nelt_fant_envoi_d = nelt_fant_envoi
   end if
 
   call cuda_glerror('ierr->data_transfer->lec_mail_tri--> (maillage.cuf)',1)

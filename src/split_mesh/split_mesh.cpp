@@ -235,22 +235,23 @@ void ecriture(bool multi_sortie, bool multi_entree, string fileName, int n, vect
     i++; 
   }
 
-  out_mesh << "Mailles fantomes a receptionner" << endl;
-  out_mesh << fantElemsRecep.size() << endl;
-  i=0;
-  while(i<fantElemsRecep.size()){
-    //out_mesh << fantElemsRecep[i][0] << " " << fantElemsRecep[i][1] << endl ;
-    out_mesh << fantElemsRecep[i][0] << " " << renumSD[fantElemsRecep[i][1]] << " " << fantElemsRecep[i][2] << endl;
-    i++; 
-  }
-  out_mesh << "Mailles fantomes a envoyer" << endl;
-  out_mesh << fantElemsEnvoi.size() << endl;
-  i=0;
-  while(i<fantElemsEnvoi.size()){
-    //out_mesh << fantElemsEnvoi[i][0] << " " << fantElemsEnvoi[i][1] << endl ;
-    out_mesh << fantElemsEnvoi[i][0] << " " << renumSD[fantElemsEnvoi[i][1]] << " " << fantElemsEnvoi[i][2]<< endl ;
-    i++; 
-  }
+  /* out_mesh << "Mailles fantomes a receptionner" << endl; */
+  /* out_mesh << fantElemsRecep.size() << endl; */
+  /* i=0; */
+  /* while(i<fantElemsRecep.size()){ */
+  /*   //out_mesh << fantElemsRecep[i][0] << " " << fantElemsRecep[i][1] << endl ; */
+  /*   out_mesh << fantElemsRecep[i][0] << " " << renumSD[fantElemsRecep[i][1]] << " " << fantElemsRecep[i][2] << endl; */
+  /*   i++; */ 
+  /* } */
+  /* out_mesh << "Mailles fantomes a envoyer" << endl; */
+  /* out_mesh << fantElemsEnvoi.size() << endl; */
+  /* i=0; */
+  /* while(i<fantElemsEnvoi.size()){ */
+  /*   //out_mesh << fantElemsEnvoi[i][0] << " " << fantElemsEnvoi[i][1] << endl ; */
+  /*   out_mesh << fantElemsEnvoi[i][0] << " " << renumSD[fantElemsEnvoi[i][1]] << " " << fantElemsEnvoi[i][2]<< endl ; */
+  /*   i++; */ 
+  /* } */
+
   out_mesh << "Mailles fantomes a receptionner par bloc" << endl;
   out_mesh << infoRecep.size() << endl;
   i=0;

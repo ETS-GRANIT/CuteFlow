@@ -116,8 +116,8 @@ module global
 
   integer :: n_seq_base     
   integer :: nelt, nnt, ns, ndi, ndo, ndw, correction, prediction, nbase, nbase_h, nbase_eta, nbase_eta_tild, nbase_hu, nbase_hv, nbase_u, nbase_v, maxdimbase, nombre_input, nombre_output
-  integer :: nelt_loc, nnt_loc
-  integer :: nelt_fant_recep, nelt_fant_envoi
+  integer :: nelt_non_fant
+  integer :: nelt_fant_recep !,nelt_fant_envoi
   integer :: nelt_fant_recep_bloc, nelt_fant_envoi_bloc
   integer :: nelt_entree, nelt_sortie, n_Q, tc_init, start
 
@@ -128,7 +128,7 @@ module global
   !real(fp_kind), dimension(200000)             :: tvis3d2 , tvis2d2, tsoljauge, tsolrestart, tsolvtk
   real(fp_kind), dimension(:), allocatable             :: tvis3d2 , tvis2d2, tsoljauge, tsolrestart, tsolvtk, long_entree, cotemin_arr, tsolcoupes, tsolsimple
   integer, dimension(:)  ,   allocatable :: ndinput, ndoutput, ndwall, i_dry_wet, nbr_nds_coupes, numero_ndinput, numero_ndoutput
-  integer, dimension(:,:), allocatable :: elt_fant_recep, elt_fant_envoi
+  ! integer, dimension(:,:), allocatable :: elt_fant_recep, elt_fant_envoi
   integer, dimension(:,:), allocatable :: elt_fant_recep_bloc, elt_fant_envoi_bloc
   integer, dimension(:,:),   allocatable :: connectivite, ij_wet_dry, ij_dry_wet, nds_coupes
   integer, dimension(:,:,:),   allocatable :: boundary

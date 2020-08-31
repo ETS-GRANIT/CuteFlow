@@ -577,10 +577,6 @@ program general
   if(debit_var==1) then
     deallocate(debit_t)
   end if
-  if(nelt_fant_envoi>0) then
-    deallocate(elt_fant_envoi,elt_fant_recep)
-    deallocate(elt_fant_envoi_bloc,elt_fant_recep_bloc)
-  end if
   deallocate(reqsend, reqrecv, sendstat, recvstat)
 
   d=tf-ti
