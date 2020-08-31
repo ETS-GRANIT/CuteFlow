@@ -45,7 +45,7 @@
   freqaffich=1000,                                               ! Frequence de print dans outfile.[0-9]
 
   ! Sauvegarde de la solution
-  write_merged=0,
+  merged_solution=0,
   nbrjauges=0, jauges_snapshots=100,                             ! Nombre de jauges, nombre de snapshots
   xjauges = 272494.31, 274767.53, 279066.02,                     ! Abscisses des jauges
   yjauges = 5042222.41, 5046515.26, 5050380.38,                  ! Ordonnées des jauges
