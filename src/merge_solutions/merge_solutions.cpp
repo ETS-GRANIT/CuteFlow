@@ -7,10 +7,7 @@
 
 using namespace std;
 
-void lecture_restart(ifstream &file, double &tsol, vector<vector<double> > &sol){
-  //Lecture des fichiers de solution sur le domaine complet
-  //pour les fichier txt avec 4 colonnes
-
+void lecture_4col(ifstream &file, double &tsol, vector<vector<double> > &sol){
   string str;
   vector<double> v(4);
 
@@ -19,55 +16,10 @@ void lecture_restart(ifstream &file, double &tsol, vector<vector<double> > &sol)
     file >> v[0] >> v[1] >> v[2] >> v[3];
     sol.push_back(v);
   }
-  sol.pop_back();
-}
-
-void lecture_par_noeud(ifstream &file, double &tsol, vector<vector<double> > &sol){
-  //Lecture des fichiers de solution sur le domaine complet
-  //pour les fichier txt avec 8 colonnes
-
-  string str;
-  vector<double> v(8);
-
-  file >> tsol;
-  while(!file.eof()){
-    file >> v[0] >> v[1] >> v[2] >> v[3] >> v[4] >> v[5] >> v[6];
-    sol.push_back(v);
-  }
-  sol.pop_back();
-}
-
-void lecture_3d(ifstream &file, vector<vector<double> > &sol){
-  //Lecture des fichiers de solution sur le domaine complet
-  //pour les fichier txt avec 8 colonnes
-
-  string str;
-  vector<double> v(8);
-
-  while(!file.eof()){
-    file >> v[0] >> v[1] >> v[2] >> v[3] >> v[4] >> v[5] >> v[6] >> v[7];
-    sol.push_back(v);
-  }
-  sol.pop_back();
-}
-
-void lecture_2d(ifstream &file, vector<vector<double> > &sol){
-  //Lecture des fichiers de solution sur le domaine complet
-  //pour les fichier txt avec 6 colonnes
-
-  string str;
-  vector<double> v(6);
-
-  while(!file.eof()){
-    file >> v[0] >> v[1] >> v[2] >> v[3] >> v[4] >> v[5] ;
-    sol.push_back(v);
-  }
-  sol.pop_back();
 }
 
 
 void lecture_liens(ifstream &file, int p, vector<vector<int> > &lien){
-
   vector<int> v(2);
 
   while(!file.eof()){
@@ -90,11 +42,11 @@ int main(int argc, char* argv[]){
   //!! Attention il faut s'assurer que les fichiers de lien entre 
   //numérotation globale et locale soient présent dans le dossier ou le code est lancé.
 
-  int nParts;
+  int nParts, ncol;
   string fileName, mode;
 
   if(argc < 4){
-    cout << "Utilisation : ./merge_solutions {restart|sol2d|sol3d|noeuds} nom_de_base_fichiers_a_combiner nombre_de_fichiers" << endl;
+    cout << "Utilisation : ./merge_solutions {noeuds|elements} nom_de_base_fichiers_a_combiner nombre_de_fichiers" << endl;
     return(0);
   }
 
@@ -102,14 +54,13 @@ int main(int argc, char* argv[]){
   fileName = argv[2];
   nParts = atoi(argv[3]);
 
-  if((mode!="restart")and(mode!="sol2d")and(mode!="sol3d")and(mode!="noeuds")){
-    cout << "Utilisation : ./merge_solutions {restart|sol2d|sol3d|noeuds} nom_de_base_fichiers_a_combiner nombre_de_fichiers" << endl;
+  if((mode!="elements")and(mode!="noeuds")){
+    cout << "Utilisation : ./merge_solutions {noeuds|elements} nom_de_base_fichiers_a_combiner nombre_de_fichiers" << endl;
     return(0);
   }
 
   ofstream outFile;
   vector<vector<double> > sol_fin;
-
   
   ifstream file;
 
@@ -125,28 +76,25 @@ int main(int argc, char* argv[]){
     fName << p << "_" << fileName ;
     cout << "Lecture " << fName.str() << endl;
     file.open(fName.str());
-    if(mode == "restart"){
-      lecture_restart(file, tsol[p], sol[p]);
-    }
-    else if(mode == "sol2d"){
-      lecture_2d(file, sol[p]);
-    }
-    else if(mode == "sol3d"){
-      lecture_3d(file, sol[p]);
+    if(mode == "elements"){
+      ncol=4;
+      cout << "Lecture par éléments" << endl;
+      lecture_4col(file, tsol[p], sol[p]);
     }
     else if(mode == "noeuds"){
-      cout << "lecture par noeuds" << endl;
-      lecture_par_noeud(file, tsol[p], sol[p]);
+      ncol=4;
+      cout << "Lecture par noeuds" << endl;
+      lecture_4col(file, tsol[p], sol[p]);
     }
     file.close();
     taille += sol[p].size();
   }
 
   
-  if(mode == "restart"){
+  if(mode == "elements"){
     cout << "Nombre total d'éléments : " << taille << endl;
   }
-  else{
+  else if(mode=="noeuds"){
     cout << "Nombre total de noeuds : " << taille << endl; 
   }
 
@@ -159,10 +107,10 @@ int main(int argc, char* argv[]){
 
   for(int p=0;p<nParts;p++){
     fName.str("");
-    if(mode == "restart"){
+    if(mode == "elements"){
       fName << p << "_liens_elems.txt";
     }
-    else{
+    else if(mode=="noeuds"){
       fName << p << "_liens_nodes.txt";
     }
     file.open(fName.str());
@@ -182,27 +130,27 @@ int main(int argc, char* argv[]){
   outfile << fixed ;
   outfile.precision(6);
 
-  if((mode == "restart")or(mode == "noeuds")){
-    outfile << "    " << tsol[0] << endl;
-  }
+  //Ecriture du temps de simulation
+  outfile << "    " << tsol[0] << endl;
+
   int i=0;
   while(lien[i][0] != -1){
     int p = lien[i][1];
-    if(mode == "restart"){
-      outfile << "      " << sol[p][lien[i][0]][0] << "       " << sol[p][lien[i][0]][1] << "       " << sol[p][lien[i][0]][2] << "       " << sol[p][lien[i][0]][3] << endl;
-    }
-    else if(mode == "sol2d"){
-      outfile << "      " << sol[p][lien[i][0]][1] << "       " << sol[p][lien[i][0]][2] << "       " << sol[p][lien[i][0]][3]<< "      " << sol[p][lien[i][0]][4] << "       " << sol[p][lien[i][0]][5] << endl;
-    }
-    else if(mode == "sol3d"){
-      outfile << "      " << (int) sol[p][lien[i][0]][0] << "       " << sol[p][lien[i][0]][1] << "       " << sol[p][lien[i][0]][2] << "       " << sol[p][lien[i][0]][3]<< "      " << sol[p][lien[i][0]][4] << "       " << sol[p][lien[i][0]][5] << "       " << sol[p][lien[i][0]][6] << "       " << sol[p][lien[i][0]][7] << endl;
+    if(mode == "elements"){
+      for(int j=0;j<ncol;j++){
+        outfile << sol[p][lien[i][0]][j] << "\t";
+      }
+      outfile << endl;
+      //outfile << "      " << sol[p][lien[i][0]][0] << "       " << sol[p][lien[i][0]][1] << "       " << sol[p][lien[i][0]][2] << "       " << sol[p][lien[i][0]][3] << endl;
     }
     else if(mode == "noeuds"){
-      outfile << sol[p][lien[i][0]][0] << "\t" << sol[p][lien[i][0]][1] << "\t" << sol[p][lien[i][0]][2] << "\t" << sol[p][lien[i][0]][3]<< "\t" << sol[p][lien[i][0]][4] << "\t" << sol[p][lien[i][0]][5] << "\t" << sol[p][lien[i][0]][6] << "\t" << endl;
+      for(int j=0;j<ncol;j++){
+        outfile << sol[p][lien[i][0]][j] << "\t";
+      }
+      outfile << endl;
+      //outfile << sol[p][lien[i][0]][0] << "\t" << sol[p][lien[i][0]][1] << "\t" << sol[p][lien[i][0]][2] << "\t" << sol[p][lien[i][0]][3]<< "\t" << sol[p][lien[i][0]][4] << "\t" << sol[p][lien[i][0]][5] << "\t" << sol[p][lien[i][0]][6] << "\t" << endl;
     }
     i++;
   } 
-
-
   return(0);
 }

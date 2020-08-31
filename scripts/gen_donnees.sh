@@ -55,7 +55,7 @@ echo "&DONNEES_NAMELIST
   coupe_b    =  5.2585e+06, 5.7768e+06, 5.4397e+06               ! Coeficient b de ax+b=y
 
   solrestart=0, restart_snapshots=10,                            ! Sauvegarde en overwrite la solution pour restart
-  solsimple=0, simple_snapshots=10,                              ! 1 noeuds, 2 éléments, 3 noeuds+elements
+  solsimple=3, simple_snapshots=10,                              ! 1 noeuds, 2 éléments, 3 noeuds+elements
   solvtk=1, vtk_snapshots=10,                                    ! 1 pour sauvegarder les fichiers vkt pour video
   sortie_finale_bluekenue=0/                                     ! Sauvergarde fichiers T3S à la fin
 " > donnees.f

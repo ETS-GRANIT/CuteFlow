@@ -517,6 +517,7 @@ subroutine simple_export(vdlg, vdlg1, solh, soleta, solhu, solhv, ci)
       solfile_simple = 'solution_noeuds_simple_'//trim(adjustl(trim(valtemps)))//adjustl(trim('.txt'))
     end if
     open(unit=ec_sol_simple_nd,file=solfile_simple,status="unknown")
+    write(ec_sol_simple_nd,*) tc                        
     do nd=1,nnt
       write(ec_sol_simple_nd,'(4f16.6)') solh(nd), soleta(nd), solhu(nd), solhv(nd)
     end do
@@ -530,8 +531,9 @@ subroutine simple_export(vdlg, vdlg1, solh, soleta, solhu, solhv, ci)
       solfile_simple = 'solution_elements_simple_'//trim(adjustl(trim(valtemps)))//adjustl(trim('.txt'))
     end if
     open(unit=ec_sol_simple_elt,file=solfile_simple,status="unknown")
+    write(ec_sol_simple_elt,*) tc                        
     do iel=1,nelt
-      write(ec_sol_simple_elt,'(3f16.6)') vdlg(1,iel), vdlg1(1,iel), vdlg1(2,iel), vdlg1(3,iel)
+      write(ec_sol_simple_elt,'(4f16.6)') vdlg(1,iel), vdlg1(1,iel), vdlg1(2,iel), vdlg1(3,iel)
     end do
     close(ec_sol_simple_elt)
   end if
