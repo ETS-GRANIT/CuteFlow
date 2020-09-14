@@ -141,14 +141,12 @@ int main(int argc, char* argv[]){
         outfile << sol[p][lien[i][0]][j] << "\t";
       }
       outfile << endl;
-      //outfile << "      " << sol[p][lien[i][0]][0] << "       " << sol[p][lien[i][0]][1] << "       " << sol[p][lien[i][0]][2] << "       " << sol[p][lien[i][0]][3] << endl;
     }
     else if(mode == "noeuds"){
       for(int j=0;j<ncol;j++){
         outfile << sol[p][lien[i][0]][j] << "\t";
       }
       outfile << endl;
-      //outfile << sol[p][lien[i][0]][0] << "\t" << sol[p][lien[i][0]][1] << "\t" << sol[p][lien[i][0]][2] << "\t" << sol[p][lien[i][0]][3]<< "\t" << sol[p][lien[i][0]][4] << "\t" << sol[p][lien[i][0]][5] << "\t" << sol[p][lien[i][0]][6] << "\t" << endl;
     }
     i++;
   } 

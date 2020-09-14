@@ -5,6 +5,7 @@ echo "&DONNEES_NAMELIST
   is_override_manning=1, override_manning=$4,               ! nombre de manning qui override les autes si is_...=1
 
   ! Données du maillage
+  meshfile_path='../base_files/',
   meshfile='Mille_Iles_mesh_481930_elts.txt',                    ! Fichier de maillage
   elt_bound=0,                                                   ! 1 si le fichier boundary_table existe déja
   multi_entree=0, multi_sortie=0,                                ! 0 si fichier non formaté pour plusieurs entrées/sorties
@@ -33,7 +34,7 @@ echo "&DONNEES_NAMELIST
 
   ! Paramètres des schémas numériques
   IFLUX=2,                                                       ! 1 -> HLLC zoka, 2 -> HLLC Riadh
-  tolisec=1.0E-06,                                               ! Tolérence sec/mouillé
+  tolisec=1.0E-04,                                               ! Tolérence sec/mouillé
   timedisc='euler',                                              ! Schéma en temps : {euler,second,runge}
   friction=1,                                                    ! 1 pour prendre en compte la friction
   fricimplic=1,                                                  ! 0 -> explicite, 1 -> I-dt/2*J, 2 -> I-dt*B

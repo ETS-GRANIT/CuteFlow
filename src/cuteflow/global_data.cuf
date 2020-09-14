@@ -24,7 +24,7 @@ module global
 
 
   !! Variables donnees du maillage
-  character(len=60)       :: meshfile
+  character(len=60)       :: meshfile, meshfile_path="./"
   integer                 :: elt_bound, multi_entree, multi_sortie
   integer, dimension(20)  :: elts
 
@@ -67,6 +67,7 @@ module global
   & gp, &
   & is_override_manning, override_manning, & 
 
+  & meshfile_path,&
   & meshfile, elt_bound, multi_entree, multi_sortie, &
 
   & eqlin_barrage, x1eqbar, x2eqbar, y1eqbar, y2eqbar, &

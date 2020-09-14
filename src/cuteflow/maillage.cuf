@@ -214,7 +214,7 @@ subroutine lec_mail_tri
   character(len=1) :: tarati
   integer          :: i, n, ierr, curproc
 
-  open(lec_mesh,file=meshfile,form='formatted',status='old')
+  open(lec_mesh,file=trim(adjustl(meshfile_path))//trim(adjustl(meshfile)),form='formatted',status='old')
 
   !! table des coordonnees :
   read(lec_mesh,*) tarati

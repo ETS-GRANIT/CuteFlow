@@ -5,6 +5,7 @@
   is_override_manning=1, override_manning=0.02200,               ! nombre de manning qui override les autes si is_...=1
 
   ! Données du maillage
+  meshfile_path='./',
   meshfile='Mille_Iles_mesh_481930_elts.txt',                    ! Fichier de maillage
   elt_bound=0,                                                   ! 1 si le fichier boundary_table existe déja
   multi_entree=0, multi_sortie=0,                                ! 0 si fichier non formaté pour plusieurs entrées/sorties

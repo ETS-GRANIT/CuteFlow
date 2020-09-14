@@ -23,7 +23,14 @@ while read -r line;do
     cd multi_$i
 
     #Copie des fichiers dans base_files
-    cp ../base_files/* .
+    #cp ../base_files/* .
+    cp ../base_files/cuteflow .
+    if [ -f ../base_files/*restart* ]; then
+      cp ../base_files/*restart* .
+    fi
+    # if [ -f ../base_files/*_lien* ]; then
+    #   cp ../base_files/*_lien* .
+    # fi
 
     #Utilisation du script gen_donnees pour générer le fichier
     #de donnée pour le cas actuel
