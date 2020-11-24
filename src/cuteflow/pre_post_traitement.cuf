@@ -470,7 +470,7 @@ subroutine bluekenue_export(solh, soleta, solhu, solhv)
       solu = 0.d0
       solv = 0.d0
     endif
-    write(ec_Bluekenu_eta,'(3f16.6)') coordonnees(nd,1), coordonnees(nd,2), soleta(nd)
+    write(ec_Bluekenu_eta,'(3f16.6)') coordonnees(nd,1), coordonnees(nd,2), soleta(nd)-sol_z_offset
     write(ec_Bluekenu_h,'(3f16.6)')   coordonnees(nd,1), coordonnees(nd,2), solh(nd)
     write(ec_Bluekenu_u,'(3f16.6)')   coordonnees(nd,1), coordonnees(nd,2), solu
     write(ec_Bluekenu_v,'(3f16.6)')   coordonnees(nd,1), coordonnees(nd,2), solv
@@ -519,7 +519,7 @@ subroutine simple_export(vdlg, vdlg1, solh, soleta, solhu, solhv, ci)
     open(unit=ec_sol_simple_nd,file=solfile_simple,status="unknown")
     write(ec_sol_simple_nd,*) tc                        
     do nd=1,nnt
-      write(ec_sol_simple_nd,'(4f16.6)') solh(nd), soleta(nd), solhu(nd), solhv(nd)
+      write(ec_sol_simple_nd,'(4f16.6)') solh(nd), soleta(nd)-sol_z_offset, solhu(nd), solhv(nd)
     end do
     close(ec_sol_simple_nd)
   end if
@@ -533,7 +533,7 @@ subroutine simple_export(vdlg, vdlg1, solh, soleta, solhu, solhv, ci)
     open(unit=ec_sol_simple_elt,file=solfile_simple,status="unknown")
     write(ec_sol_simple_elt,*) tc                        
     do iel=1,nelt
-      write(ec_sol_simple_elt,'(4f16.6)') vdlg(1,iel), vdlg1(1,iel), vdlg1(2,iel), vdlg1(3,iel)
+      write(ec_sol_simple_elt,'(4f16.6)') vdlg(1,iel), vdlg1(1,iel)-sol_z_offset, vdlg1(2,iel), vdlg1(3,iel)
     end do
     close(ec_sol_simple_elt)
   end if
@@ -546,7 +546,7 @@ subroutine simple_export(vdlg, vdlg1, solh, soleta, solhu, solhv, ci)
       open(unit=ec_sol_simple_nd,file=solfile_simple,status="unknown")
       i=1
       do while(sol_nodes_global(1,i)>-1 .and. i<=nnt_global)
-        write(ec_sol_simple_nd,'(4f16.6)') sol_nodes_global(1,i), sol_nodes_global(2,i), sol_nodes_global(3,i), sol_nodes_global(4,i)
+        write(ec_sol_simple_nd,'(4f16.6)') sol_nodes_global(1,i), sol_nodes_global(2,i)-sol_z_offset, sol_nodes_global(3,i), sol_nodes_global(4,i)
         i=i+1
       end do
       close(ec_sol_simple_nd)
@@ -556,7 +556,7 @@ subroutine simple_export(vdlg, vdlg1, solh, soleta, solhu, solhv, ci)
       solfile_simple = 'solution_elements_simple_'//trim(adjustl(trim(valtemps)))//adjustl(trim('.txt'))
       open(unit=ec_sol_simple_elt,file=solfile_simple,status="unknown")
       do iel=1,nelt_global_non_fant
-        write(ec_sol_simple_elt,'(4f16.6)') vdlg_global(1,iel), vdlg1_global(1,iel), vdlg1_global(2,iel), vdlg1_global(3,iel)
+        write(ec_sol_simple_elt,'(4f16.6)') vdlg_global(1,iel), vdlg1_global(1,iel)-sol_z_offset, vdlg1_global(2,iel), vdlg1_global(3,iel)
       end do
       close(ec_sol_simple_elt)
     end if
@@ -621,7 +621,7 @@ subroutine paraview_export(solh, soleta, solhu, solhv, ci)
   write(ec_Paraview,'(a)') "SCALARS eta float"
   write(ec_Paraview,'(a)') "LOOKUP_TABLE default"
   do nd=1, nnt
-    write(ec_Paraview,'(f16.6)') soleta(nd)
+    write(ec_Paraview,'(f16.6)') soleta(nd)-sol_z_offset
   end do
 
   write(ec_Paraview,'(a)') ""
@@ -635,7 +635,7 @@ subroutine paraview_export(solh, soleta, solhu, solhv, ci)
   write(ec_Paraview,'(a)') "SCALARS b float"
   write(ec_Paraview,'(a)') "LOOKUP_TABLE default"
   do nd=1, nnt
-    write(ec_Paraview,'(f16.6)') soleta(nd)-solh(nd)
+    write(ec_Paraview,'(f16.6)') soleta(nd)-solh(nd)-sol_z_offset
   end do
 
   write(ec_Paraview,'(a)') ""

@@ -42,6 +42,7 @@ module global
   character(len=30)   :: loi_debitglob
   integer :: iflux, fricimplic, debit_var  
   integer :: freqaffich, nbrjauges, nbrcoupes, jauges_snapshots, solrestart, restart_snapshots, coupes_snapshots, simple_snapshots
+  real(fp_kind) :: sol_z_offset=0.
   integer :: comptvisu, cptsolvtk, cptsoljauge, cptsolrestart, cptdebit, cptviscoupe, cptsolsimple
   real(fp_kind) :: long, critere_arret, debitglob_sum!, dt
   real(fp_kind), dimension(20) :: debitglob, h_sortie
@@ -87,6 +88,8 @@ module global
   & nbrjauges, jauges_snapshots &
   & xjauges, yjauges, &
   & nbrcoupes, coupes_snapshots, coupe_a, coupe_b,&
+
+  & sol_z_offset,& !!ne fonctionne que pour simple vtk et bluekenue
   & solrestart, restart_snapshots,& 
   & solsimple, simple_snapshots, &
   & solvtk, vtk_snapshots,&
