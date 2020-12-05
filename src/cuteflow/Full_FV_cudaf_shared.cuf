@@ -785,9 +785,12 @@ subroutine Full_FV
         call sol_nodes(vdlg,surf,zm,sh0,she0,shu0,shv0,su0,sv0)
         is_solnode = 1
       endif
+      vdlg1 = vdlg1_d
+
+      call mise_a_jr_zone_seche_cudaf<<<grid, tblock>>>(zm_d, vdlg_d, vdlg1_d)
 
       if(merged_solution==1 .and. num_mpi_process>1 .and. is_recons==0) then
-        call reconstruction(vdlg, vdlg1,she0, sh0, shu0, shv0)
+        call reconstruction(vdlg, vdlg1, she0, sh0, shu0, shv0)
         is_recons = 1
       end if
 
