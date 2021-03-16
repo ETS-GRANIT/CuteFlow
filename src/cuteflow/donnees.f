@@ -55,6 +55,7 @@
   coupe_a    = -0.7946,    -2.6754,    -1.4439                   ! Coeficient a de ax+b=y
   coupe_b    =  5.2585e+06, 5.7768e+06, 5.4397e+06               ! Coeficient b de ax+b=y
 
+  sol_z_offset=7.2335
   solrestart=0, restart_snapshots=10,                            ! Sauvegarde en overwrite la solution pour restart
   solsimple=0, simple_snapshots=10,                              ! 1 noeuds, 2 éléments, 3 noeuds+elements
   solvtk=1, vtk_snapshots=10,                                    ! 1 pour sauvegarder les fichiers vkt pour video
