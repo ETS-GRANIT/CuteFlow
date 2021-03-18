@@ -5,7 +5,7 @@ echo "&DONNEES_NAMELIST
   is_override_manning=1, override_manning=${10},               ! nombre de manning qui override les autes si is_...=1
 
   ! Données du maillage
-  meshfile='rdp_1M5.txt',                    ! Fichier de maillage
+  meshfile='RDP.txt',                    ! Fichier de maillage
   elt_bound=0,                                                   ! 1 si le fichier boundary_table existe déja
   multi_entree=1, multi_sortie=0,                                ! 0 si fichier non formaté pour plusieurs entrées/sorties
 
@@ -22,7 +22,7 @@ echo "&DONNEES_NAMELIST
   xpoint=290788.05853650015, ypoint=5045590.008996081, zpoint=8.                 ! Point appartenant au plan.
 
   ! Initialisation a partir d'un fichier, fichier avec solution ax elements
-  solinit=1,                                                     ! 1 pour initialiser a partir du fichier
+  solinit=0,                                                     ! 1 pour initialiser a partir du fichier
   fich_sol_init='rdp_1M5_base.txt',      ! nom du fichier d'initialisation
 
   ! Conditions aux limites
@@ -33,7 +33,7 @@ echo "&DONNEES_NAMELIST
 
   ! Paramètres des schémas numériques
   IFLUX=2,                                                       ! 1 -> HLLC zoka, 2 -> HLLC Riadh
-  tolisec=1.0E-08,                                               ! Tolérence sec/mouillé
+  tolisec=1.0E-05,                                               ! Tolérence sec/mouillé
   timedisc='euler',                                              ! Schéma en temps : {euler,second,runge}
   friction=1,                                                    ! 1 pour prendre en compte la friction
   fricimplic=1,                                                  ! 0 -> explicite, 1 -> I-dt/2*J, 2 -> I-dt*B
@@ -54,7 +54,7 @@ echo "&DONNEES_NAMELIST
   coupe_b    =  5.2585e+06, 5.7768e+06, 5.4397e+06               ! Coeficient b de ax+b=y
 
   solrestart=1, restart_snapshots=80,                            ! Sauvegarde en overwrite la solution pour restart
-  solbasic=0, basic_snapshots=10,                                ! 1 pour sauvegarder h sur les noeud (pierre)
+  solsimple=0, simple_snapshots=10,                                ! 1 pour sauvegarder h sur les noeud (pierre)
   solvtk=0, vtk_snapshots=50,                                    ! 1 pour sauvegarder les fichiers vkt pour video
   sortie_finale_bluekenue=0/                                     ! Sauvergarde fichiers T3S à la fin
   " > donnees.f
