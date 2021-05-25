@@ -61,6 +61,7 @@ module global
   integer :: nnt_global
   integer :: vtk_snapshots, base_unique, nonlin, solvtk, k_base
   integer :: monte_carlo, is_dry_as_wall, local_time_step
+  integer :: cuda_aware=1
 
   !! Construction de la namelist pour la lecture du fichier de donnee
   namelist/donnees_namelist/ &
@@ -70,6 +71,8 @@ module global
 
   & meshfile_path,&
   & meshfile, elt_bound, multi_entree, multi_sortie, &
+
+  &cuda_aware,&
 
   & eqlin_barrage, x1eqbar, x2eqbar, y1eqbar, y2eqbar, &
   & h_amont, u_amont, v_amont, h_aval, u_aval, v_aval, & 
