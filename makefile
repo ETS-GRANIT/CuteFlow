@@ -20,7 +20,7 @@ BINFILESPREF = $(addprefix ${BIN}/, ${BINFILES})
 all: ${BINFILESPREF}
 
 ${BIN}/cuteflow : ${CUTEFILESPREF}
-	module load pgi/19.4 cuda/10.0.130 openmpi/3.1.2;\
+	module load StdEnv/2020 nvhpc/20.7 cuda/11 openmpi/4;\
 	${CUTECOMPILER} ${CUTEFLAGS} ${CUTEFILESPREF} -c ;\
 	${CUTECOMPILER} ${CUTEFLAGS} ${CUTEFILESPREF} -o $@
 
