@@ -659,6 +659,42 @@ void renum(int nParts, vector<vector<vector<double> > > &newElems, vector<vector
   }
 }
 
+void renumSousDomainesMETIS(int nParts, vector<int> &renumerotationSousDomaine, vector<vector<vector<int> > > &infoEnvoi, vector<vector<int> > &new_entreNodes){
+
+  idx_t ncon=1;
+  idx_t *xadj, *adjency;
+  idx_t *objval, *part;
+
+  idx_t nComputeNodes = idx_t (nParts/4);
+
+  int adjency_size=0;
+  for(int p=0; p<nParts; p++){
+    int nvoisins = infoEnvoi[p].size();
+    for(int v=0; v<nvoisins; v++){
+      adjency_size+=1;
+    }
+  }
+
+  xadj = new idx_t[nParts+1];
+  xadj[0]=0;
+  adjency = new idx_t[adjency_size];
+
+  for(int p=0; p<nParts; p++){
+    int nvoisins = infoEnvoi[p].size();
+    xadj[p+1] = xadj[p] + nvoisins;
+    for(int v=0; v<nvoisins; v++){
+      adjency[xadj[p]+v] = infoEnvoi[p][v][2];
+    }
+  }
+
+  METIS_PartGraphRecursive(&nParts, &ncon, xadj, adjency, NULL, NULL, NULL, &nComputeNodes, NULL, NULL, NULL, objval, part);
+
+  /* //remplie renumerotationSousDomaines */
+  /* for(int i=0;i<nParts;i++){ */
+  /*   renumerotationSousDomaine[renum[i]] = i; */
+  /* } */
+}
+
 
 void renumSousDomaines(int nParts, vector<int> &renumerotationSousDomaine, vector<vector<vector<int> > > &infoEnvoi, vector<vector<int> > &new_entreNodes){
 
