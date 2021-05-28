@@ -5,6 +5,7 @@
 #include <sstream>
 #include <string>
 #include <stdio.h>
+#include <algorithm>    // std::random_shuffle
 
 using namespace std;
 
@@ -663,36 +664,96 @@ void renumSousDomainesMETIS(int nParts, vector<int> &renumerotationSousDomaine, 
 
   idx_t ncon=1;
   idx_t *xadj, *adjency;
-  idx_t *objval, *part;
+  idx_t objval;
+  idx_t *part = new idx_t[nParts];
 
-  idx_t nComputeNodes = idx_t (nParts/4);
-
-  int adjency_size=0;
-  for(int p=0; p<nParts; p++){
-    int nvoisins = infoEnvoi[p].size();
-    for(int v=0; v<nvoisins; v++){
-      adjency_size+=1;
-    }
-  }
+  idx_t *vwgt = new idx_t[ncon*nParts];
+  idx_t *adjwgt;
+  idx_t nPartsPerNode = 4;
+  idx_t nComputeNodes = idx_t (nParts/nPartsPerNode);
 
   xadj = new idx_t[nParts+1];
   xadj[0]=0;
-  adjency = new idx_t[adjency_size];
-
+  int adjency_size=0;
   for(int p=0; p<nParts; p++){
     int nvoisins = infoEnvoi[p].size();
     xadj[p+1] = xadj[p] + nvoisins;
+    /* std::cout << xadj[p] << " " ; */
+    /* vwgt[p] = 100; */
+    vwgt[p] = 100;
+    /* vwgt[nParts + p] = 0; */
+    for(int v=0; v<nvoisins; v++){
+      adjency_size+=1;
+      /* vwgt[nParts + p] += infoEnvoi[p][v][1]; */
+      /* vwgt[p] += infoEnvoi[p][v][1]; */
+    }
+  }
+  /* std::cout << xadj[nParts]; */
+
+  /* std::cout << std::endl; */
+
+  adjency = new idx_t[adjency_size];
+  adjwgt = new idx_t[adjency_size];
+
+  for(int p=0; p<nParts; p++){
+    int nvoisins = infoEnvoi[p].size();
+    /* std::cout << p << " | " << nvoisins << " | " ; */
     for(int v=0; v<nvoisins; v++){
       adjency[xadj[p]+v] = infoEnvoi[p][v][2];
+      adjwgt[xadj[p]+v] = infoEnvoi[p][v][1];
+      /* std:: cout << infoEnvoi[p][v][2] <<  " " ; */
+      /* std::cout << adjency[xadj[p]+v] << " "; */
+    }
+    /* std::cout << std::endl; */
+  }
+
+  real_t *ubvec = new real_t[ncon];
+  /* ubvec[0] = 1.0001; */
+  ubvec[0] = 1.00001;
+  /* ubvec[1] = 1.5; */
+
+  /* idx_t options[METIS_OPTION_CONTIG]; */
+  idx_t options[METIS_NOPTIONS];
+  METIS_SetDefaultOptions(options);
+  options[METIS_OPTION_CONTIG] = 1;
+  options[METIS_OPTION_MINCONN] = 1;
+  /* options[METIS_OPTION_OBJTYPE] = METIS_OBJTYPE_VOL; */
+
+
+  /* METIS_PartGraphKway(&nParts, &ncon, xadj, adjency, NULL, NULL, adjwgt, &nComputeNodes, NULL, ubvec, options, &objval, part); */
+  /* METIS_PartGraphKway(&nParts, &ncon, xadj, adjency, vwgt, NULL, NULL, &nComputeNodes, NULL, NULL, options, &objval, part); */
+
+  /* METIS_PartGraphKway(&nParts, &ncon, xadj, adjency, vwgt, NULL, adjwgt, &nComputeNodes, NULL, NULL, options, &objval, part); */
+
+  /* METIS_PartGraphKway(&nParts, &ncon, xadj, adjency, NULL, NULL, NULL, &nComputeNodes, NULL, ubvec, options, &objval, part); */
+  METIS_PartGraphKway(&nParts, &ncon, xadj, adjency, vwgt, NULL, adjwgt, &nComputeNodes, NULL, ubvec, options, &objval, part);
+
+  int *ind = new int[nComputeNodes];
+  for(int i=0; i<nComputeNodes; i++){
+    ind[i] = 0;
+  }
+
+  int *renum = new int[nParts];
+  for(int i=0; i<nParts; i++){
+
+    renum[i] = part[i]*nPartsPerNode + ind[part[i]];
+    std::cout << i << " " << renum[i] << " " << part[i] << std::endl;
+    ind[part[i]] += 1;
+
+  }
+
+  for(int i=0;i<nComputeNodes;i++){
+    if(ind[i]>nPartsPerNode){
+      std::cout << "ERROR" << std::endl;
+      exit(0);
     }
   }
 
-  METIS_PartGraphRecursive(&nParts, &ncon, xadj, adjency, NULL, NULL, NULL, &nComputeNodes, NULL, NULL, NULL, objval, part);
-
-  /* //remplie renumerotationSousDomaines */
-  /* for(int i=0;i<nParts;i++){ */
-  /*   renumerotationSousDomaine[renum[i]] = i; */
-  /* } */
+  //remplie renumerotationSousDomaines
+  for(int i=0;i<nParts;i++){
+    /* renumerotationSousDomaine[renum[i]] = i; */
+    renumerotationSousDomaine[i] = renum[i];
+  }
 }
 
 
@@ -947,11 +1008,24 @@ int main(int argc, char* argv[]){
   genInfoSendRecv(nParts, fantElemsEnvoi, fantElemsRecep, infoEnvoi, infoRecep);
 
   cout << "Renumerotation des sous domaines" << endl;
-  renumSousDomaines(nParts, renumerotationSousDomaine, infoEnvoi, new_entreNodes);
+  /* renumSousDomaines(nParts, renumerotationSousDomaine, infoEnvoi, new_entreNodes); */
+  /* renumSousDomaines(nParts, renumerotationSousDomaine, infoEnvoi, new_sortieNodes); */
+
+  /* renumSousDomainesMETIS(nParts, renumerotationSousDomaine, infoEnvoi, new_entreNodes); */
 
   /* for(int i=0;i<nParts;i++){ */
   /*   renumerotationSousDomaine[i] = i; */ 
   /* } */
+
+  std::vector<int> myvector;
+  // set some values:
+  for (int i=0; i<nParts; i++) myvector.push_back(i); // 1 2 3 4 5 6 7 8 9
+  // using built-in random generator:
+  std::random_shuffle ( myvector.begin(), myvector.end() );
+
+  for(int i=0;i<nParts;i++){
+    renumerotationSousDomaine[i] = myvector[i]; 
+  }
 
   //Ecriture des fichiers de maillages
   cout << "Ecriture des fichiers de maillages finaux." << endl;
