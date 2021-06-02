@@ -1009,7 +1009,7 @@ int main(int argc, char* argv[]){
 
   cout << "Renumerotation des sous domaines" << endl;
   /* renumSousDomaines(nParts, renumerotationSousDomaine, infoEnvoi, new_entreNodes); */
-  /* renumSousDomaines(nParts, renumerotationSousDomaine, infoEnvoi, new_sortieNodes); */
+  renumSousDomaines(nParts, renumerotationSousDomaine, infoEnvoi, new_sortieNodes);
 
   /* renumSousDomainesMETIS(nParts, renumerotationSousDomaine, infoEnvoi, new_entreNodes); */
 
@@ -1017,15 +1017,15 @@ int main(int argc, char* argv[]){
   /*   renumerotationSousDomaine[i] = i; */ 
   /* } */
 
-  std::vector<int> myvector;
-  // set some values:
-  for (int i=0; i<nParts; i++) myvector.push_back(i); // 1 2 3 4 5 6 7 8 9
-  // using built-in random generator:
-  std::random_shuffle ( myvector.begin(), myvector.end() );
+  /* std::vector<int> myvector; */
+  /* // set some values: */
+  /* for (int i=0; i<nParts; i++) myvector.push_back(i); // 1 2 3 4 5 6 7 8 9 */
+  /* // using built-in random generator: */
+  /* std::random_shuffle ( myvector.begin(), myvector.end() ); */
 
-  for(int i=0;i<nParts;i++){
-    renumerotationSousDomaine[i] = myvector[i]; 
-  }
+  /* for(int i=0;i<nParts;i++){ */
+  /*   renumerotationSousDomaine[i] = myvector[i]; */ 
+  /* } */
 
   //Ecriture des fichiers de maillages
   cout << "Ecriture des fichiers de maillages finaux." << endl;
