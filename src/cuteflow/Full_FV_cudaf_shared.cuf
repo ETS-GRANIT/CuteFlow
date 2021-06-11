@@ -242,6 +242,7 @@ subroutine Full_FV
 
   real(fp_kind), dimension(2)  :: greta, grhaut
   real(fp_kind) :: d2, t2, dtime2, tcm2
+  real(fp_kind) :: et1, et2, det1
 
   type(dim3 )                             :: grid, tblock, grid_nodes, tblock_nodes, grid11, tblock11, grids, tblocks,block_copy, grid_copy , grid_halved, grid_reduc, tblock_reduc
   real(fp_kind)                           :: time_start, time_stop, tb1, tb2, te1, te2
@@ -266,6 +267,8 @@ subroutine Full_FV
   tc_d        = tc
   kk          = 1
   is_solnode  = 0
+
+  det1 = 0.
 
   print*, ''
   print*, 'FULL-ORDER : VOLUMES FINIS'
@@ -641,10 +644,29 @@ subroutine Full_FV
     end if
 
 
+    ! print*, "Avant échange mémoire"
+
     !!  Echange sur GPU directement bloc
     if(num_mpi_process>1) then
-      call gpu_echange_fant_bloc_async(vdlg1_d, ndln)
-      ! call gpu_echange_fant_bloc(vdlg1_d, ndln)
+      if(cuda_aware==1) then
+        ! print*, "cuda aware"
+        call cpu_time(et1)
+        call gpu_echange_fant_bloc_async(vdlg1_d, ndln)
+        call cpu_time(et2)
+        det1 = det1 + et2-et1
+      else
+        !!Not Cuda Aware version
+        !! First copy from the GPU to CPU, then from CPU to CPU, ten from CPU to GPU
+        ! print*, "not cuda aware"
+        call cpu_time(et1)
+        ierr = cudaMemcpy(vdlg1_d, vdlg1, nelt, cudamemcpyDeviceToHost)
+        ierr = cudadevicesynchronize()
+        call gpu_echange_fant_bloc_async_not_cuda_aware(vdlg1, ndln)
+        ! ierr = cudaMemcpy(vdlg1, vdlg1_d, nelt, cudamemcpyDeviceToHost)
+        ! call MPI_BARRIER(MPI_COMM_WORLD, mpi_ierr)
+        call cpu_time(et2)
+        det1 = det1 + et2-et1
+      end if
     end if
 
     ! Mise a jour de la zone seche requis uniquement pour iflux==1 (zoka)
@@ -667,6 +689,10 @@ subroutine Full_FV
     if(num_mpi_process>1) then
       call MPI_WAITALL(size(reqsend),reqsend,sendstat,mpi_ierr)
       call MPI_WAITALL(size(reqrecv),reqrecv,recvstat,mpi_ierr)
+      if(cuda_aware==0) then
+        ierr = cudaMemcpy(vdlg1, vdlg1_d, nelt, cudamemcpyDeviceToHost)
+        ierr = cudadevicesynchronize()
+      end if
       ! call MPI_BARRIER(MPI_COMM_WORLD,mpi_ierr)
       call init_vdlg<<<grid, tblock, 0, stream2>>>(vdlg_d, vdlg1_d, zm_d)
       call cuda_glerror('ierr<-init_vdlg <-- Full_FV_cudaf_shared.cuf',1)
@@ -888,6 +914,8 @@ subroutine Full_FV
   !! ***** LOOP ON TIME ENDS HERE *****
   write(*,*) 'nt (end of loop on time) = ', nt
 
+  write(*,*) 'Time by message exchange : ', det1
+
   ierr = cudaEventRecord (stopEvent,0)
   ierr = cudaEventSynchronize(stopEvent)
   ierr = cudaEventElapsedTime(time_cuda, startEvent, stopEvent)
@@ -1071,6 +1099,47 @@ attributes(global) subroutine copy_1d(a,b,n)
   endif
 
 end subroutine copy_1d
+
+subroutine gpu_echange_fant_bloc_async_not_cuda_aware(a, nd)
+  use precision_m
+  use global
+  use global_device
+  use mpi
+
+  integer, intent(in) :: nd
+  real(fp_kind), intent(inout) :: a(nd,nelt)
+  integer                     :: stat(MPI_STATUS_SIZE)
+  integer :: j
+  integer :: jloc
+  integer :: id
+  integer :: p, k
+  integer :: nsbloc, nreste
+
+  k=1
+  do j=1,nelt_fant_envoi_bloc
+    nsbloc = ndln*elt_fant_envoi_bloc(j,2)/768 + 1
+    nreste = ndln*elt_fant_envoi_bloc(j,2)-(nsbloc-1)*768
+    do p=0,nsbloc-2
+      call MPI_ISEND(a(1,elt_fant_envoi_bloc(j,1)+p*768/nd),768,fp_kind_mpi,elt_fant_envoi_bloc(j,3),p,MPI_COMM_WORLD,reqsend(k),mpi_ierr)
+      k=k+1
+    end do
+    call MPI_ISEND(a(1,elt_fant_envoi_bloc(j,1)+(nsbloc-1)*768/nd),nreste,fp_kind_mpi,elt_fant_envoi_bloc(j,3),nsbloc-1,MPI_COMM_WORLD,reqsend(k),mpi_ierr)
+    k=k+1
+  end do
+
+  k=1
+  do j=1,nelt_fant_recep_bloc
+    nsbloc = ndln*elt_fant_recep_bloc(j,2)/768 + 1
+    nreste = ndln*elt_fant_recep_bloc(j,2)-(nsbloc-1)*768
+    do p=0,nsbloc-2
+      call MPI_IRECV(a(1,elt_fant_recep_bloc(j,1)+p*768/nd),768,fp_kind_mpi,elt_fant_recep_bloc(j,3),p,MPI_COMM_WORLD,reqrecv(k),mpi_ierr)
+      k=k+1
+    end do
+    call MPI_IRECV(a(1,elt_fant_recep_bloc(j,1)+(nsbloc-1)*768/nd),nreste,fp_kind_mpi,elt_fant_recep_bloc(j,3),nsbloc-1,MPI_COMM_WORLD,reqrecv(k),mpi_ierr)
+    k=k+1
+  end do
+
+end subroutine gpu_echange_fant_bloc_async_not_cuda_aware
 
 subroutine gpu_echange_fant_bloc_async(a, nd)
   use precision_m
