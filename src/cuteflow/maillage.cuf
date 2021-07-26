@@ -400,6 +400,274 @@ subroutine lec_mail_tri
   call cuda_glerror('ierr->data_transfer->lec_mail_tri--> (maillage.cuf)',1)
 end subroutine lec_mail_tri
 
+subroutine lec_mail_cgns
+  use global
+  use global_device
+  use precision_m
+  use cgns
+
+  implicit none
+
+  integer :: dummy_int, dummy_wall, i, j
+  real(fp_kind) :: dummy_real
+  character(200) :: dummy_char
+
+  integer :: ierr, cellDim, physDim
+  integer :: fn, n_bases, base, n_zones, zone, zoneType, n_sections, section, ord
+  integer :: n_bocos, boco, bocoType, normListFlag, normDataType, nDataSet, n_bcnodes, normalIndex
+  integer :: ptSetType, n_userdata, n_ptSet, n_userdata2
+  integer :: sizes(3*3), sectionType, nBeg, nEnd, eBeg, eEnd, nBdry, flag
+  character(200) :: filename, basename, command, zonename, sectionname, boconame
+  character(200) :: userdataname, userdataname2
+
+  real(fp_kind), dimension(:), allocatable :: coord
+  integer, dimension(:), allocatable :: conn
+
+  !!Copy meshfile localy and use it for further processing
+  write(command, *) "cp "//trim(adjustl(meshfile_path))//trim(adjustl(meshfile))//&
+    &" out_"//trim(adjustl(meshfile))
+  meshfile = trim(adjustl("out_"))//trim(adjustl(meshfile))
+  call system(command)
+
+  call cg_open_f(meshfile, CG_MODE_READ, fn, ierr)
+  if (ierr .ne. CG_OK) call cg_error_exit_f
+
+  call cg_nbases_f(fn, n_bases, ierr)
+  if (ierr .ne. CG_OK) call cg_error_exit_f
+  base = 1
+
+  call cg_base_read_f(fn, base, basename, cellDim, physDim, ierr)
+  if (ierr .ne. CG_OK) call cg_error_exit_f
+
+  call cg_nzones_f(fn, base, n_zones, ierr)
+  if (ierr .ne. CG_OK) call cg_error_exit_f
+
+  do zone=1,n_zones
+    call cg_zone_type_f(fn, base, zone, zoneType, ierr)
+    if (ierr .ne. CG_OK) call cg_error_exit_f
+
+    call cg_zone_read_f(fn, base, zone, zonename, sizes, ierr)
+    if (ierr .ne. CG_OK) call cg_error_exit_f
+
+    call cg_goto_f(fn, base, ierr, trim(adjustl(zonename)), 0, "end")
+    if (ierr .ne. CG_OK) call cg_error_exit_f
+
+    call cg_ordinal_read_f(ord, ierr)
+    if (ierr .ne. CG_OK) call cg_error_exit_f
+
+    if(ord == mpi_process_id) then
+      exit
+    end if
+  end do
+
+  ! print*,me,zone
+
+
+  nnt = sizes(1)
+  nelt = sizes(2)
+
+  nnt = nnt
+  allocate(coord(nnt), coordonnees(nnt,3), manning_nd(nnt))
+
+  call cg_coord_read_f(fn, base, zone, "CoordinateX", 4, 1, nnt, coord, ierr)
+  if (ierr .ne. CG_OK) call cg_error_exit_f
+
+  do i=1,nnt
+    coordonnees(i,1) = coord(i)
+  end do
+
+  call cg_coord_read_f(fn, base, zone, "CoordinateY", 4, 1, nnt, coord, ierr)
+  if (ierr .ne. CG_OK) call cg_error_exit_f
+
+  do i=1,nnt
+    coordonnees(i,2) = coord(i)
+  end do
+
+  call cg_coord_read_f(fn, base, zone, "CoordinateZ", 4, 1, nnt, coord, ierr)
+  if (ierr .ne. CG_OK) call cg_error_exit_f
+
+  do i=1,nnt
+    coordonnees(i,3) = coord(i)
+  end do
+
+  deallocate(coord)
+
+
+  call cg_nsections_f(fn, base, zone, n_sections, ierr)
+  if (ierr .ne. CG_OK) call cg_error_exit_f
+  section = 1
+
+  call cg_section_read_f(fn, base, zone, section, sectionname,  sectionType,&
+    &eBeg, eEnd, nBdry, flag, ierr)
+  if (ierr .ne. CG_OK) call cg_error_exit_f
+
+  nelt = nelt
+  allocate(conn(nelt*3), manning_nelt(nelt))
+  allocate(connectivite(nelt,3))
+  call cg_elements_read_f(fn, base, zone, section, conn, NULL, ierr)
+  if (ierr .ne. CG_OK) call cg_error_exit_f
+  do i=1,nelt
+    connectivite(i,1) = conn(3*(i-1)+1)
+    connectivite(i,2) = conn(3*(i-1)+2)
+    connectivite(i,3) = conn(3*(i-1)+3)
+  end do
+  deallocate(conn)
+
+  call cg_nbocos_f(fn, base, zone, n_bocos, ierr)
+  if (ierr .ne. CG_OK) call cg_error_exit_f
+
+  do boco=1,n_bocos
+    call cg_boco_info_f(fn, base, zone, boco, boconame, bocoType,&
+      &ptsetType, n_bcnodes, &
+      &normalIndex, normListFlag, normDataType, nDataset, ierr)
+    if (ierr .ne. CG_OK) call cg_error_exit_f
+
+    if(n_bcnodes>1) then
+      if(boconame == "Inflow nodes") then
+        ndi = n_bcnodes
+        allocate(ndinput(ndi))
+        call cg_boco_read_f(fn, base, zone, boco, ndinput, NULL, ierr)
+        if (ierr .ne. CG_OK) call cg_error_exit_f
+      else if(boconame == "Outflow nodes") then
+        ndo = n_bcnodes
+        allocate(ndoutput(ndo))
+        call cg_boco_read_f(fn, base, zone, boco, ndoutput, NULL, ierr)
+        if (ierr .ne. CG_OK) call cg_error_exit_f
+      end if
+    end if
+  end do
+
+  call cg_goto_f(fn, base, ierr, zonename, 0, "end")
+  if (ierr .ne. CG_OK) call cg_error_exit_f
+  call cg_nuser_data_f(n_userdata, ierr)
+  if (ierr .ne. CG_OK) call cg_error_exit_f
+  do i=1,n_userdata
+    call cg_user_data_read_f(i,userdataname,ierr)
+    if (ierr .ne. CG_OK) call cg_error_exit_f
+    !!Si elems à envoyer
+    if(userdataname == "ElemsToSend") then
+      call cg_goto_f(fn, base, ierr, zonename, 0, userdataname, 0, "end")
+      if (ierr .ne. CG_OK) call cg_error_exit_f
+      call cg_nuser_data_f(n_userdata2, ierr)
+      if (ierr .ne. CG_OK) call cg_error_exit_f
+
+      nelt_fant_envoi_bloc = n_userdata2
+      allocate(elt_fant_envoi_list(nelt_fant_envoi_bloc))
+      allocate(reqsend(nelt_fant_envoi_bloc), sendstat(MPI_STATUS_SIZE, nelt_fant_envoi_bloc))
+
+      !!Pour tous les voisins
+      do j=1,n_userdata2
+
+        call cg_user_data_read_f(j,userdataname2,ierr)
+        if (ierr .ne. CG_OK) call cg_error_exit_f
+
+        call cg_goto_f(fn, base, ierr, zonename, 0, userdataname, 0, userdataname2, 0, "end")
+        if (ierr .ne. CG_OK) call cg_error_exit_f
+
+        call cg_ptset_info_f(ptSetType, n_ptset, ierr)
+        if (ierr .ne. CG_OK) call cg_error_exit_f
+
+        call cg_ordinal_read_f(ord, ierr)
+        if (ierr .ne. CG_OK) call cg_error_exit_f
+
+        allocate(elt_fant_envoi_list(j)%elem_id(n_ptset))
+        allocate(elt_fant_envoi_list(j)%elem_sol(3,n_ptset))
+
+        elt_fant_envoi_list(j)%length = n_ptset !! Longueur du message
+        elt_fant_envoi_list(j)%proc = ord !! Destinataire
+
+        call cg_ptset_read_f(elt_fant_envoi_list(j)%elem_id, ierr)
+        if (ierr .ne. CG_OK) call cg_error_exit_f
+
+        call cg_goto_f(fn, base, ierr, zonename, 0, userdataname, 0, "end")
+        if (ierr .ne. CG_OK) call cg_error_exit_f
+      end do
+      call cg_goto_f(fn, base, ierr, zonename, 0, "end")
+      if (ierr .ne. CG_OK) call cg_error_exit_f
+
+    else if(userdataname == "ElemsToRecv") then
+
+      call cg_goto_f(fn, base, ierr, zonename, 0, userdataname, 0, "end")
+      if (ierr .ne. CG_OK) call cg_error_exit_f
+      call cg_nuser_data_f(n_userdata2, ierr)
+      if (ierr .ne. CG_OK) call cg_error_exit_f
+
+      nelt_fant_recep_bloc = n_userdata2
+      nelt_fant_recep = 0
+      allocate(elt_fant_recep_range(nelt_fant_recep_bloc))
+      allocate(reqrecv(nelt_fant_recep_bloc), recvstat(MPI_STATUS_SIZE, nelt_fant_recep_bloc))
+
+      !!Pour tous les voisins
+      do j=1,n_userdata2
+
+        call cg_user_data_read_f(j,userdataname2,ierr)
+        if (ierr .ne. CG_OK) call cg_error_exit_f
+
+        call cg_goto_f(fn, base, ierr, zonename, 0, userdataname, 0, userdataname2, 0, "end")
+        if (ierr .ne. CG_OK) call cg_error_exit_f
+
+        call cg_ptset_info_f(ptSetType, n_ptset, ierr)
+        if (ierr .ne. CG_OK) call cg_error_exit_f
+
+        call cg_ordinal_read_f(ord, ierr)
+        if (ierr .ne. CG_OK) call cg_error_exit_f
+
+        elt_fant_recep_range(j)%length = n_ptset !! Longueur du message
+        elt_fant_recep_range(j)%proc = ord !! Destinataire
+
+        call cg_ptset_read_f(elt_fant_recep_range(j)%start, ierr)
+        if (ierr .ne. CG_OK) call cg_error_exit_f
+
+        if((nelt - elt_fant_recep_range(j)%start ) > nelt_fant_recep) nelt_fant_recep = elt_fant_recep_range(j)%start
+
+        ! print*, me, i, j, " ElemsToRecv", elt_fant_recep_range(j)
+
+        call cg_goto_f(fn, base, ierr, zonename, 0, userdataname, 0, "end")
+        if (ierr .ne. CG_OK) call cg_error_exit_f
+      end do
+      call cg_goto_f(fn, base, ierr, zonename, 0, "end")
+      if (ierr .ne. CG_OK) call cg_error_exit_f
+    end if
+  end do
+  ! if(cg_goto(index_file, index_base, zss.str().c_str(), 0, "end")) cg_error_exit();
+
+  ndwall = 0
+
+  print *, "nelt_fant_recep ", nelt_fant_recep
+
+  call cg_close_f(fn, ierr)
+  if (ierr .ne. CG_OK) call cg_error_exit_f
+
+  !! device memory allocation :
+  allocate(coordonnees_d(nnt,3), manning_nd_d(nnt))
+  allocate(connectivite_d(nelt,3), manning_nelt_d(nelt))
+
+  !! host to device data transfer :
+  nelt_d = nelt  
+  nnt_d  = nnt
+  ndi_d  = ndi
+  nombre_input_d  = nombre_input
+  ndo_d  = ndo
+  nombre_output_d  = nombre_output
+  ndw_d  = ndw
+
+  coordonnees_d       = coordonnees
+  manning_nd_d        = manning_nd
+  connectivite_d      = connectivite
+  manning_nelt_d      = manning_nelt
+  ndinput_d           = ndinput
+  numero_ndinput_d    = numero_ndinput
+  ndoutput_d          = ndoutput
+  numero_ndoutput_d   = numero_ndoutput
+  ndwall_d            = ndwall
+
+  if(num_mpi_process>1) then
+    nelt_fant_recep_d = nelt_fant_recep
+    ! nelt_fant_envoi_d = nelt_fant_envoi
+  end if
+
+end subroutine lec_mail_cgns
+
 
 subroutine tab_bound_tri_cudaf
   ! ======================================================================

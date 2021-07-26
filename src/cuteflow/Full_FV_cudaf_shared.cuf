@@ -1225,6 +1225,37 @@ subroutine gpu_echange_fant_bloc(a, nd)
 
 end subroutine gpu_echange_fant_bloc
 
+subroutine gpu_cgns_exchange(a,nd)
+  use mpi
+  use precision_m 
+  use global
+  use global_device
+
+  implicit none
+  integer, intent(in) :: nd
+  real(fp_kind), device, intent(inout) :: a(nd,nelt)
+  integer :: i, j, tag
+
+  do i=1,nelt_fant_recep_bloc
+    ! print*,me, elt_fant_envoi_list(i)%proc, elt_fant_envoi_list(i)%length
+    do j=1,elt_fant_envoi_list(i)%length
+      elt_fant_envoi_list(i)%elem_sol(:,j) = a(:,elt_fant_envoi_list(i)%elem_id(j))
+    end do
+
+    tag = mpi_process_id
+    call MPI_ISend(elt_fant_envoi_list(i)%elem_sol(1,1), nd*elt_fant_envoi_list(i)%length, fp_kind_mpi, &
+      &elt_fant_envoi_list(i)%proc, tag, MPI_COMM_WORLD, reqsend(i), mpi_ierr)
+  end do
+
+  do i=1,nelt_fant_recep_bloc
+    call MPI_IRecv(a(1,elt_fant_recep_range(i)%start), nd*elt_fant_recep_range(i)%length, fp_kind_mpi, &
+      &elt_fant_recep_range(i)%proc, elt_fant_recep_range(i)%proc, MPI_COMM_WORLD, reqrecv(i), mpi_ierr)
+  end do
+
+  ! call MPI_WAITALL(n_elt_fant_recep_range,req_envoi,stat_envoi,mpi_ierr)
+  ! call MPI_WAITALL(n_elt_fant_recep_range,req_recep,stat_recep,mpi_ierr)
+end subroutine gpu_cgns_exchange
+
 attributes(global) subroutine calcul_residue_ele_cudaf(surf_d, resj_d)
   use precision_m
 

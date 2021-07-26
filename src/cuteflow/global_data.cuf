@@ -8,6 +8,20 @@ module global
   use precision_m
   use cudafor
 
+  !!Type pour message MPI
+  type msg_range
+    integer :: start, length, proc
+  end type
+
+  type msg_list
+    integer :: length, proc
+    integer, dimension(:), allocatable :: elem_id
+    real(kind=fp_kind), dimension(:,:), allocatable :: elem_sol
+  end type
+
+  type(msg_range), dimension(:), allocatable :: elt_fant_recep_range
+  type(msg_list), dimension(:), allocatable :: elt_fant_envoi_list
+
   !!Streams CUDA
   integer(kind=cuda_stream_kind) :: stream1, stream2, stream3
   integer :: istat
