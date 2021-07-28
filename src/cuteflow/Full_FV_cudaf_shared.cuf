@@ -651,7 +651,11 @@ subroutine Full_FV
       if(cuda_aware==1) then
         ! print*, "cuda aware"
         call cpu_time(et1)
-        call gpu_echange_fant_bloc_async(vdlg1_d, ndln)
+        if(is_cgns) then
+          call gpu_echange_cgns(vdlg1_d, ndln)
+        else
+          call gpu_echange_fant_bloc_async(vdlg1_d, ndln)
+        end if
         call cpu_time(et2)
         det1 = det1 + et2-et1
       else
@@ -1225,7 +1229,7 @@ subroutine gpu_echange_fant_bloc(a, nd)
 
 end subroutine gpu_echange_fant_bloc
 
-subroutine gpu_cgns_exchange(a,nd)
+subroutine gpu_echange_cgns(a,nd)
   use mpi
   use precision_m 
   use global
@@ -1235,12 +1239,17 @@ subroutine gpu_cgns_exchange(a,nd)
   integer, intent(in) :: nd
   real(fp_kind), device, intent(inout) :: a(nd,nelt)
   integer :: i, j, tag
+  integer :: nsbloc, nsreste, k
 
+  k=1
   do i=1,nelt_fant_recep_bloc
-    ! print*,me, elt_fant_envoi_list(i)%proc, elt_fant_envoi_list(i)%length
+
     do j=1,elt_fant_envoi_list(i)%length
       elt_fant_envoi_list(i)%elem_sol(:,j) = a(:,elt_fant_envoi_list(i)%elem_id(j))
     end do
+
+    ! nsbloc = nd*elt_fant_envoi_list(i)%length/768 + 1
+    ! nreste = nd*elt_fant_envoi_bloc(i)%length-(nsbloc-1)*768
 
     tag = mpi_process_id
     call MPI_ISend(elt_fant_envoi_list(i)%elem_sol(1,1), nd*elt_fant_envoi_list(i)%length, fp_kind_mpi, &
@@ -1254,7 +1263,7 @@ subroutine gpu_cgns_exchange(a,nd)
 
   ! call MPI_WAITALL(n_elt_fant_recep_range,req_envoi,stat_envoi,mpi_ierr)
   ! call MPI_WAITALL(n_elt_fant_recep_range,req_recep,stat_recep,mpi_ierr)
-end subroutine gpu_cgns_exchange
+end subroutine gpu_echange_cgns
 
 attributes(global) subroutine calcul_residue_ele_cudaf(surf_d, resj_d)
   use precision_m

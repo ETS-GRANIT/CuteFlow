@@ -238,6 +238,7 @@ program general
 
   !! Construction / lecture  et  stockage du maillage 
   call lect_const_mail
+  print*,mpi_process_id,"lect const mail ok"
 
   cotemin_arr_d = cotemin_arr
   call cuda_glerror('ierr <-- cotemin_arr_d = cotemin_arr',1)
@@ -301,25 +302,34 @@ program general
       call lect_liens
     end if
   end if
+  print*,mpi_process_id,"before req alloc"
   call MPI_BARRIER(MPI_COMM_WORLD,mpi_ierr)
   
 
   !!Alocation req send recv pour echange mpi non bloquant
-  tot=0
-  do j=1,nelt_fant_envoi_bloc
-     nsbloc = ndln*elt_fant_envoi_bloc(j,2)/768 + 1
-     nreste = ndln*elt_fant_envoi_bloc(j,2)-(nsbloc-1)*768
-     tot=tot+nsbloc
-  end do
-  allocate(reqsend(tot), sendstat(MPI_STATUS_SIZE,tot))
+  if(is_cgns) then
+    allocate(reqsend(nelt_fant_envoi_bloc), sendstat(MPI_STATUS_SIZE,nelt_fant_envoi_bloc))
+    allocate(reqrecv(nelt_fant_recep_bloc), recvstat(MPI_STATUS_SIZE,nelt_fant_recep_bloc))
+  else
+    tot=0
+    do j=1,nelt_fant_envoi_bloc
+      nsbloc = ndln*elt_fant_envoi_bloc(j,2)/768 + 1
+      nreste = ndln*elt_fant_envoi_bloc(j,2)-(nsbloc-1)*768
+      tot=tot+nsbloc
+    end do
+    allocate(reqsend(tot), sendstat(MPI_STATUS_SIZE,tot))
 
-  tot=0
-  do j=1,nelt_fant_recep_bloc
+    tot=0
+    do j=1,nelt_fant_recep_bloc
       nsbloc = ndln*elt_fant_recep_bloc(j,2)/768 + 1
       nreste = ndln*elt_fant_recep_bloc(j,2)-(nsbloc-1)*768
       tot=tot+nsbloc
-  end do
-  allocate(reqrecv(tot), recvstat(MPI_STATUS_SIZE,tot))
+    end do
+    allocate(reqrecv(tot), recvstat(MPI_STATUS_SIZE,tot))
+  end if
+
+  print*,mpi_process_id,"after req alloc"
+  call MPI_BARRIER(MPI_COMM_WORLD,mpi_ierr)
 
   !! Allocation des matrices et vecteurs
   allocate( surf(nelt), zm(nelt), gradz(ndim,nelt), gradz2(ndim,nelt) )

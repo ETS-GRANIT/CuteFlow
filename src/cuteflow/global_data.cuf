@@ -76,6 +76,7 @@ module global
   integer :: vtk_snapshots, base_unique, nonlin, solvtk, k_base
   integer :: monte_carlo, is_dry_as_wall, local_time_step
   integer :: cuda_aware=1
+  integer :: is_cgns=0
 
   !! Construction de la namelist pour la lecture du fichier de donnee
   namelist/donnees_namelist/ &
@@ -83,6 +84,7 @@ module global
   & gp, &
   & is_override_manning, override_manning, & 
 
+  & is_cgns,&
   & meshfile_path,&
   & meshfile, elt_bound, multi_entree, multi_sortie, &
 

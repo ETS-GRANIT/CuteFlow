@@ -5,6 +5,7 @@ subroutine lect_const_mail
   use global_device
   use m_param
   use cudafor
+  use mpi
 
   implicit none
 
@@ -25,6 +26,15 @@ subroutine lect_const_mail
       use cudafor
       use m_param
     end subroutine lec_mail_tri
+
+    subroutine lec_mail_cgns
+      use precision_m
+      use global
+      use global_device
+      use cudafor
+      use m_param
+      use cgns
+    end subroutine lec_mail_cgns
 
     subroutine boundary_kind_cudaf
       use precision_m
@@ -67,14 +77,21 @@ subroutine lect_const_mail
   call cuda_glerror( 'ierr <- data transfer ns_d = ns <--- maillage.cuf',1)
 
   print*,mpi_process_id, ' lecture du maillage en cours'
-  call lec_mail_tri
+  if(is_cgns) then
+    call lec_mail_cgns
+  else
+    call lec_mail_tri
+  end if
   print*,mpi_process_id, ' lecture du maillage reussie'
+  call MPI_BARRIER(MPI_COMM_WORLD,mpi_ierr)
 
   allocate(boundary(nelt,3,2), boundary_d(nelt,3,2))
   call cuda_glerror('ierr <- memory allocation in boundary_d <--- maillage.cuf',1)
 
   if (elt_bound==0) then
     call tab_bound_tri_cudaf
+    print*,mpi_process_id,"tab_bound_tri ok", nelt, nnt
+    call MPI_BARRIER(MPI_COMM_WORLD,mpi_ierr)
   endif
 
   !!  Construction/Lecture des éléments voisins
@@ -88,6 +105,8 @@ subroutine lect_const_mail
     !! On construit puis sauvegarde la table des éléments voisins
     open(unit=1100,file=file_bc,status="unknown")
     call boundary_kind_cudaf
+    print*,mpi_process_id,"boundary kind ok"
+    call MPI_BARRIER(MPI_COMM_WORLD,mpi_ierr)
 
     boundary = boundary_d
     call cuda_glerror('ierr <- (d->h) data transfer boundary =  boundary_d <-- maillage.cuf',1)
@@ -108,14 +127,21 @@ subroutine lect_const_mail
     call cuda_glerror('ierr <- (h->d) data transfer boundary_d = boundary <--- maillage.cuf',1)
   endif
 
+
   !! Calcul des longueurs des entrées
   long_entree = 0.
   if(ndi > 0) then 
     call calcul_long_entree
   end if
 
+  call MPI_BARRIER(MPI_COMM_WORLD,mpi_ierr)
+  print*,mpi_process_id,"avant reduce entree"
+
   call mpi_allreduce(mpi_in_place,long_entree,nombre_input,fp_kind_mpi,mpi_sum,mpi_comm_world, mpi_ierr)
   long_entree_d=long_entree
+
+  call MPI_BARRIER(MPI_COMM_WORLD,mpi_ierr)
+  print*,mpi_process_id,"apres reduce entree"
 
   !! calculation of the elementwise coordinates table
   allocate(coo_table_elemwise(nelt,3*ns) , coo_table_elemwise_d(nelt,3*ns))
@@ -123,7 +149,10 @@ subroutine lect_const_mail
 
   call cuda_glerror('ierr <- memory allocation of coo_table_elemwise_d <-- maillage.cuf',1)
 
+
   call construct_coo_table_elemwise
+  print*,mpi_process_id,"apres contruct coo table elemwise"
+  call MPI_BARRIER(MPI_COMM_WORLD,mpi_ierr)
 
 
   !! distance cote entre 1er et 2eme noeuds ***
@@ -167,7 +196,11 @@ subroutine lect_const_mail
     cotemin = min(cotemin,cotemin_arr(kvol))
   enddo
 
+  print*,mpi_process_id,"avant all reduce"
+  call MPI_BARRIER(MPI_COMM_WORLD,mpi_ierr)
   call mpi_allreduce(mpi_in_place,cotemin,1,fp_kind_mpi,mpi_min,mpi_comm_world, mpi_ierr)
+  call MPI_BARRIER(MPI_COMM_WORLD,mpi_ierr)
+  print*,mpi_process_id,"apres all reduce"
   cotemin_d = cotemin
   call cuda_glerror('ierr <- (h->d) data transfer to cotemin_d <-- maillage.cuf',1)
   call cuda_glerror('ierr <- lect_const_mail (towards_end_of_function) <-- maillage.cuf',1)
@@ -186,7 +219,7 @@ subroutine lec_donnees
   close(lu_fich)
 
   !! Ajout du numéro de process MPI en préfixe des fichiers de maillage et de solution initiale
-  if(num_mpi_process>1) then
+  if(num_mpi_process>1 .and. is_cgns==0) then
     meshfile = trim(mpi_process_id_string)//'_'//trim(meshfile)
     fich_sol_init = trim(mpi_process_id_string)//'_'//trim(fich_sol_init)
   else
@@ -424,10 +457,13 @@ subroutine lec_mail_cgns
   integer, dimension(:), allocatable :: conn
 
   !!Copy meshfile localy and use it for further processing
-  write(command, *) "cp "//trim(adjustl(meshfile_path))//trim(adjustl(meshfile))//&
+  if(mpi_process_id==0) then
+    write(command, *) "cp "//trim(adjustl(meshfile_path))//trim(adjustl(meshfile))//&
     &" out_"//trim(adjustl(meshfile))
+    call system(command)
+  end if
+  call MPI_BARRIER(MPI_COMM_WORLD,mpi_ierr)
   meshfile = trim(adjustl("out_"))//trim(adjustl(meshfile))
-  call system(command)
 
   call cg_open_f(meshfile, CG_MODE_READ, fn, ierr)
   if (ierr .ne. CG_OK) call cg_error_exit_f
@@ -460,11 +496,12 @@ subroutine lec_mail_cgns
     end if
   end do
 
-  ! print*,me,zone
+  print*,mpi_process_id,zone
 
 
   nnt = sizes(1)
   nelt = sizes(2)
+
 
   nnt = nnt
   allocate(coord(nnt), coordonnees(nnt,3), manning_nd(nnt))
@@ -516,6 +553,9 @@ subroutine lec_mail_cgns
   call cg_nbocos_f(fn, base, zone, n_bocos, ierr)
   if (ierr .ne. CG_OK) call cg_error_exit_f
 
+  nombre_input=0
+  nombre_output=0
+
   do boco=1,n_bocos
     call cg_boco_info_f(fn, base, zone, boco, boconame, bocoType,&
       &ptsetType, n_bcnodes, &
@@ -525,17 +565,33 @@ subroutine lec_mail_cgns
     if(n_bcnodes>1) then
       if(boconame == "Inflow nodes") then
         ndi = n_bcnodes
+        nombre_input=1
         allocate(ndinput(ndi))
+        allocate(numero_ndinput(ndi))
+        allocate(ndinput_d(ndi))
+        allocate(numero_ndinput_d(ndi))
         call cg_boco_read_f(fn, base, zone, boco, ndinput, NULL, ierr)
+        numero_ndinput(:) = 1
+        print*,mpi_process_id," input nodes ",ndi,ndinput(1)
         if (ierr .ne. CG_OK) call cg_error_exit_f
       else if(boconame == "Outflow nodes") then
         ndo = n_bcnodes
+        nombre_output=1
         allocate(ndoutput(ndo))
+        allocate(numero_ndoutput(ndo))
+        allocate(numero_ndoutput_d(ndo))
+        allocate(ndoutput_d(ndo))
+        numero_ndoutput(:) = 1
         call cg_boco_read_f(fn, base, zone, boco, ndoutput, NULL, ierr)
         if (ierr .ne. CG_OK) call cg_error_exit_f
       end if
     end if
   end do
+
+  call mpi_allreduce(mpi_in_place,nombre_input,1,MPI_INTEGER,mpi_sum,mpi_comm_world,mpi_ierr)
+  allocate(long_entree(nombre_input))
+  allocate(long_entree_d(nombre_input))
+
 
   call cg_goto_f(fn, base, ierr, zonename, 0, "end")
   if (ierr .ne. CG_OK) call cg_error_exit_f
@@ -618,7 +674,7 @@ subroutine lec_mail_cgns
         call cg_ptset_read_f(elt_fant_recep_range(j)%start, ierr)
         if (ierr .ne. CG_OK) call cg_error_exit_f
 
-        if((nelt - elt_fant_recep_range(j)%start ) > nelt_fant_recep) nelt_fant_recep = elt_fant_recep_range(j)%start
+        if((nelt - elt_fant_recep_range(j)%start ) > nelt_fant_recep) nelt_fant_recep = nelt-elt_fant_recep_range(j)%start
 
         ! print*, me, i, j, " ElemsToRecv", elt_fant_recep_range(j)
 
@@ -632,8 +688,6 @@ subroutine lec_mail_cgns
   ! if(cg_goto(index_file, index_base, zss.str().c_str(), 0, "end")) cg_error_exit();
 
   ndwall = 0
-
-  print *, "nelt_fant_recep ", nelt_fant_recep
 
   call cg_close_f(fn, ierr)
   if (ierr .ne. CG_OK) call cg_error_exit_f
@@ -1318,6 +1372,7 @@ subroutine calcul_long_entree
     long_entree(ientree) = 0.
   end do
 
+  print*,nelt_fant_recep
   do kvol=1,nelt-nelt_fant_recep
     do kfac=1,ns
       n1 = connectivite(kvol,kfac)
