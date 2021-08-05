@@ -177,6 +177,16 @@ subroutine Full_FV
       real(fp_kind), dimension(:), intent(inout)  :: soleta, solh, solhu, solhv
     end subroutine bluekenue_export
 
+    subroutine cgns_export(solh, solhu, solhv, t, it)
+      use precision_m
+      use global
+      use m_param
+      use cgns
+      integer, intent(in) :: it
+      real(fp_kind), intent(in) :: t
+      real(fp_kind), dimension(:), intent(in)  :: solh, solhu, solhv
+    end subroutine cgns_export
+
     subroutine paraview_export(solh, soleta, solhu, solhv, iaff)
       use precision_m
       use global
@@ -806,6 +816,10 @@ subroutine Full_FV
       start=0
       call paraview_export (she0, sh0, shu0, shv0, cptsolvtk)
       cptsolvtk = cptsolvtk + 1
+
+      if(is_cgns==1) then
+        call cgns_export(she0, shu0, shv0, tsolvtk(cptsolvtk), cptsolvtk)
+      end if
     endif
 
     if (solsimple /= 0 .and. abs( tc - tsolsimple(cptsolsimple) ) <= tolaffiche) then

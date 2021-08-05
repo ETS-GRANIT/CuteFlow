@@ -609,7 +609,7 @@ subroutine lec_mail_cgns
 
       nelt_fant_envoi_bloc = n_userdata2
       allocate(elt_fant_envoi_list(nelt_fant_envoi_bloc))
-      allocate(reqsend(nelt_fant_envoi_bloc), sendstat(MPI_STATUS_SIZE, nelt_fant_envoi_bloc))
+      ! allocate(reqsend(nelt_fant_envoi_bloc), sendstat(MPI_STATUS_SIZE, nelt_fant_envoi_bloc))
 
       !!Pour tous les voisins
       do j=1,n_userdata2
@@ -651,7 +651,7 @@ subroutine lec_mail_cgns
       nelt_fant_recep_bloc = n_userdata2
       nelt_fant_recep = 0
       allocate(elt_fant_recep_range(nelt_fant_recep_bloc))
-      allocate(reqrecv(nelt_fant_recep_bloc), recvstat(MPI_STATUS_SIZE, nelt_fant_recep_bloc))
+      ! allocate(reqrecv(nelt_fant_recep_bloc), recvstat(MPI_STATUS_SIZE, nelt_fant_recep_bloc))
 
       !!Pour tous les voisins
       do j=1,n_userdata2

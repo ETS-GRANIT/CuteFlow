@@ -564,6 +564,80 @@ subroutine simple_export(vdlg, vdlg1, solh, soleta, solhu, solhv, ci)
   call MPI_BARRIER(MPI_COMM_WORLD,mpi_ierr)
 end subroutine simple_export
 
+subroutine cgns_export(solh, solhu, solhv, t, it)
+  use global
+  use precision_m
+  use m_param
+  use cgns
+
+  implicit none 
+
+  integer, intent(in) :: it
+  real(fp_kind), intent(in) :: t
+  real(fp_kind), dimension(:), intent(in) :: solh, solhu, solhv
+
+  integer :: my_zone
+  integer :: ierr, fn, n_bases, base, cellDim, physDim, n_zones, zone, zoneType, sizes(3*3), ord, sol, field_n
+  character(200) :: basename, zonename
+
+
+  !!Read cgns file and goto good location
+  call cgp_pio_mode_f(0, ierr)
+
+  call cgp_open_f(meshfile, CG_MODE_MODIFY, fn, ierr)
+  if (ierr .ne. CG_OK) call cgp_error_exit_f
+
+  call cg_nbases_f(fn, n_bases, ierr)
+  if (ierr .ne. CG_OK) call cg_error_exit_f
+  base = 1
+
+  call cg_base_read_f(fn, base, basename, cellDim, physDim, ierr)
+  if (ierr .ne. CG_OK) call cg_error_exit_f
+
+  call cg_nzones_f(fn, base, n_zones, ierr)
+  if (ierr .ne. CG_OK) call cg_error_exit_f
+
+  do zone=1,n_zones
+    call cg_zone_type_f(fn, base, zone, zoneType, ierr)
+    if (ierr .ne. CG_OK) call cg_error_exit_f
+
+    call cg_zone_read_f(fn, base, zone, zonename, sizes, ierr)
+    if (ierr .ne. CG_OK) call cg_error_exit_f
+
+    call cg_goto_f(fn, base, ierr, trim(adjustl(zonename)), 0, "end")
+    if (ierr .ne. CG_OK) call cg_error_exit_f
+
+    call cg_ordinal_read_f(ord, ierr)
+    if (ierr .ne. CG_OK) call cg_error_exit_f
+
+    if(ord == mpi_process_id) then
+      exit
+    end if
+  end do
+
+  my_zone = zone
+
+  do zone=1,n_zones
+    !!!Vertex = 2
+    call cg_sol_write_f(fn, base, zone, 'Solution', 2, sol, ierr)
+    if (ierr .ne. CG_OK) call cg_error_exit_f
+
+    !!RealDouble = 4
+    call cgp_field_write_f(fn, base, zone, sol, 4, 'Height', field_n, ierr)
+    if (ierr .ne. CG_OK) call cgp_error_exit_f
+  end do
+
+  zone = my_zone
+
+
+  call cgp_field_write_data_f(fn, base, zone, sol, field_n, 1, nnt,  solh, ierr)
+  if (ierr .ne. CG_OK) call cgp_error_exit_f
+
+  call cgp_close_f(fn, ierr)
+  if (ierr .ne. CG_OK) call cgp_error_exit_f
+
+end subroutine cgns_export
+
 subroutine paraview_export(solh, soleta, solhu, solhv, ci)
   ! ==============================================================================
   !     paraview_export == Exporte dans un fichier vtk pour postraitement avec paraview
