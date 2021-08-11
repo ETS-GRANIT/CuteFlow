@@ -1,4 +1,4 @@
-attributes(global) subroutine cotes_cudaf3_riadh(surf_d, zm_d,vdlg_d)
+attributes(global) subroutine cotes_cudaf3(surf_d, zm_d,vdlg_d)
   ! Cacul du flux HLLC avec methode riadh
   ! Article : A Weighted Average Flux (WAF) scheme applied to shallow waterequations for real-life applications, Riadh et al.
 
@@ -22,6 +22,21 @@ attributes(global) subroutine cotes_cudaf3_riadh(surf_d, zm_d,vdlg_d)
       real(fp_kind), dimension(nelt_d), intent(in)     :: surf
       real(fp_kind), dimension(ndln_d,nelt_d), intent(in)   :: vdlg
     end subroutine solver_Riemann_cudaf_riadh
+
+    attributes(device) subroutine solver_Riemann_waf(kvol,kvoisin,surf,norm,vdlg,hl,ul,vl,hr,ur,vr,zml,zmr,flux,ln,pp)
+
+      use global_device
+
+      implicit none
+
+      integer, intent(in)                   :: kvol, kvoisin
+      integer, intent(inout)                :: pp
+      real(fp_kind), intent(in)                   :: hl, ul, vl, hr, ur, vr, zml, zmr, ln
+      real(fp_kind), dimension(2), intent(in)     :: norm
+      real(fp_kind), dimension(3), intent(inout)  :: flux
+      real(fp_kind), dimension(nelt_d), intent(in)     :: surf
+      real(fp_kind), dimension(ndln_d,nelt_d), intent(in)   :: vdlg
+    end subroutine solver_Riemann_waf
 
   end interface
 
@@ -166,8 +181,11 @@ attributes(global) subroutine cotes_cudaf3_riadh(surf_d, zm_d,vdlg_d)
       vitur = ( hur * norm(1) + hvr * norm(2) ) / hautr
       vitvr = ( hvr * norm(1) - hur * norm(2) ) / hautr
 
-      !call solver_Riemann_cudaf_riadh(gi,kvoisin,surf_d,norm,vdlg_d,hautl,vitul,vitvl,hautr,vitur,vitvr,zml,zmr,flux,ln,pp)
-      call solver_Riemann_cudaf_riadh(gi,kvoisin,surf_d,norm,vdlg_d,hijet,vitul,vitvl,hjiet,vitur,vitvr,zml,zmr,flux,ln,pp)
+      if(iflux_d==2) then
+        call solver_Riemann_cudaf_riadh(gi,kvoisin,surf_d,norm,vdlg_d,hijet,vitul,vitvl,hjiet,vitur,vitvr,zml,zmr,flux,ln,pp)
+      else if (iflux_d==3) then
+        call solver_Riemann_waf(gi,kvoisin,surf_d,norm,vdlg_d,hijet,vitul,vitvl,hjiet,vitur,vitvr,zml,zmr,flux,ln,pp)
+      end if
 
     endif ! de ( kvoisin > 0. )
 
@@ -189,9 +207,9 @@ attributes(global) subroutine cotes_cudaf3_riadh(surf_d, zm_d,vdlg_d)
     if(tj == 1)  resc_d(3,gi) = s1(ti, 1) + s1(ti, 2) + s1(ti, 3)
 
   endif ! Fin de if(gi<nelt_d) 
-end subroutine cotes_cudaf3_riadh
+end subroutine cotes_cudaf3
 
-attributes(global) subroutine cotes_cudaf3(surf_d, zm_d,vdlg_d)
+attributes(global) subroutine cotes_cudaf3_zoka(surf_d, zm_d,vdlg_d)
   ! ======================================================================
   !     cotes = calcul du flux à l'interface des cotes de kvol
   !     auteur : Youssef Loukili  GRANIT ETSMTL
@@ -438,7 +456,7 @@ attributes(global) subroutine cotes_cudaf3(surf_d, zm_d,vdlg_d)
     if(tj == 1)  resc_d(3,gi) = s1(ti, 1) + s1(ti, 2) + s1(ti, 3)
 
   endif ! Fin de if(gi<nelt_d) 
-end subroutine cotes_cudaf3
+end subroutine cotes_cudaf3_zoka
 
 
 attributes(device) subroutine solver_Riemann_cudaf(kvol,kvoisin,surf,norm,vdlg,hl,ul,vl,hr,ur,vr,zml,zmr,flux,ln,pp)
@@ -563,6 +581,149 @@ attributes(device) subroutine solver_Riemann_cudaf(kvol,kvoisin,surf,norm,vdlg,h
   flux(3) = norm(2) * flux1(2) + norm(1) * flux1(3)                       
 end subroutine solver_Riemann_cudaf
 
+attributes(device) subroutine solver_Riemann_waf(kvol,kvoisin,surf,norm,vdlg,hl,ul,vl,hr,ur,vr,zml,zmr,flux,ln,pp)
+  ! Solveur tiré de : "Numerical Tracking of Shallow Water Waves by the Unstructured Finite Volume WAF Approximation" 
+  !  Loukili et Soulaimani 2007
+
+  use precision_m
+  use global_device
+  implicit none
+
+  integer, intent(in)                         :: kvol, kvoisin
+  integer, intent(inout)                      :: pp
+  real(fp_kind), intent(in)                   :: hl, ul, vl, hr, ur, vr, zml, zmr, ln
+  real(fp_kind), dimension(2), intent(in)     :: norm
+  real(fp_kind), dimension(3), intent(inout)  :: flux
+  real(fp_kind), dimension(nelt_d), intent(in)     :: surf
+  real(fp_kind), dimension(ndln_d,nelt_d), intent(in)   :: vdlg
+
+  integer                       :: i 
+  real(fp_kind)                 :: eps
+  real(fp_kind), dimension(3)   :: flux1, flux_hllc, flux_waf
+  real(fp_kind), dimension(2,3) :: f, q
+  real(fp_kind), dimension(3) :: fet, qet
+  real(fp_kind)                 :: al, ar, het, gl, gr, sl, sr, set, xl, xr, uet, pql, pqr, denom, pond
+  real(fp_kind) :: dtoverdx, cr, cl, cet, wl, wlet, wlr, wr, wret
+
+  eps = 1e-6
+
+  pp = pp + 1
+
+  if(hl.lt.eps.and.hr.lt.eps) goto 20
+
+  al = sqrt( gp_d * hl )
+  ar = sqrt( gp_d * hr )
+
+  het  =  ( hl + hr ) / 2.  -  ( ur - ul ) * ( hl + hr ) / ( al + ar ) / 4.
+  uet  =  ( ul + ur ) / 2.  -  ( hr - hl ) * ( al + ar ) / ( hl + hr ) 
+
+  if ( het.lt.hl ) then
+    pql = 1.
+  else
+    if(hl.gt.eps) then
+      pql = sqrt(0.5*(het+hl)*het/hl**2)
+    else
+      pql = 0.
+    end if
+  endif
+
+  if ( het.lt.hr ) then
+    pqr = 1.
+  else
+    if(hr.gt.eps) then
+      pqr = sqrt(0.5*(het+hr)*het/hr**2)
+    else
+      pqr = 0.
+    end if
+  endif
+
+  20 continue
+
+  if ( hl.gt.eps ) then
+    sl = ul-al*pql
+  else
+    sl  = ur - 2 * ar
+    sr  = ur + ar
+    goto 35
+  end if
+
+  if ( hr.gt.eps ) then
+    sr = ur+ar*pqr
+  else
+    sl  = ul - al
+    sr  = ul + 2 * al
+    goto 35
+  end if
+
+  35 continue
+
+  denom = hr*(ur-sr)-hl*(ul-sl)
+  if(abs(denom).lt.eps) then
+    set = uet
+  else
+    set = (sl*hr*(ur-sr) -sr*hl*(ul-sl))/denom
+  end if
+
+  !Calcul de Ql et Qr
+  q(1,1) = hl
+  q(1,2) = hl*ul
+  q(1,3) = hl*vl
+
+  q(2,1) = hr
+  q(2,2) = hr*ur
+  q(2,3) = hr*vr
+
+  !!Cacul de G(Ul)
+  f(1,1) = hl * ul
+  f(1,2) = hl * ul**2 + gp_d*hl*hl/2.0D0
+  f(1,3) = hl * ul * vl
+
+  !!Cacul de G(Ur)
+  f(2,1) = hr * ur
+  f(2,2) = hr * ur**2 + gp_d*hr*hr/2.0D0
+  f(2,3) = hr * ur * vr
+
+  !!G(U*) 
+  fet = (sr*f(1,:)-sl*f(2,:)+sl*sr*(q(1,:)-q(2,:)))/(sr-sl+eps) !!HLL classique
+
+  !Flux HLLC
+  if (sl > 0) then ! G(Ul)
+    flux_hllc(:) = f(1,:)
+  else if (sr < 0) then ! G(Ur)
+    flux_hllc(:) = f(2,:)
+  else
+    flux_hllc(:) = fet(:)
+    !Correction HLLC
+    if(set > 0) then
+      flux_hllc(3) = flux_hllc(1) * vl
+    else
+      flux_hllc(3) = flux_hllc(1) * vr
+    end if
+  endif
+
+  dtoverdx =  dt_d/cotemin_arr_d(kvol)
+  cr = sr * dtoverdx
+  cl = sl * dtoverdx
+  cet = set * dtoverdx
+
+  wl = (1+cl)/2.
+  wlet = (1+cet)/2.
+
+  wlr = (cr-cl)/2.
+
+  wr = (1-cr)/2.
+  wret = (1-cet)/2.
+
+  flux_waf(1) = wl * f(1,1) + wlr * flux_hllc(1) + wr * f(2,1)
+  flux_waf(2) = wl * f(1,2) + wlr * flux_hllc(2) + wr * f(2,2)
+  flux_waf(3) = (wlet * vl + wret * vr)*flux_waf(1)
+
+  ! *** reprojection du flux ***
+  flux(1) = flux_waf(1)
+  flux(2) = norm(1) * flux_waf(2) - norm(2) * flux_waf(3)
+  flux(3) = norm(2) * flux_waf(2) + norm(1) * flux_waf(3)                       
+end subroutine solver_Riemann_waf
+
 attributes(device) subroutine solver_Riemann_cudaf_riadh(kvol,kvoisin,surf,norm,vdlg,hl,ul,vl,hr,ur,vr,zml,zmr,flux,ln,pp)
   ! Import des routines de Riadh ATA pour HLLC
   ! Méthode de l'article : 
@@ -587,7 +748,7 @@ attributes(device) subroutine solver_Riemann_cudaf_riadh(kvol,kvoisin,surf,norm,
   integer                       :: i 
   real(fp_kind)                 :: eps
   real(fp_kind), dimension(3)   :: flux1
-  real(fp_kind), dimension(2,3) :: f, fet, q, qet
+  real(fp_kind), dimension(2,3) :: f, q, fet, qet
   real(fp_kind)                 :: al, ar, het, gl, gr, sl, sr, set, xl, xr, uet, pql, pqr, denom, pond
 
   eps = 1e-6
@@ -717,7 +878,7 @@ attributes(device) subroutine solver_Riemann_cudaf_riadh(kvol,kvoisin,surf,norm,
     flux1(3) = f(2,3)
   endif
 
-  ! *** inersion du flux ***
+  ! *** reprojection du flux ***
   flux(1) = flux1(1)
   flux(2) = norm(1) * flux1(2) - norm(2) * flux1(3)
   flux(3) = norm(2) * flux1(2) + norm(1) * flux1(3)                       

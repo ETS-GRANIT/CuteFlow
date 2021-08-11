@@ -54,7 +54,7 @@ attributes(global) subroutine source_cudaf(vdlg_d,surf_d,zm_d,gradz_d,deltatmin_
     sourcbath_d(2,gi) = 0.
     sourcbath_d(3,gi) = 0.
 
-    if(iflux_d == 2) then
+    if(iflux_d == 2 .or. iflux_d==3) then
       do kvol=1,ns_d
 
         kvoisin = boundary_d(gi,kvol,1)

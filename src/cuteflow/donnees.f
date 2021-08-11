@@ -33,7 +33,7 @@
   H_sortie=29.0,                                                 ! Hauteur du niveau à la sortie du domaine
 
   ! Paramètres des schémas numériques
-  IFLUX=2,                                                       ! 1 -> HLLC zoka, 2 -> HLLC Riadh
+  IFLUX=2,                                                       ! 1 -> HLLC zoka, 2 -> HLLC Riadh, 3 -> Loukili order 2
   tolisec=1.0E-06,                                               ! Tolérence sec/mouillé
   timedisc='euler',                                              ! Schéma en temps : {euler,second,runge}
   friction=1,                                                    ! 1 pour prendre en compte la friction

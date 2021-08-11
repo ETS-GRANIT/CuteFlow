@@ -118,14 +118,6 @@ subroutine Full_FV
       implicit none
     end subroutine update_un_voisin_sec
 
-    attributes(global) subroutine cotes_cudaf3_riadh(surf_d,zm_d,vdlg_d)
-      use precision_m
-      use global_device
-      implicit none
-      real(fp_kind), dimension(nelt_d), intent(in)      :: surf_d, zm_d
-      real(fp_kind), dimension(ndln_d,nelt_d), intent(in)    :: vdlg_d
-    end subroutine cotes_cudaf3_riadh
-
     attributes(global) subroutine cotes_cudaf3(surf_d,zm_d,vdlg_d)
       use precision_m
       use global_device
@@ -133,6 +125,14 @@ subroutine Full_FV
       real(fp_kind), dimension(nelt_d), intent(in)      :: surf_d, zm_d
       real(fp_kind), dimension(ndln_d,nelt_d), intent(in)    :: vdlg_d
     end subroutine cotes_cudaf3
+
+    attributes(global) subroutine cotes_cudaf3_zoka(surf_d,zm_d,vdlg_d)
+      use precision_m
+      use global_device
+      implicit none
+      real(fp_kind), dimension(nelt_d), intent(in)      :: surf_d, zm_d
+      real(fp_kind), dimension(ndln_d,nelt_d), intent(in)    :: vdlg_d
+    end subroutine cotes_cudaf3_zoka
 
     subroutine gradeta(kvol,sh,greta)
       use precision_m
@@ -560,9 +560,9 @@ subroutine Full_FV
 
 
       if(iflux==1) then
-        call cotes_cudaf3<<<grids, tblocks, ns*tblocks%x*sizeof(1.0D0), stream1>>>(surf_d,zm_d,vdlg_d)
-      else if (iflux==2) then
-        call cotes_cudaf3_riadh<<<grids, tblocks, ns*tblocks%x*sizeof(1.0d0), stream1>>>(surf_d,zm_d,vdlg_d)
+        call cotes_cudaf3_zoka<<<grids, tblocks, ns*tblocks%x*sizeof(1.0D0), stream1>>>(surf_d,zm_d,vdlg_d)
+      else if (iflux==2 .or. iflux==3) then
+        call cotes_cudaf3<<<grids, tblocks, ns*tblocks%x*sizeof(1.0d0), stream1>>>(surf_d,zm_d,vdlg_d)
       else
         print*,"Mauvaise valeur de iflux"
       end if
@@ -817,9 +817,9 @@ subroutine Full_FV
       call paraview_export (she0, sh0, shu0, shv0, cptsolvtk)
       cptsolvtk = cptsolvtk + 1
 
-      if(is_cgns==1) then
-        call cgns_export(she0, shu0, shv0, tsolvtk(cptsolvtk), cptsolvtk)
-      end if
+      ! if(is_cgns==1) then
+      !   call cgns_export(she0, shu0, shv0, tsolvtk(cptsolvtk), cptsolvtk)
+      ! end if
     endif
 
     if (solsimple /= 0 .and. abs( tc - tsolsimple(cptsolsimple) ) <= tolaffiche) then
