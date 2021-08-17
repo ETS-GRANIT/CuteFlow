@@ -581,13 +581,43 @@ attributes(device) subroutine solver_Riemann_cudaf(kvol,kvoisin,surf,norm,vdlg,h
   flux(3) = norm(2) * flux1(2) + norm(1) * flux1(3)                       
 end subroutine solver_Riemann_cudaf
 
+attributes(device) subroutine limiter_leer(r, c, A)
+  use precision_m
+  use global_device
+
+  implicit none
+
+  real(fp_kind), intent(in) :: r, c 
+  real(fp_kind), intent(inout) :: A
+
+  if(r<=0) then 
+    A = 1.
+  else
+    A = 1-2*(1-abs(c))*r/(1+r)
+  end if
+end subroutine limiter_leer
+
 attributes(device) subroutine solver_Riemann_waf(kvol,kvoisin,surf,norm,vdlg,hl,ul,vl,hr,ur,vr,zml,zmr,flux,ln,pp)
   ! Solveur tiré de : "Numerical Tracking of Shallow Water Waves by the Unstructured Finite Volume WAF Approximation" 
   !  Loukili et Soulaimani 2007
 
   use precision_m
   use global_device
+  use main_prog_variables
   implicit none
+
+
+  interface
+    attributes(device) subroutine limiter_leer(r,c,A)
+      use precision_m
+      use global_device
+
+      implicit none
+
+      real(fp_kind), intent(in) :: r, c 
+      real(fp_kind), intent(inout) :: A
+    end subroutine
+  end interface
 
   integer, intent(in)                         :: kvol, kvoisin
   integer, intent(inout)                      :: pp
@@ -604,6 +634,10 @@ attributes(device) subroutine solver_Riemann_waf(kvol,kvoisin,surf,norm,vdlg,hl,
   real(fp_kind), dimension(3) :: fet, qet
   real(fp_kind)                 :: al, ar, het, gl, gr, sl, sr, set, xl, xr, uet, pql, pqr, denom, pond
   real(fp_kind) :: dtoverdx, cr, cl, cet, wl, wlet, wlr, wr, wret
+  real(fp_kind) :: rr, rl, ret, hl_upw, hr_upw, vr_upw, vl_upw, delta_loc_l, delta_loc_r, delta_loc_et
+  real(fp_kind) :: delta_upw_r, delta_upw_l, delta_upw_et, limit_l, limit_r, limit_et
+
+  integer :: kv, kvol_v1, kvol_v2, kvoisin_v1, kvoisin_v2
 
   eps = 1e-6
 
@@ -714,6 +748,79 @@ attributes(device) subroutine solver_Riemann_waf(kvol,kvoisin,surf,norm,vdlg,hl,
   wr = (1-cr)/2.
   wret = (1-cet)/2.
 
+  !! TVD stabilization 
+
+  delta_loc_r = hr-hl
+  delta_loc_l = hr-hl
+  delta_loc_et = vr-vl
+
+  !!Order 2 second neighbor
+  kv=1
+  kvol_v1 = boundary_d(kvol,kv,1)
+  if(kvol_v1 == kvoisin) then
+    kv=kv+1
+    kvol_v1 = boundary_d(kvol,kv,1)
+  end if
+  kv=kv+1
+  kvoisin_v2 = boundary_d(kvol,1+mod(kv-1,3),1)
+  if(kvol_v2 == kvoisin) then
+    kv=kv+1
+    kvoisin_v2 = boundary_d(kvol,1+mod(kv-1,3),1)
+  end if
+
+  kv=1
+  kvoisin_v1 = boundary_d(kvoisin,kv,1)
+  if(kvoisin_v1 == kvol) then
+    kv=kv+1
+    kvoisin_v1 = boundary_d(kvoisin,kv,1)
+  end if
+  kv=kv+1
+  kvoisin_v2 = boundary_d(kvoisin,1+mod(kv-1,3),1)
+  if(kvoisin_v2 == kvol) then
+    kv=kv+1
+    kvoisin_v2 = boundary_d(kvoisin,1+mod(kv-1,3),1)
+  end if
+
+ !! MODIFIER PROJECTION VITESSES 
+  hl_upw = (surf_d(kvol)*hl+surf_d(kvol_v1)*vdlg_d(1,kvol_v1)+surf_d(kvol_v2)*vdlg_d(1,kvol_v2))/(surf_d(kvol)+surf_d(kvol_v1)+surf_d(kvol_v2))
+  hr_upw = (surf_d(kvoisin)*hr+surf_d(kvoisin_v1)*vdlg_d(1,kvoisin_v1)+surf_d(kvoisin_v2)*vdlg_d(1,kvoisin_v2))/(surf_d(kvoisin)+surf_d(kvoisin_v1)+surf_d(kvoisin_v2))
+  vl_upw = (surf_d(kvol)*vl+surf_d(kvol_v1)*vdlg_d(3,kvol_v1)+surf_d(kvol_v2)*vdlg_d(3,kvol_v2))/(surf_d(kvol)+surf_d(kvol_v1)+surf_d(kvol_v2))
+  vr_upw = (surf_d(kvoisin)*vr+surf_d(kvoisin_v1)*vdlg_d(3,kvoisin_v1)+surf_d(kvoisin_v2)*vdlg_d(3,kvoisin_v2))/(surf_d(kvoisin)+surf_d(kvoisin_v1)+surf_d(kvoisin_v2))
+
+  if(sr>0) then
+    delta_upw_r = hl-hl_upw
+  else
+    delta_upw_r = hr_upw-hr
+  endif
+
+  if(sl>0) then
+    delta_upw_l = hl-hl_upw
+  else
+    delta_upw_l = hr_upw-hr
+  endif
+
+  if(set>0) then
+    delta_upw_et = vl-vl_upw
+  else
+    delta_upw_et = vr_upw-vr
+  endif
+
+  rl = delta_upw_l/delta_loc_l
+  rr = delta_upw_r/delta_loc_r
+  ret = delta_upw_et/delta_loc_et
+
+  call limiter_leer(rl,cl,limit_l)
+  call limiter_leer(rr,cr,limit_r)
+  call limiter_leer(ret,cet,limit_et)
+
+  wl = (1 + abs(cl)/cl * limit_l)
+  wlet = (1 + abs(cet)/cet * limit_et)
+
+  wlr = (abs(cr)/cr*limit_r - abs(cl)/cl*limit_l)/2.
+
+  wr = (1 - abs(cr)/cr * limit_r)
+  wret = (1 - abs(cet)/cet * limit_et)
+
   flux_waf(1) = wl * f(1,1) + wlr * flux_hllc(1) + wr * f(2,1)
   flux_waf(2) = wl * f(1,2) + wlr * flux_hllc(2) + wr * f(2,2)
   flux_waf(3) = (wlet * vl + wret * vr)*flux_waf(1)
@@ -724,15 +831,13 @@ attributes(device) subroutine solver_Riemann_waf(kvol,kvoisin,surf,norm,vdlg,hl,
   flux(3) = norm(2) * flux_waf(2) + norm(1) * flux_waf(3)                       
 end subroutine solver_Riemann_waf
 
+
 attributes(device) subroutine solver_Riemann_cudaf_riadh(kvol,kvoisin,surf,norm,vdlg,hl,ul,vl,hr,ur,vr,zml,zmr,flux,ln,pp)
   ! Import des routines de Riadh ATA pour HLLC
   ! Méthode de l'article : 
   ! A Weighted Average Flux (WAF) scheme applied to shallow waterequations for real-life applications
   ! Riadh ATA et al.
-  ! 
-  ! Contrairement a l'autre solveur de Zokagoa on ne prend pas en compte la bathymétrie ici
-  ! il faut la traiter dans les termes sources
-
+  !  ! Contrairement a l'autre solveur de Zokagoa on ne prend pas en compte la bathymétrie ici ! il faut la traiter dans les termes sources
   use precision_m
   use global_device
   implicit none
