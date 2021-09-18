@@ -39,13 +39,6 @@ subroutine Full_FV
       real(fp_kind), intent(inout)                  :: deltatmin_d(nelt_d-nelt_fant_recep_d)
     end subroutine cflcond_cudaf
 
-    attributes(global) subroutine cflcond_reduc_cudaf(solut_d, deltatmin_d)
-      use precision_m
-      use global_device 
-      real(fp_kind), dimension(ndln_d,nelt_d), intent(in)     :: solut_d
-      real(fp_kind), intent(inout)                  :: deltatmin_d(nelt_d-nelt_fant_recep_d)
-    end subroutine cflcond_reduc_cudaf
-
     attributes(global) subroutine cflcond_sec_cudaf(solut_d, deltatmin_d, dt_d)
       use precision_m
       use global_device 

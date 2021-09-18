@@ -32,6 +32,10 @@ attributes(global) subroutine cflcond_cudaf(solut_d, deltatmin_d)
     else
       deltatmin_d(gi) = 1000000.0D0
     endif
+
+    if(is_dt_constant_d==1) then
+      deltatmin_d(gi) = constant_dt_d
+    end if
   endif   
   dt_d=1000000.0D0
 end subroutine cflcond_cudaf
@@ -63,61 +67,6 @@ attributes(global) subroutine cflcond_sec_cudaf(solut_d, deltatmin_d, dt_d)
   endif   
 end subroutine cflcond_sec_cudaf
 
-attributes(global) subroutine cflcond_reduc_cudaf(solut_d, deltatmin_d)
-
-  use precision_m
-  use global_device
-
-  implicit none
-
-  real(fp_kind), dimension(ndln_d,nelt_d), intent(in)     :: solut_d
-  real(fp_kind), dimension(nelt_d-nelt_fant_recep_d), intent(inout)         :: deltatmin_d
-
-  real(fp_kind)               :: hauteur, vitessu, vitessv, normvites, vitessmax
-  integer                     :: ti,gi, i, ierr_d
-  real(fp_kind), shared       :: s(*)
-
-  ti = threadIdx%x
-  gi = (blockIdx%x - 1)*blockDim%x + ti
-
-
-  s(ti) = 10000000.0D0
-  dt_d = s(1)
-  if(gi <= nelt_d-nelt_fant_recep_d) then
-    deltatmin_d(gi) = 1000000.0D0
-    hauteur = solut_d(1,gi)
-    if ( hauteur > tolisec_d ) then
-      vitessu = solut_d(2,gi) / hauteur
-      vitessv = solut_d(3,gi) / hauteur
-      normvites = sqrt(vitessu**2 + vitessv**2)
-      vitessmax = max( 0.01D0, (normvites + sqrt(gp_d * abs(hauteur))))
-      deltatmin_d(gi) = min( cfl_d * cotemin_arr_d(gi)/vitessmax, 1000000.0D0)
-      ! deltatmin_d(gi) = 1e-5
-    else
-      deltatmin_d(gi) = 1000000.0D0
-    endif
-    s(ti) = deltatmin_d(gi)
-  endif   
-
-  call syncthreads()
-  i = blockdim%x/2 !! Block dim doit etre divisible par 2
-  do while(i/=1)
-    if(threadidx%x <= i) then
-      s(threadidx%x) = min(s(threadidx%x), s(threadidx%x + i))
-    end if
-    i = i/2
-    call syncthreads()
-  end do
-  s(1) = min(s(1), s(2))
-
-  if(ti == 1) then
-    do while(atomicCas(mutex,0,1)/=0)
-    end do
-    dt_d = min(dt_d,s(1))
-    ierr_d = atomicExch(mutex, 0)
-  end if
-end subroutine cflcond_reduc_cudaf
-
 attributes(global) subroutine reduction(deltatmin_d)
 
   use precision_m
@@ -140,9 +89,6 @@ attributes(global) subroutine reduction(deltatmin_d)
     s(ti) = 100000.0d0
   end if
 
-  ! if(gi+blockDim%x<=nelt_d-nelt_fant_recep_d) then
-  !   s(ti) = min(s(ti), deltatmin_d(gi+blockDim%x))
-  ! end if
   call syncthreads()
 
   i = blockdim%x/2

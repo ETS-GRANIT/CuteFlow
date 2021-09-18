@@ -24,13 +24,15 @@ module global_device
   real(fp_kind), constant            :: xplan_d, yplan_d, zplan_d, xpoint_d, ypoint_d, zpoint_d
 
   !! Simulation variables
-  integer, constant:: iflux_d, fricimplic_d, debit_var_d, inlet_d, local_time_step_d
+  integer, constant:: iflux_d, ilimiteur_d, fricimplic_d, debit_var_d, inlet_d, local_time_step_d
   integer, constant:: freqaffich_d
   integer, constant:: comptvisu_d, cptsolvtk_d, cptsoljauge_d, cptsolrestart_d, cptdebit_d 
   real(fp_kind), constant:: long_d, critere_arret_d
   real(fp_kind), dimension(20), constant:: debitglob_d, h_sortie_d
   real(fp_kind), constant:: ts_d, tsstab_d, cfl_d, tol_d, tolisec_d, tolaffiche_d, tol_reg_perm_d
   real(fp_kind), device :: dt_d
+  integer, constant :: is_dt_constant_d
+  real(fp_kind), constant :: constant_dt_d
   integer, constant:: multi_simul_d, monte_carlo_d
 
   character, device, allocatable  :: un_voisin_sec1_d(:)

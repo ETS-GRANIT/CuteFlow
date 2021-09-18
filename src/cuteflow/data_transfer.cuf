@@ -48,6 +48,7 @@ subroutine global_data_transfer
 
   ! loi_debitglob_d = loi_debitglob
   iflux_d         = iflux
+  ilimiteur_d     = ilimiteur
   fricimplic_d    = fricimplic
   debit_var_d     = debit_var 
   freqaffich_d    = freqaffich
@@ -62,6 +63,8 @@ subroutine global_data_transfer
   h_sortie_d      = h_sortie
   ts_d            = ts
   tsstab_d        = tsstab
+  is_dt_constant_d= is_dt_constant
+  constant_dt_d   = constant_dt
   dt_d            = dt
   cfl_d           = cfl
   tol_d           = tol

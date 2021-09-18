@@ -332,32 +332,45 @@ attributes(device) subroutine limiter(r, c, A)
   real(fp_kind), intent(in) :: r, c 
   real(fp_kind), intent(inout) :: A
 
-  !!!Superbee
-  if(r<=0) then 
-    A = 1.
-  else if(r>0. .and. r<0.5) then
-    A = 1-2*(1-abs(c))*r
-  else if(r>0.5 .and. r<1.) then
-    A = abs(c)
-  else if(r>1. .and. r<2.) then
-    A = 1-(1-abs(c))*r
-  else
-    A = 2*abs(c)-1
+  if(ilimiteur_d==0) then
+    !!Reduction to HLLC
+    A =1.
+
+  else if(ilimiteur_d==1) then
+
+    !!!Superbee
+    if(r<=0) then 
+      A = 1.
+    else if(r>0. .and. r<0.5) then
+      A = 1-2*(1-abs(c))*r
+    else if(r>0.5 .and. r<1.) then
+      A = abs(c)
+    else if(r>1. .and. r<2.) then
+      A = 1-(1-abs(c))*r
+    else
+      A = 2*abs(c)-1.
+    end if
+
+  else if(ilimiteur_d==2) then
+
+    !!Leer
+    if(r<=0) then 
+      A = 1.
+    else
+      A = 1-2*(1-abs(c))*r/(1+r)
+    end if
+
+  else if(ilimiteur_d==3) then
+
+    !!ALbada
+    if(r<=0) then 
+      A = 1.
+    else
+      A = 1.-2.*(1.-abs(c))*r*(1+r)/(1+r*r)
+    end if
+
   end if
 
-  !!Leer
-  ! if(r<=0) then 
-  !   A = 1.
-  ! else
-  !   A = 1-2*(1-abs(c))*r/(1+r)
-  ! end if
-
-  !!ALbada
-  ! if(r<=0) then 
-  !   A = 1.
-  ! else
-  !   A = 1.-2.*(1.-abs(c))*r*(1+r)/(1+r*r)
-  ! end if
 end subroutine limiter
 
 attributes(device) subroutine solver_Riemann_waf(kvol,kvoisin,surf,norm,vdlg,hl,ul,vl,hr,ur,vr,zml,zmr,kvol_v1,kvol_v1_h,kvol_v1_u,kvol_v1_v,kvol_v2, kvol_v2_h,kvol_v2_u,kvol_v2_v,kvoisin_v1,kvoisin_v1_h,kvoisin_v1_u,kvoisin_v1_v,kvoisin_v2,kvoisin_v2_h,kvoisin_v2_u,kvoisin_v2_v,flux,ln,pp)
@@ -505,7 +518,8 @@ attributes(device) subroutine solver_Riemann_waf(kvol,kvoisin,surf,norm,vdlg,hl,
   ! dtoverdx =  1.8*cfl_d*dt_d/cotemin_arr_d(kvol) !!cotemin_arr_d is 1.8*inscribed_circle_radius
   ! dtoverdx =  1.8*dt_d/cotemin_arr_d(kvol) !!cotemin_arr_d is 1.8*inscribed_circle_radius
   ! dtoverdx =  1.8*dt_d/cotemin_arr_d(kvol) !!cotemin_arr_d is 1.8*inscribed_circle_radius
-  dtoverdx =  1.8*dt_d/cotemin_arr_d(kvol) * (1./cfl_d) !!cotemin_arr_d is 1.8*inscribed_circle_radius
+  dtoverdx =  dt_d/cotemin_arr_d(kvol) !!cotemin_arr_d is 1.8*inscribed_circle_radius
+  ! dtoverdx =  1.8*dt_d/cotemin_arr_d(kvol) * (1./cfl_d) !!cotemin_arr_d is 1.8*inscribed_circle_radius
 
   cr = sr * dtoverdx
   cl = sl * dtoverdx

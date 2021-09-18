@@ -54,13 +54,14 @@ module global
   character(len=10)   :: timedisc
   character(len=6)    :: inlet
   character(len=30)   :: loi_debitglob
-  integer :: iflux, fricimplic, debit_var  
+  integer :: iflux, ilimiteur=1, fricimplic, debit_var  
   integer :: freqaffich, nbrjauges, nbrcoupes, jauges_snapshots, solrestart, restart_snapshots, coupes_snapshots, simple_snapshots
   real(fp_kind) :: sol_z_offset=0.
   integer :: comptvisu, cptsolvtk, cptsoljauge, cptsolrestart, cptdebit, cptviscoupe, cptsolsimple
   real(fp_kind) :: long, critere_arret, debitglob_sum!, dt
   real(fp_kind), dimension(20) :: debitglob, h_sortie
   real(fp_kind) :: ts, tsstab, cfl, tolisec, tol_reg_perm
+  real(fp_kind) :: constant_dt=0.
   real(fp_kind), allocatable, pinned :: dt, dt_max
   real(fp_kind) :: tol=1e-6, tolaffiche=1e-1
   real(fp_kind), dimension(10) :: coupe_a, coupe_b
@@ -76,7 +77,7 @@ module global
   integer :: vtk_snapshots, base_unique, nonlin, solvtk, k_base
   integer :: monte_carlo, is_dry_as_wall, local_time_step
   integer :: cuda_aware=1
-  integer :: is_cgns=0
+  integer :: is_cgns=0, is_dt_constant=0
 
   !! Construction de la namelist pour la lecture du fichier de donnee
   namelist/donnees_namelist/ &
@@ -97,11 +98,13 @@ module global
 
   & inlet, debitglob,debit_var,loi_debitglob, h_sortie, &
 
-  & iflux, tolisec, timedisc, & 
+  & iflux, ilimiteur,&
+  & tolisec, timedisc, & 
   & friction, fricimplic, &
   & is_dry_as_wall, local_time_step,&
    
   & ts, cfl, tol_reg_perm,& 
+  & is_dt_constant, constant_dt, &
   & freqaffich,tolaffiche&
   & merged_solution,&
   & nbrjauges, jauges_snapshots &
