@@ -213,32 +213,19 @@ attributes(device) subroutine solver_Riemann_waf(kvol,kvoisin,surf,norm,vdlg,hl,
         end if
 
         if(kvol_v1 < 1) then
-          if(kvol_v1 == -1) then !! entree
-            kvol_v1 = kvol
-          else if(kvol_v1 == -2) then !sortie
-            kvol_v1 = kvol
-          else if(kvol_v1 == -3) then !mur
-            kvol_v1 = kvol
-          end if
+          kvol_v1 = kvol
         end if
 
         if(kvol_v2 < 1) then
-          if(kvol_v2 == -1) then !! entree
-            kvol_v2 = kvol
-          else if(kvol_v2 == -2) then !sortie
-            kvol_v2 = kvol
-          else if(kvol_v2 == -3) then !mur
-            kvol_v2 = kvol
-          end if
+          kvol_v2 = kvol
         end if
-
-        ! write(*,*),kvol,kvol_v1,kvol_v2
 
         kvol_v1_h = vdlg_d(1,kvol_v1)
         if(kvol_v1_h>tolisec_d) then
           kvol_v1_u = (vdlg_d(2,kvol_v1) * norm(1) + vdlg_d(3,kvol_v1) * norm(2))/kvol_v1_h
           kvol_v1_v = (vdlg_d(3,kvol_v1) * norm(1) - vdlg_d(2,kvol_v1) * norm(2))/kvol_v1_h
         else
+          kvol_v1_h = tolisec_d
           kvol_v1_u = 0.
           kvol_v1_v = 0.
         end if
@@ -248,6 +235,7 @@ attributes(device) subroutine solver_Riemann_waf(kvol,kvoisin,surf,norm,vdlg,hl,
           kvol_v2_u = (vdlg_d(2,kvol_v2) * norm(1) + vdlg_d(3,kvol_v2) * norm(2))/kvol_v2_h
           kvol_v2_v = (vdlg_d(3,kvol_v2) * norm(1) - vdlg_d(2,kvol_v2) * norm(2))/kvol_v2_h
         else
+          kvol_v2_h = tolisec_d
           kvol_v2_u = 0.
           kvol_v2_v = 0.
         end if
@@ -268,23 +256,11 @@ attributes(device) subroutine solver_Riemann_waf(kvol,kvoisin,surf,norm,vdlg,hl,
         ! write(*,*),kvoisin,kvoisin_v1,kvoisin_v2
 
         if(kvoisin_v1 < 1) then
-          if(kvoisin_v1 == -1) then !! entree
-            kvoisin_v1 = kvoisin
-          else if(kvoisin_v1 == -2) then !sortie
-            kvoisin_v1 = kvoisin
-          else if(kvoisin_v1 == -3) then !mur
-            kvoisin_v1 = kvoisin
-          end if
+          kvoisin_v1 = kvoisin
         end if
 
         if(kvoisin_v2 < 1) then
-          if(kvoisin_v2 == -1) then !! entree
-            kvoisin_v2 = kvoisin
-          else if(kvoisin_v2 == -2) then !sortie
-            kvoisin_v2 = kvoisin
-          else if(kvoisin_v2 == -3) then !mur
-            kvoisin_v2 = kvoisin
-          end if
+          kvoisin_v2 = kvoisin
         end if
 
         kvoisin_v1_h = vdlg_d(1,kvoisin_v1)
@@ -292,8 +268,9 @@ attributes(device) subroutine solver_Riemann_waf(kvol,kvoisin,surf,norm,vdlg,hl,
           kvoisin_v1_u = (vdlg_d(2,kvoisin_v1) * norm(1) + vdlg_d(3,kvoisin_v1) * norm(2))/kvoisin_v1_h
           kvoisin_v1_v = (vdlg_d(3,kvoisin_v1) * norm(1) - vdlg_d(2,kvoisin_v1) * norm(2))/kvoisin_v1_h
         else
-          kvoisin_v1_u = 0
-          kvoisin_v1_v = 0
+          kvoisin_v1_h = tolisec_d
+          kvoisin_v1_u = 0.
+          kvoisin_v1_v = 0.
         end if
 
         kvoisin_v2_h = vdlg_d(1,kvoisin_v2)
@@ -301,8 +278,9 @@ attributes(device) subroutine solver_Riemann_waf(kvol,kvoisin,surf,norm,vdlg,hl,
           kvoisin_v2_u = (vdlg_d(2,kvoisin_v2) * norm(1) + vdlg_d(3,kvoisin_v2) * norm(2))/kvoisin_v2_h
           kvoisin_v2_v = (vdlg_d(3,kvoisin_v2) * norm(1) - vdlg_d(2,kvoisin_v2) * norm(2))/kvoisin_v2_h
         else
-          kvoisin_v2_u = 0
-          kvoisin_v2_v = 0
+          kvoisin_v2_h = tolisec_d
+          kvoisin_v2_u = 0.
+          kvoisin_v2_v = 0.
         end if
 
 
@@ -703,7 +681,7 @@ attributes(device) subroutine solver_Riemann_cudaf(kvol,kvoisin,surf,norm,vdlg,h
   flux(3) = norm(2) * flux1(2) + norm(1) * flux1(3)                       
 end subroutine solver_Riemann_cudaf
 
-attributes(device) subroutine limiter_leer(r, c, A)
+attributes(device) subroutine limiter(r, c, A)
   use precision_m
   use global_device
 
@@ -712,12 +690,33 @@ attributes(device) subroutine limiter_leer(r, c, A)
   real(fp_kind), intent(in) :: r, c 
   real(fp_kind), intent(inout) :: A
 
+  !!!Superbee
   if(r<=0) then 
     A = 1.
+  else if(r>0. .and. r<0.5) then
+    A = 1-2*(1-abs(c))*r
+  else if(r>0.5 .and. r<1.) then
+    A = abs(c)
+  else if(r>1. .and. r<2.) then
+    A = 1-(1-abs(c))*r
   else
-    A = 1-2*(1-abs(c))*r/(1+r)
+    A = 2*abs(c)-1
   end if
-end subroutine limiter_leer
+
+  !!Leer
+  ! if(r<=0) then 
+  !   A = 1.
+  ! else
+  !   A = 1-2*(1-abs(c))*r/(1+r)
+  ! end if
+
+  !!ALbada
+  ! if(r<=0) then 
+  !   A = 1.
+  ! else
+  !   A = 1.-2.*(1.-abs(c))*r*(1+r)/(1+r*r)
+  ! end if
+end subroutine limiter
 
 attributes(device) subroutine solver_Riemann_waf(kvol,kvoisin,surf,norm,vdlg,hl,ul,vl,hr,ur,vr,zml,zmr,kvol_v1,kvol_v1_h,kvol_v1_u,kvol_v1_v,kvol_v2, kvol_v2_h,kvol_v2_u,kvol_v2_v,kvoisin_v1,kvoisin_v1_h,kvoisin_v1_u,kvoisin_v1_v,kvoisin_v2,kvoisin_v2_h,kvoisin_v2_u,kvoisin_v2_v,flux,ln,pp)
   ! Solveur tiré de : "Numerical Tracking of Shallow Water Waves by the Unstructured Finite Volume WAF Approximation" 
@@ -730,7 +729,7 @@ attributes(device) subroutine solver_Riemann_waf(kvol,kvoisin,surf,norm,vdlg,hl,
 
 
   interface
-    attributes(device) subroutine limiter_leer(r,c,A)
+    attributes(device) subroutine limiter(r,c,A)
       use precision_m
       use global_device
 
@@ -764,7 +763,7 @@ attributes(device) subroutine solver_Riemann_waf(kvol,kvoisin,surf,norm,vdlg,hl,
   real(fp_kind) :: rr, rl, ret, hl_upw, hr_upw, vr_upw, vl_upw, delta_loc_l, delta_loc_r, delta_loc_et
   real(fp_kind) :: delta_upw_r, delta_upw_l, delta_upw_et, limit_l, limit_r, limit_et
 
-  eps = 1e-6
+  eps = 1e-8
 
   pp = pp + 1
 
@@ -843,7 +842,7 @@ attributes(device) subroutine solver_Riemann_waf(kvol,kvoisin,surf,norm,vdlg,hl,
   f(2,3) = hr * ur * vr
 
   !!G(U*) 
-  fet = (sr*f(1,:)-sl*f(2,:)+sl*sr*(q(1,:)-q(2,:)))/(sr-sl+eps) !!HLL classique
+  fet = (sr*f(1,:)-sl*f(2,:)+sl*sr*(q(2,:)-q(1,:)))/(sr-sl+eps) !!HLL classique
 
   !Flux HLLC
   if (sl > 0) then ! G(Ul)
@@ -860,7 +859,11 @@ attributes(device) subroutine solver_Riemann_waf(kvol,kvoisin,surf,norm,vdlg,hl,
     end if
   endif
 
-  dtoverdx =  dt_d/cotemin_arr_d(kvol)
+
+  ! dtoverdx =  1.8*cfl_d*dt_d/cotemin_arr_d(kvol) !!cotemin_arr_d is 1.8*inscribed_circle_radius
+  ! dtoverdx =  1.8*dt_d/cotemin_arr_d(kvol) !!cotemin_arr_d is 1.8*inscribed_circle_radius
+  ! dtoverdx =  1.8*dt_d/cotemin_arr_d(kvol) !!cotemin_arr_d is 1.8*inscribed_circle_radius
+  dtoverdx =  1.8*dt_d/cotemin_arr_d(kvol) * (1./cfl_d) !!cotemin_arr_d is 1.8*inscribed_circle_radius
   cr = sr * dtoverdx
   cl = sl * dtoverdx
   cet = set * dtoverdx
@@ -874,15 +877,15 @@ attributes(device) subroutine solver_Riemann_waf(kvol,kvoisin,surf,norm,vdlg,hl,
   wret = (1-cet)/2.
 
   !! TVD stabilization 
-
   delta_loc_r = hr-hl
   delta_loc_l = hr-hl
   delta_loc_et = vr-vl
 
-  hl_upw = (surf_d(kvol)*hl+surf_d(kvol_v1)*kvol_v1_h+surf_d(kvol_v2)*kvol_v2_h)/(surf_d(kvol)+surf_d(kvol_v1)+surf_d(kvol_v2))
-  hr_upw = (surf_d(kvoisin)*hr+surf_d(kvoisin_v1)*kvoisin_v1_h+surf_d(kvoisin_v2)*kvoisin_v2_h)/(surf_d(kvoisin)+surf_d(kvoisin_v1)+surf_d(kvoisin_v2))
-  vl_upw = (surf_d(kvol)*vl+surf_d(kvol_v1)*kvol_v1_v+surf_d(kvol_v2)*kvol_v2_v)/(surf_d(kvol)+surf_d(kvol_v1)+surf_d(kvol_v2))
-  vr_upw = (surf_d(kvoisin)*vr+surf_d(kvoisin_v1)*kvoisin_v1_v+surf_d(kvoisin_v2)*kvoisin_v2_v)/(surf_d(kvoisin)+surf_d(kvoisin_v1)+surf_d(kvoisin_v2))
+  hl_upw = (surf_d(kvol)*   hl + surf_d(kvol_v1)*   kvol_v1_h    + surf_d(kvol_v2)*   kvol_v2_h)     /(surf_d(kvol)    + surf_d(kvol_v1)    +surf_d(kvol_v2))
+  hr_upw = (surf_d(kvoisin)*hr + surf_d(kvoisin_v1)*kvoisin_v1_h + surf_d(kvoisin_v2)*kvoisin_v2_h)  /(surf_d(kvoisin) + surf_d(kvoisin_v1) +surf_d(kvoisin_v2))
+
+  vl_upw = (surf_d(kvol)*   vl + surf_d(kvol_v1)*   kvol_v1_v    + surf_d(kvol_v2)*   kvol_v2_v)     /(surf_d(kvol)    + surf_d(kvol_v1)    +surf_d(kvol_v2))
+  vr_upw = (surf_d(kvoisin)*vr + surf_d(kvoisin_v1)*kvoisin_v1_v + surf_d(kvoisin_v2)*kvoisin_v2_v)  /(surf_d(kvoisin) + surf_d(kvoisin_v1) +surf_d(kvoisin_v2))
 
   if(sr>0) then
     delta_upw_r = hl-hl_upw
@@ -902,33 +905,35 @@ attributes(device) subroutine solver_Riemann_waf(kvol,kvoisin,surf,norm,vdlg,hl,
     delta_upw_et = vr_upw-vr
   endif
 
-  rl = delta_upw_l/(delta_loc_l + 1e-8)
-  rr = delta_upw_r/(delta_loc_r + 1e-8)
-  ret = delta_upw_et/(delta_loc_et + 1e-8)
+  rl = delta_upw_l/(delta_loc_l + eps)
+  rr = delta_upw_r/(delta_loc_r + eps)
+  ret = delta_upw_et/(delta_loc_et + eps)
 
-  call limiter_leer(rl,cl,limit_l)
-  call limiter_leer(rr,cr,limit_r)
-  call limiter_leer(ret,cet,limit_et)
+  call limiter(rl,cl,limit_l)
+  call limiter(rr,cr,limit_r)
+  call limiter(ret,cet,limit_et)
 
-  wl = (1 + abs(cl)/cl * limit_l)/2.
-  wlet = (1 + abs(cet)/cet * limit_et)/2.
+  wl = (1 + dsign(1.d0,cl) * limit_l)/2.
+  wlet = (1 + dsign(1.d0,cet) * limit_et)/2.
 
-  wlr = (abs(cr)/cr*limit_r - abs(cl)/cl*limit_l)/2.
+  wlr = (dsign(1.d0,cr)*limit_r - dsign(1.d0,cl)*limit_l)/2.
 
-  wr = (1 - abs(cr)/cr * limit_r)/2.
-  wret = (1 - abs(cet)/cet * limit_et)/2.
+  wr = (1 - dsign(1.d0,cr) * limit_r)/2.
+  wret = (1 - dsign(1.d0,cet) * limit_et)/2.
 
-  flux_waf(1) = wl * f(1,1) + wlr * flux_hllc(1) + wr * f(2,1)
-  flux_waf(2) = wl * f(1,2) + wlr * flux_hllc(2) + wr * f(2,2)
-  flux_waf(3) = (wlet * vl + wret * vr)*flux_waf(1)
-  ! if(kvol==1) then
-  !   print*,wl,wlr,wr
-  ! end if
+  flux_waf(1) = wl*f(1,1) + wlr*flux_hllc(1) + wr*f(2,1)
+  flux_waf(2) = wl*f(1,2) + wlr*flux_hllc(2) + wr*f(2,2)
+  flux_waf(3) = (wlet*vl + wret*vr)*flux_waf(1)
 
   ! *** reprojection du flux ***
   flux(1) = flux_waf(1)
-  flux(2) = norm(1) * flux_waf(2) - norm(2) * flux_waf(3)
-  flux(3) = norm(2) * flux_waf(2) + norm(1) * flux_waf(3)                       
+  flux(2) = norm(1)*flux_waf(2) - norm(2)*flux_waf(3)
+  flux(3) = norm(2)*flux_waf(2) + norm(1)*flux_waf(3)                       
+  
+  !!For only using hllc (test purposes)
+  ! flux(1) = flux_hllc(1)
+  ! flux(2) = norm(1) * flux_hllc(2) - norm(2) * flux_hllc(3)
+  ! flux(3) = norm(2) * flux_hllc(2) + norm(1) * flux_hllc(3)                       
 end subroutine solver_Riemann_waf
 
 

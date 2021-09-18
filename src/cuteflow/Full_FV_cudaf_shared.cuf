@@ -407,7 +407,7 @@ subroutine Full_FV
   dt_arr = deltatmin_d
   dt = minval(dt_arr)
   if(dt<1e-14) then
-    dt = 1e-8
+    dt = 1e-10
   endif
   call MPI_ALLREDUCE(MPI_IN_PLACE,dt,1,fp_kind_mpi,MPI_MIN,MPI_COMM_WORLD, mpi_ierr)
   ! call MPI_BARRIER(MPI_COMM_WORLD,mpi_ierr)
@@ -721,6 +721,12 @@ subroutine Full_FV
       ierr = cudaStreamSynchronize(stream1)
       call MPI_ALLREDUCE(MPI_IN_PLACE,dt,1,fp_kind_mpi,MPI_MIN,MPI_COMM_WORLD, mpi_ierr)
       ! call MPI_BARRIER(MPI_COMM_WORLD,mpi_ierr)
+    end if
+
+    ! dt=1e-5
+
+    if(dt>9999 .or. dt < 1e-15) then
+      print*, "Erreur sur le pas de temps dt=", dt
     end if
 
 

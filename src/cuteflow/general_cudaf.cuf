@@ -237,8 +237,9 @@ program general
   tc_init_d        = tc_init
 
   !! Construction / lecture  et  stockage du maillage 
+  print*,mpi_process_id,"lect const mail debut"
   call lect_const_mail
-  print*,mpi_process_id,"lect const mail ok"
+  print*,mpi_process_id,"lect const mail fin"
 
   cotemin_arr_d = cotemin_arr
   call cuda_glerror('ierr <-- cotemin_arr_d = cotemin_arr',1)

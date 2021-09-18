@@ -709,6 +709,8 @@ subroutine lec_mail_cgns
   nombre_output_d  = nombre_output
   ndw_d  = ndw
 
+  call cuda_glerror('ierr->memory transfers 1-->lec_mail_cngs--> (maillage.cuf)',1)
+
   coordonnees_d       = coordonnees
   manning_nd_d        = manning_nd
   connectivite_d      = connectivite
@@ -718,6 +720,8 @@ subroutine lec_mail_cgns
   ndoutput_d          = ndoutput
   numero_ndoutput_d   = numero_ndoutput
   ndwall_d            = ndwall
+
+  call cuda_glerror('ierr->memory transfers 2-->lec_mail_cngs--> (maillage.cuf)',1)
 
   if(num_mpi_process>1) then
     nelt_fant_recep_d = nelt_fant_recep
