@@ -46,63 +46,59 @@ attributes(global) subroutine source_cudaf(vdlg_d,surf_d,zm_d,gradz_d,deltatmin_
     end if
 
     !       ++++++++++++++  SLOPE  +++++++++++++++
-    ! On traite la bathymetrie seulement dans le cas iflux=2 (riadh) 
-    ! dans le cas iflux=1 (zoka) c'est déja pris en compte dans le calcul des fluxs
     ! Eq 30 de A Weighted Average Flux (WAF) scheme applied to shallow waterequations for real-life applications (Riadh et al.)
 
     sourcbath_d(1,gi) = 0.
     sourcbath_d(2,gi) = 0.
     sourcbath_d(3,gi) = 0.
 
-    if(iflux_d == 2 .or. iflux_d==3) then
-      do kvol=1,ns_d
+    do kvol=1,ns_d
 
-        kvoisin = boundary_d(gi,kvol,1)
+      kvoisin = boundary_d(gi,kvol,1)
 
-        ! Uniquement si pas limite
-        if(kvoisin > 0) then
+      ! Uniquement si pas limite
+      if(kvoisin > 0) then
 
-          ! Recuperation des indices des sommets et orientation de la normale comme dans cotes_cudaf_shared.cuf
-          nc1 = kvol
+        ! Recuperation des indices des sommets et orientation de la normale comme dans cotes_cudaf_shared.cuf
+        nc1 = kvol
 
-          cond = merge(1,0, nc1 == ns_d)
-          nc2 = int((nc1 - ns_d + 1)*cond + (nc1 + 1)*(1-cond))
+        cond = merge(1,0, nc1 == ns_d)
+        nc2 = int((nc1 - ns_d + 1)*cond + (nc1 + 1)*(1-cond))
 
-          cond = merge(1,0, nc2 == ns_d)
-          nc3 = int((nc2 - ns_d + 1)*cond + (nc2 + 1)*(1-cond))
+        cond = merge(1,0, nc2 == ns_d)
+        nc3 = int((nc2 - ns_d + 1)*cond + (nc2 + 1)*(1-cond))
 
-          x1 = coo_table_elemwise_d(gi, 3*nc1-2)
-          y1 = coo_table_elemwise_d(gi, 3*nc1-1)
+        x1 = coo_table_elemwise_d(gi, 3*nc1-2)
+        y1 = coo_table_elemwise_d(gi, 3*nc1-1)
 
-          x2 = coo_table_elemwise_d(gi, 3*nc2-2)
-          y2 = coo_table_elemwise_d(gi, 3*nc2-1) 
+        x2 = coo_table_elemwise_d(gi, 3*nc2-2)
+        y2 = coo_table_elemwise_d(gi, 3*nc2-1) 
 
-          x3 = coo_table_elemwise_d(gi, 3*nc3-2)
-          y3 = coo_table_elemwise_d(gi, 3*nc3-1) 
+        x3 = coo_table_elemwise_d(gi, 3*nc3-2)
+        y3 = coo_table_elemwise_d(gi, 3*nc3-1) 
 
-          ln = sqrt( (x2 - x1)**2 + (y2 - y1)**2 )
+        ln = sqrt( (x2 - x1)**2 + (y2 - y1)**2 )
 
-          norm(1) = ( y2 - y1 ) / ln
-          norm(2) = ( x1 - x2 ) / ln
+        norm(1) = ( y2 - y1 ) / ln
+        norm(2) = ( x1 - x2 ) / ln
 
-          orient = norm(1)*((x1+x2)/2.-(x1+x2+x3)/3.) + norm(2)*((y1+y2)/2.-(y1+y2+y3)/3.)
-          if(orient < 0.) then
-            norm(1) = ( y1 - y2 ) / ln
-            norm(2) = ( x2 - x1 ) / ln
-          end if
-
-          zij = max(zm_d(gi),zm_d(kvoisin))
-
-          hijet = q1 + zm_d(gi) - zij
-
-          hijet = max(0.0D0,hijet)
-
-          sourcbath_d(2,gi) = sourcbath_d(2,gi) + gp_d/2.0D0 * (hijet**2 - q1**2) * ln * norm(1)
-          sourcbath_d(3,gi) = sourcbath_d(3,gi) + gp_d/2.0D0 * (hijet**2 - q1**2) * ln * norm(2)
+        orient = norm(1)*((x1+x2)/2.-(x1+x2+x3)/3.) + norm(2)*((y1+y2)/2.-(y1+y2+y3)/3.)
+        if(orient < 0.) then
+          norm(1) = ( y1 - y2 ) / ln
+          norm(2) = ( x2 - x1 ) / ln
         end if
 
-      end do
-    end if
+        zij = max(zm_d(gi),zm_d(kvoisin))
+
+        hijet = q1 + zm_d(gi) - zij
+
+        hijet = max(0.0D0,hijet)
+
+        sourcbath_d(2,gi) = sourcbath_d(2,gi) + gp_d/2.0D0 * (hijet**2 - q1**2) * ln * norm(1)
+        sourcbath_d(3,gi) = sourcbath_d(3,gi) + gp_d/2.0D0 * (hijet**2 - q1**2) * ln * norm(2)
+      end if
+
+    end do
 
     !       ++++++++++++++  FRICTION  +++++++++++++++
     if (friction_d == 1) then
