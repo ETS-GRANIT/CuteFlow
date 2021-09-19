@@ -369,7 +369,18 @@ attributes(device) subroutine limiter(r, c, A)
       A = 1.-2.*(1.-abs(c))*r*(1+r)/(1+r*r)
     end if
 
-  end if
+  else if(ilimiteur_d==4) then
+
+    !!Minbee
+    if(r<=0) then
+      A = 1.
+    else if(r<=1) then
+      A = 1 - (1-abs(c))*r
+    else
+      A = abs(c)
+    end if
+
+end if
 
 end subroutine limiter
 
@@ -518,31 +529,23 @@ attributes(device) subroutine solver_Riemann_waf(kvol,kvoisin,surf,norm,vdlg,hl,
   ! dtoverdx =  1.8*cfl_d*dt_d/cotemin_arr_d(kvol) !!cotemin_arr_d is 1.8*inscribed_circle_radius
   ! dtoverdx =  1.8*dt_d/cotemin_arr_d(kvol) !!cotemin_arr_d is 1.8*inscribed_circle_radius
   ! dtoverdx =  1.8*dt_d/cotemin_arr_d(kvol) !!cotemin_arr_d is 1.8*inscribed_circle_radius
-  dtoverdx =  dt_d/cotemin_arr_d(kvol) !!cotemin_arr_d is 1.8*inscribed_circle_radius
+  dtoverdx =  2.*dt_d/min(cotemin_arr_d(kvoisin), cotemin_arr_d(kvol)) !!cotemin_arr_d is 1.8*inscribed_circle_radius
   ! dtoverdx =  1.8*dt_d/cotemin_arr_d(kvol) * (1./cfl_d) !!cotemin_arr_d is 1.8*inscribed_circle_radius
 
   cr = sr * dtoverdx
   cl = sl * dtoverdx
   cet = set * dtoverdx
 
-  wl = (1+cl)/2.
-  wlet = (1+cet)/2.
-
-  wlr = (cr-cl)/2.
-
-  wr = (1-cr)/2.
-  wret = (1-cet)/2.
-
   !! TVD stabilization 
   delta_loc_r = hr-hl
   delta_loc_l = hr-hl
   delta_loc_et = vr-vl
 
-  hl_upw = (surf_d(kvol)*   hl + surf_d(kvol_v1)*   kvol_v1_h    + surf_d(kvol_v2)*   kvol_v2_h)     /(surf_d(kvol)    + surf_d(kvol_v1)    +surf_d(kvol_v2))
-  hr_upw = (surf_d(kvoisin)*hr + surf_d(kvoisin_v1)*kvoisin_v1_h + surf_d(kvoisin_v2)*kvoisin_v2_h)  /(surf_d(kvoisin) + surf_d(kvoisin_v1) +surf_d(kvoisin_v2))
+  hl_upw=(surf_d(kvol_v1)*kvol_v1_h+surf_d(kvol_v2)*kvol_v2_h)/(surf_d(kvol_v1)+surf_d(kvol_v2))
+  hr_upw=(surf_d(kvoisin_v1)*kvoisin_v1_h+surf_d(kvoisin_v2)*kvoisin_v2_h)/(surf_d(kvoisin_v1)+surf_d(kvoisin_v2))
 
-  vl_upw = (surf_d(kvol)*   vl + surf_d(kvol_v1)*   kvol_v1_v    + surf_d(kvol_v2)*   kvol_v2_v)     /(surf_d(kvol)    + surf_d(kvol_v1)    +surf_d(kvol_v2))
-  vr_upw = (surf_d(kvoisin)*vr + surf_d(kvoisin_v1)*kvoisin_v1_v + surf_d(kvoisin_v2)*kvoisin_v2_v)  /(surf_d(kvoisin) + surf_d(kvoisin_v1) +surf_d(kvoisin_v2))
+  vl_upw=(surf_d(kvol_v1)*kvol_v1_v+surf_d(kvol_v2)*kvol_v2_v)/(surf_d(kvol_v1)+surf_d(kvol_v2))
+  vr_upw=(surf_d(kvoisin_v1)*kvoisin_v1_v+surf_d(kvoisin_v2)*kvoisin_v2_v)/(surf_d(kvoisin_v1)+surf_d(kvoisin_v2))
 
   if(sr>0) then
     delta_upw_r = hl-hl_upw
