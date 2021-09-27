@@ -422,8 +422,12 @@ subroutine Full_FV
   write(*,*) 'Loop over time starts' 
   iaff = 0
   do while ( (tc - ts + 2*tol ) < tol )
-    ! do while ( nt < 5 )
-    !!do while ( nt < 100 )
+    if(debug_mode==1) then
+      if(nt >= max_iter-1) then
+        tc = ts+1
+      end if
+    end if
+
     ierr = cudaDeviceSynchronize()
     if(dt>100000) then
       print*," !!! ATTENTION !!! : dt > 100000 probable erreur, diminuer le nombre cfl ou augmenter la tolérence sec/mouillé" 
@@ -731,51 +735,8 @@ subroutine Full_FV
       ! print*,"VOLUME TOTAL ", total_volume, " M3"
     endif
 
-    ! *** storage of the solution in 2D sections for the table time 'tvis2d'
-    ! read in the simulation data ***
-    som_Q_coupe = 0.d0
-
-    if ( abs( tc - tsolcoupes(cptviscoupe) ) < tolaffiche) then
-      if (nbrcoupes > 0 ) then
-        if(is_solnode == 0) then 
-          vdlg = vdlg_d
-          call cuda_glerror('ierr<- (D->H) data_transfer into vdlg(1) <-- Full_FV_cudaf_shared.cuf',1)
-          call sol_nodes(vdlg,surf,zm,sh0,she0,shu0,shv0,su0,sv0)
-          is_solnode = 1
-        endif
-
-        start=0
-        call stock_coupe2D(she0, sh0, shu0, su0)
-        cptviscoupe = cptviscoupe + 1
-      endif
-    endif
-
-    ! *** stockage de la solution pour les positions des gauges 'xjauges' et 'yjauges' ***
-    if ( abs( tc - tsoljauge(cptsoljauge) ) <= tolaffiche) then
-      if ( nbrjauges > 0 .and. nodjauges(1) >  0) then
-        if ( nbrjauges <= 30 ) then
-          if(is_solnode == 0) then 
-            vdlg = vdlg_d
-            call cuda_glerror('ierr<- (D->H) data_transfer into vdlg(2)',1)
-            call sol_nodes(vdlg,surf,zm,sh0,she0,shu0,shv0,su0,sv0)
-            is_solnode = 1
-          endif
-          write(ec_solj_eta,'(f18.3,30f14.6)')   tc , (sh0(nodjauges(j)),  j=1,nbrjauges)
-          write(ec_solj_h,'  (f18.3,30f14.6)')   tc , (she0(nodjauges(j)), j=1,nbrjauges)
-          write(ec_solj_u,'  (f18.3,30f14.6)')   tc , (shu0(nodjauges(j)), j=1,nbrjauges)
-          write(ec_solj_v,'  (f18.3,30f14.6)')   tc , (shv0(nodjauges(j)), j=1,nbrjauges)
-        else
-          if ( nbrjauges > 30) write(*,*) '*** Attention : nombre de jauges > 30 ***'
-        endif
-        cptsoljauge = cptsoljauge + 1
-      endif
-
-      ! Ecriture des debits a travers les differentes coupes
-      ! if (nbrcoupes>1) write(ec_Q_coupes,'(f18.3,30f16.3)')   tc , (Q_coupe(j), j=1,nbrcoupes) 
-    endif
-
     ! *** Stockage de la solution pour postraitement et animation 
-    if (solvtk == 1 .and. abs( tc - tsolvtk(cptsolvtk) ) <= tolaffiche) then
+    if( (solvtk == 1 .and. abs( tc - tsolvtk(cptsolvtk) ) <= tolaffiche) .or. (debug_mode == 1) )then
       if(is_solnode == 0) then 
         vdlg = vdlg_d
         call cuda_glerror('ierr<- (D->H) data_transfer into vdlg(3) <-- Full_FV_cudaf_shared.cuf',1)
@@ -792,7 +753,7 @@ subroutine Full_FV
       ! end if
     endif
 
-    if (solsimple /= 0 .and. abs( tc - tsolsimple(cptsolsimple) ) <= tolaffiche) then
+    if ((solsimple /= 0 .and. abs( tc - tsolsimple(cptsolsimple) ) <= tolaffiche) .or. (debug_mode == 1) )then
       if(is_solnode == 0) then 
         vdlg = vdlg_d
         call cuda_glerror('ierr<- (D->H) data_transfer into vdlg(3) <-- Full_FV_cudaf_shared.cuf',1)
@@ -932,7 +893,7 @@ subroutine Full_FV
   end if
 
   !STORAGE OF FINAL SOLUTIONS IN ALL ELEMENTS OF THE DOMAIN (For restarting)
-  if(solrestart==1 .and. abs( tc - tsolrestart(cptsolrestart) ) <= tolaffiche) then
+  if((solrestart==1 .and. abs( tc - tsolrestart(cptsolrestart) ) <= tolaffiche) .or. (debug_mode==1))then
     write(ec_sol_elt_t,*) tc                        
     do iel=1,nelt
       write(ec_sol_elt_t,'(4f16.6)') vdlg(1,iel), vdlg1(1,iel), vdlg1(2,iel), vdlg1(3,iel)

@@ -78,10 +78,12 @@ module global
   integer :: monte_carlo, is_dry_as_wall, local_time_step
   integer :: cuda_aware=1
   integer :: is_cgns=0, is_dt_constant=0
+  integer :: debug_mode=0, max_iter=5
 
   !! Construction de la namelist pour la lecture du fichier de donnee
   namelist/donnees_namelist/ &
 
+  & debug_mode, max_iter, &
   & gp, &
   & is_override_manning, override_manning, & 
 
