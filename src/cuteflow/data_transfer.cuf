@@ -48,6 +48,7 @@ subroutine global_data_transfer
 
   ! loi_debitglob_d = loi_debitglob
   iflux_d         = iflux
+  debug_mode_d    = debug_mode
   ilimiteur_d     = ilimiteur
   fricimplic_d    = fricimplic
   debit_var_d     = debit_var 

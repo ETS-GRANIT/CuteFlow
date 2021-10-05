@@ -84,6 +84,7 @@ attributes(global) subroutine cotes_cudaf3(surf_d, zm_d,vdlg_d)
   ! do it outside and see if un_voisin_sec is being used here    
 
   if(gi <= nelt_d-nelt_fant_recep_d) then
+    ! write(*,*),gi,"launch"
     kvol = gi
     nc1 = tj
     cond = merge(1,0, nc1 == ns_d)
@@ -223,8 +224,9 @@ attributes(global) subroutine cotes_cudaf3(surf_d, zm_d,vdlg_d)
         kvol_v2 = boundary_d(kvol,1+mod(kv-1,3),1)
         if(kvol_v2 == kvoisin) then
           kv=kv+1
-          kvoisin_v2 = boundary_d(kvol,1+mod(kv-1,3),1)
+          kvol_v2 = boundary_d(kvol,1+mod(kv-1,3),1)
         end if
+
 
         if(kvol_v1 < 1) then
           kvol_v1 = kvol
@@ -268,6 +270,7 @@ attributes(global) subroutine cotes_cudaf3(surf_d, zm_d,vdlg_d)
         end if
 
         ! write(*,*),kvoisin,kvoisin_v1,kvoisin_v2
+        ! write(*,*),kvol,kvol_v1,kvol_v2
 
         if(kvoisin_v1 < 1) then
           kvoisin_v1 = kvoisin
@@ -297,9 +300,20 @@ attributes(global) subroutine cotes_cudaf3(surf_d, zm_d,vdlg_d)
           kvoisin_v2_v = 0.
         end if
 
+        ! print*,kvol,kvoisin,kvol_v1,kvol_v2
+        ! if(kvol==3269) then
+        !   write(*,*) "dindon", kvol, kvol_v1, kvol_v2, kvoisin, kvoisin_v1, kvoisin_v2
+        ! end if
 
-        call solver_Riemann_waf(gi,kvoisin,surf_d,norm,vdlg_d,hijet,vitul,vitvl,hjiet,vitur,vitvr,zml,zmr,kvol_v1,kvol_v1_h,kvol_v1_u,kvol_v1_v,kvol_v2,kvol_v2_h,kvol_v2_u,kvol_v2_v,kvoisin_v1,kvoisin_v1_h,kvoisin_v1_u,kvoisin_v1_v,kvoisin_v2,kvoisin_v2_h,kvoisin_v2_u,kvoisin_v2_v,flux,ln,pp)
-      end if
+        if(((kvol_v1 == kvol) .or. (kvol_v2==kvol)) .or. ((kvoisin_v1==kvoisin) .or. (kvoisin_v2==kvoisin))) then
+          ! write(*,*),kvol,kvol_v1,kvol_v2, "bords"
+          call solver_Riemann_riadh(gi,kvoisin,surf_d,norm,vdlg_d,hijet,vitul,vitvl,hjiet,vitur,vitvr,zml,zmr,flux,ln,pp)
+        else
+          ! write(*,*),kvol,kvol_v1,kvol_v2
+          call solver_Riemann_waf(gi,kvoisin,surf_d,norm,vdlg_d,hijet,vitul,vitvl,hjiet,vitur,vitvr,zml,zmr,kvol_v1,kvol_v1_h,kvol_v1_u,kvol_v1_v,kvol_v2,kvol_v2_h,kvol_v2_u,kvol_v2_v,kvoisin_v1,kvoisin_v1_h,kvoisin_v1_u,kvoisin_v1_v,kvoisin_v2,kvoisin_v2_h,kvoisin_v2_u,kvoisin_v2_v,flux,ln,pp)
+        end if
+
+      end if ! de choix schéma iflux
 
     endif ! de ( kvoisin > 0. )
 
@@ -429,7 +443,7 @@ attributes(device) subroutine solver_Riemann_waf(kvol,kvoisin,surf,norm,vdlg,hl,
   real(fp_kind) :: rr, rl, ret, hl_upw, hr_upw, vr_upw, vl_upw, delta_loc_l, delta_loc_r, delta_loc_et
   real(fp_kind) :: delta_upw_r, delta_upw_l, delta_upw_et, limit_l, limit_r, limit_et
 
-  eps = 1e-8
+  eps = 1e-16
 
   pp = pp + 1
 
@@ -525,12 +539,7 @@ attributes(device) subroutine solver_Riemann_waf(kvol,kvoisin,surf,norm,vdlg,hl,
     end if
   endif
 
-
-  ! dtoverdx =  1.8*cfl_d*dt_d/cotemin_arr_d(kvol) !!cotemin_arr_d is 1.8*inscribed_circle_radius
-  ! dtoverdx =  1.8*dt_d/cotemin_arr_d(kvol) !!cotemin_arr_d is 1.8*inscribed_circle_radius
-  ! dtoverdx =  1.8*dt_d/cotemin_arr_d(kvol) !!cotemin_arr_d is 1.8*inscribed_circle_radius
-  dtoverdx =  2.*dt_d/min(cotemin_arr_d(kvoisin), cotemin_arr_d(kvol)) !!cotemin_arr_d is 1.8*inscribed_circle_radius
-  ! dtoverdx =  1.8*dt_d/cotemin_arr_d(kvol) * (1./cfl_d) !!cotemin_arr_d is 1.8*inscribed_circle_radius
+  dtoverdx =  1.8*dt_d/min(cotemin_arr_d(kvoisin), cotemin_arr_d(kvol)) !!cotemin_arr_d is 1.8*inscribed_circle_radius
 
   cr = sr * dtoverdx
   cl = sl * dtoverdx
@@ -573,13 +582,13 @@ attributes(device) subroutine solver_Riemann_waf(kvol,kvoisin,surf,norm,vdlg,hl,
   call limiter(rr,cr,limit_r)
   call limiter(ret,cet,limit_et)
 
-  wl = (1 + dsign(1.d0,cl) * limit_l)/2.
-  wlet = (1 + dsign(1.d0,cet) * limit_et)/2.
+  wl = (1 + dsign(1.d0,sl) * limit_l)/2.
+  wlet = (1 + dsign(1.d0,set) * limit_et)/2.
 
-  wlr = (dsign(1.d0,cr)*limit_r - dsign(1.d0,cl)*limit_l)/2.
+  wlr = (dsign(1.d0,sr)*limit_r - dsign(1.d0,sl)*limit_l)/2.
 
-  wr = (1 - dsign(1.d0,cr) * limit_r)/2.
-  wret = (1 - dsign(1.d0,cet) * limit_et)/2.
+  wr = (1 - dsign(1.d0,sr) * limit_r)/2.
+  wret = (1 - dsign(1.d0,set) * limit_et)/2.
 
   flux_waf(1) = wl*f(1,1) + wlr*flux_hllc(1) + wr*f(2,1)
   flux_waf(2) = wl*f(1,2) + wlr*flux_hllc(2) + wr*f(2,2)
