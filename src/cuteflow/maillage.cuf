@@ -19,6 +19,11 @@ subroutine lect_const_mail
       use cudafor
     end subroutine tab_bound_tri_cudaf
 
+    attributes(global) subroutine find_upwind_cells
+      use precision_m
+      use global_device
+    end subroutine find_upwind_cells
+
     subroutine lec_mail_tri
       use precision_m
       use global
@@ -69,7 +74,7 @@ subroutine lect_const_mail
   type(cudaEvent)             :: startEvent , stopEvent
   real(fp_kind)               :: start_cpu, stop_cpu, errf1, errf2, errf3
   real                        :: time_cuda
-
+  type (dim3)                 :: block_set, grid_set
 
   !! ns = nombre de sommet ici 3 pour des triangles
   ns = 3
@@ -126,6 +131,17 @@ subroutine lect_const_mail
     boundary_d = boundary
     call cuda_glerror('ierr <- (h->d) data transfer boundary_d = boundary <--- maillage.cuf',1)
   endif
+
+  !!Si iflux==3 alors on calcule les elements upwind de chaque coté de chaque cellule
+  if(iflux==3) then
+    block_set = dim3(32,1,1)
+    grid_set  = dim3(ceiling(real(nelt)/real(block_set%x)),1,1)
+    call check_gridlim(block_set, grid_set, 'err <- tab_bound_tri_cudaf <-- maillage.cuf (1)')
+
+    allocate(upwind_cells_d(2,3,nelt)) !!Pas dealocate pour l'instant
+    call find_upwind_cells<<<grid_set, block_set>>>()
+    call cuda_glerror('ierr <- memory allocation of upwindcells <-- maillage.cuf',1)
+  end if
 
 
   !! Calcul des longueurs des entrées
@@ -773,10 +789,10 @@ subroutine tab_bound_tri_cudaf
 
     end subroutine find_neighbour_big
 
+
   end interface
   type ( dim3 ) :: grid_loc, tblock_loc, block_set, grid_set
   integer :: ierr_loc, nity, i
-
 
   block_set = dim3(32,1,1)
   grid_set  = dim3(ceiling(real(nelt)/real(block_set%x)),1,1)
@@ -903,6 +919,32 @@ attributes(global) subroutine find_neighbour()
   end if
 
 end subroutine find_neighbour
+
+attributes(global) subroutine find_upwind_cells()
+  use precision_m
+  use global_device
+  implicit none
+
+  integer :: ti, gi, kv, c
+
+  ti = threadidx%x
+  gi = (blockidx%x - 1)*blockdim%x + ti
+
+  if(gi <= nelt_d) then
+    do c=1,3
+      if(boundary_d(gi,1+mod((c+1)-1,3),1)>0) then
+        upwind_cells_d(1,c,gi) = boundary_d(gi,1+mod((c+1)-1,3),1)
+      else
+        upwind_cells_d(1,c,gi) = gi
+      endif
+      if(boundary_d(gi,1+mod((c+2)-1,3),1)>0) then
+        upwind_cells_d(2,c,gi) = boundary_d(gi,1+mod((c+2)-1,3),1)
+      else
+        upwind_cells_d(2,c,gi) = gi
+      endif
+    end do
+  end if
+end subroutine find_upwind_cells
 
 attributes(global) subroutine find_neighbour_big(nmin, nmax)
   use precision_m
