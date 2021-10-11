@@ -457,13 +457,17 @@ subroutine lec_mail_cgns
 
   implicit none
 
-  integer :: dummy_int, dummy_wall, i, j
+  integer :: dummy_int, dummy_wall, i, j, it
   real(fp_kind) :: dummy_real
   character(200) :: dummy_char
+  logical :: found
 
   integer :: ierr, cellDim, physDim
   integer :: fn, n_bases, base, n_zones, zone, zoneType, n_sections, section, ord
-  integer :: n_bocos, boco, bocoType, normListFlag, normDataType, nDataSet, n_bcnodes, normalIndex
+  integer :: n_bocos, boco, bocoType, normListFlag, normDataType, nDataSet, n_bcnodes 
+  integer :: normalIndex
+  ! integer, dimension(:), allocatable :: normalIndex
+  ! integer, dimension(3) :: normalIndex
   integer :: ptSetType, n_userdata, n_ptSet, n_userdata2
   integer :: sizes(3*3), sectionType, nBeg, nEnd, eBeg, eEnd, nBdry, flag
   character(200) :: filename, basename, command, zonename, sectionname, boconame
@@ -570,10 +574,13 @@ subroutine lec_mail_cgns
   if (ierr .ne. CG_OK) call cg_error_exit_f
 
   nombre_input=0
+  ndi = 0
   nombre_output=0
+  ndo = 0
 
   print*, n_bocos, "boundary conditions"
 
+  !!Read a first time to see how many input/outputs there are
   do boco=1,n_bocos
     call cg_boco_info_f(fn, base, zone, boco, boconame, bocoType,&
       &ptsetType, n_bcnodes, &
@@ -581,36 +588,86 @@ subroutine lec_mail_cgns
     if (ierr .ne. CG_OK) call cg_error_exit_f
 
     if(n_bcnodes>1) then
-      if(boconame == "Inflow nodes") then
-        ndi = n_bcnodes
-        nombre_input=1
-        allocate(ndinput(ndi))
-        allocate(numero_ndinput(ndi))
-        allocate(ndinput_d(ndi))
-        allocate(numero_ndinput_d(ndi))
-        call cg_boco_read_f(fn, base, zone, boco, ndinput, NULL, ierr)
-        numero_ndinput(:) = 1
-        print*,mpi_process_id," input nodes ",ndi,ndinput(1)
-        if (ierr .ne. CG_OK) call cg_error_exit_f
-      else if(boconame == "Outflow nodes") then
-        ndo = n_bcnodes
-        nombre_output=1
-        allocate(ndoutput(ndo))
-        allocate(numero_ndoutput(ndo))
-        allocate(numero_ndoutput_d(ndo))
-        allocate(ndoutput_d(ndo))
-        numero_ndoutput(:) = 1
-        call cg_boco_read_f(fn, base, zone, boco, ndoutput, NULL, ierr)
-        if (ierr .ne. CG_OK) call cg_error_exit_f
+      if(bocoType == 9) then !!Inflow
+        nombre_input = nombre_input + 1
+        ndi = ndi + n_bcnodes
+      else if(bocoType == 13) then !!Outflow
+        nombre_output = nombre_output + 1
+        ndo = ndo + n_bcnodes
       end if
     end if
   end do
 
+  print*, "INPUT " , nombre_input, ndi
   if(nombre_input>0) then
-    call mpi_allreduce(mpi_in_place,nombre_input,1,MPI_INTEGER,mpi_sum,mpi_comm_world,mpi_ierr)
     allocate(long_entree(nombre_input))
     allocate(long_entree_d(nombre_input))
+    allocate(ndinput(ndi))
+    allocate(numero_ndinput(ndi))
+    allocate(ndinput_d(ndi))
+    allocate(numero_ndinput_d(ndi))
   end if
+
+  print*, "OUTPUT " , nombre_output, ndo
+  if(nombre_output>0) then
+    allocate(ndoutput(ndo))
+    allocate(numero_ndoutput(ndo))
+    allocate(numero_ndoutput_d(ndo))
+    allocate(ndoutput_d(ndo))
+  end if
+
+  ndi = 0
+  ndo = 0
+
+  do boco=1,n_bocos
+    call cg_boco_info_f(fn, base, zone, boco, boconame, bocoType,&
+      &ptsetType, n_bcnodes, &
+      &normalIndex, normListFlag, normDataType, nDataset, ierr)
+    if (ierr .ne. CG_OK) call cg_error_exit_f
+    boconame = trim(adjustl(boconame))
+
+    if(n_bcnodes>1) then
+      if(bocoType == 9) then
+        call cg_boco_read_f(fn, base, zone, boco, ndinput(ndi+1:), NULL, ierr)
+        !!Find which input from the donnees.f file it corresponds to
+        found = .FALSE.
+        do it=1,nombre_input
+          if(boconame == inlet_name(it)) then
+            numero_ndinput(ndi+1:) = it
+            found = .TRUE.
+          end if
+        end do
+        if (not (found)) then
+          print*,"Inlet name : ", trim(adjustl(boconame)), ", not found in donnees.f file ! Setting it to 1"
+          numero_ndinput(ndi+1:) = 1
+        end if
+        ! print*,mpi_process_id," input nodes ",ndi,numero_ndinput(ndi+1),ndinput(ndi+1)
+        if (ierr .ne. CG_OK) call cg_error_exit_f
+        ndi = ndi + n_bcnodes
+      else if(bocoType == 13) then
+        found = .FALSE.
+        do it=1,nombre_output
+          if(boconame == outlet_name(it)) then
+            numero_ndoutput(ndo+1:) = it
+            found = .TRUE.
+          end if
+        end do
+        if (not (found)) then
+          print*,"Outlet name : ", trim(adjustl(boconame)), ", not found in donnees.f file ! Setting it to 1"
+          numero_ndinput(ndi+1:) = 1
+        end if
+        call cg_boco_read_f(fn, base, zone, boco, ndoutput(ndo+1:), NULL, ierr)
+        if (ierr .ne. CG_OK) call cg_error_exit_f
+        ndo = ndo + n_bcnodes
+      end if
+    end if
+  end do
+
+  ! if(nombre_input>0) then
+  !   call mpi_allreduce(mpi_in_place,nombre_input,1,MPI_INTEGER,mpi_sum,mpi_comm_world,mpi_ierr)
+  !   allocate(long_entree(nombre_input))
+  !   allocate(long_entree_d(nombre_input))
+  ! end if
 
 
   call cg_goto_f(fn, base, ierr, zonename, 0, "end")

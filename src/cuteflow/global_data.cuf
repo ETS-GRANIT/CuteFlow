@@ -60,6 +60,7 @@ module global
   integer :: comptvisu, cptsolvtk, cptsoljauge, cptsolrestart, cptdebit, cptviscoupe, cptsolsimple
   real(fp_kind) :: long, critere_arret, debitglob_sum!, dt
   real(fp_kind), dimension(20) :: debitglob, h_sortie
+  character(len=100) :: inlet_name(20), outlet_name(20)
   real(fp_kind) :: ts, tsstab, cfl, tolisec, tol_reg_perm
   real(fp_kind) :: constant_dt=0.
   real(fp_kind), allocatable, pinned :: dt, dt_max
@@ -98,7 +99,7 @@ module global
   & plan, xplan, yplan, zplan, xpoint, ypoint, zpoint&
   & solinit, fich_sol_init, &
 
-  & inlet, debitglob,debit_var,loi_debitglob, h_sortie, &
+  & inlet, inlet_name,  debitglob, debit_var,loi_debitglob, outlet_name, h_sortie, &
 
   & iflux, ilimiteur,&
   & tolisec, timedisc, & 
