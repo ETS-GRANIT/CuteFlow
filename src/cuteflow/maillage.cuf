@@ -93,6 +93,8 @@ subroutine lect_const_mail
   allocate(boundary(nelt,3,2), boundary_d(nelt,3,2))
   call cuda_glerror('ierr <- memory allocation in boundary_d <--- maillage.cuf',1)
 
+  if(iflux >=3) allocate(vertex_neighbors_d(6,nnt))
+
   if (elt_bound==0) then
     call tab_bound_tri_cudaf
     print*,mpi_process_id,"tab_bound_tri ok", nelt, nnt
@@ -947,7 +949,8 @@ attributes(global) subroutine find_neighbour()
   use global_device
   implicit none
 
-  integer :: ti,tj,gi,gj,m1,m2,m3,n1,n2,n3
+  integer :: ti,tj,gi,gj,m1,m2,m3,n1,n2,n3,k
+  logical :: found
 
   ti = threadidx%x
   tj = threadidx%y
@@ -973,35 +976,41 @@ attributes(global) subroutine find_neighbour()
     if ( m1==n3 .and. m3==n1 .or. m3==n3 .and. m2==n1 .or. m2==n3 .and. m1==n1 ) &
       & boundary_d(gi,3,1) = gj
 
+    if(iflux_d >= 3) then
+      found = .FALSE.
+      if ( (m1==n1) .or. (m1==n2) .or. (m1==n3))  then
+        do k=1,6
+          if(vertex_neighbors_d(k,m1) == gi) found = .TRUE.
+          if((vertex_neighbors_d(k,m1) == -1) .and. (.not. found)) then
+            vertex_neighbors_d(k,m1) = gi
+            exit
+          end if
+        end do
+      end if
+      found = .FALSE.
+      if ( (m2==n1) .or. (m2==n2) .or. (m2==n3))  then
+        do k=1,6
+          if(vertex_neighbors_d(k,m2) == gi) found = .TRUE.
+          if((vertex_neighbors_d(k,m2) == -1) .and. (.not. found)) then
+            vertex_neighbors_d(k,m2) = gi
+            exit
+          end if
+        end do
+      end if
+      found = .FALSE.
+      if ( (m3==n1) .or. (m3==n2) .or. (m3==n3))  then
+        do k=1,6
+          if(vertex_neighbors_d(k,m3) == gi) found = .TRUE.
+          if((vertex_neighbors_d(k,m3) == -1) .and. (.not. found)) then
+            vertex_neighbors_d(k,m3) = gi
+            exit
+          end if
+        end do
+      end if
+    end if
   end if
 
 end subroutine find_neighbour
-
-attributes(global) subroutine find_upwind_cells()
-  use precision_m
-  use global_device
-  implicit none
-
-  integer :: ti, gi, kv, c
-
-  ti = threadidx%x
-  gi = (blockidx%x - 1)*blockdim%x + ti
-
-  if(gi <= nelt_d) then
-    do c=1,3
-      if(boundary_d(gi,1+mod((c+1)-1,3),1)>0) then
-        upwind_cells_d(1,c,gi) = boundary_d(gi,1+mod((c+1)-1,3),1)
-      else
-        upwind_cells_d(1,c,gi) = gi
-      endif
-      if(boundary_d(gi,1+mod((c+2)-1,3),1)>0) then
-        upwind_cells_d(2,c,gi) = boundary_d(gi,1+mod((c+2)-1,3),1)
-      else
-        upwind_cells_d(2,c,gi) = gi
-      endif
-    end do
-  end if
-end subroutine find_upwind_cells
 
 attributes(global) subroutine find_neighbour_big(nmin, nmax)
   use precision_m
@@ -1041,6 +1050,33 @@ attributes(global) subroutine find_neighbour_big(nmin, nmax)
   end if
 
 end subroutine find_neighbour_big
+
+attributes(global) subroutine find_upwind_cells()
+  use precision_m
+  use global_device
+  implicit none
+
+  integer :: ti, gi, kv, c
+
+  ti = threadidx%x
+  gi = (blockidx%x - 1)*blockdim%x + ti
+
+  if(gi <= nelt_d) then
+    do c=1,3
+      if(boundary_d(gi,1+mod((c+1)-1,3),1)>0) then
+        upwind_cells_d(1,c,gi) = boundary_d(gi,1+mod((c+1)-1,3),1)
+      else
+        upwind_cells_d(1,c,gi) = gi
+      endif
+      if(boundary_d(gi,1+mod((c+2)-1,3),1)>0) then
+        upwind_cells_d(2,c,gi) = boundary_d(gi,1+mod((c+2)-1,3),1)
+      else
+        upwind_cells_d(2,c,gi) = gi
+      endif
+    end do
+  end if
+end subroutine find_upwind_cells
+
 
 subroutine boundary_kind_cudaf
   !

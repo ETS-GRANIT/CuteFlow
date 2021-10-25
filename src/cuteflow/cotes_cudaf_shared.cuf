@@ -280,6 +280,7 @@ attributes(global) subroutine cotes_cudaf3(surf_d, zm_d,vdlg_d)
         end if
 
         if(((kvol_v1 == kvol) .or. (kvol_v2==kvol)) .or. ((kvoisin_v1==kvoisin) .or. (kvoisin_v2==kvoisin))) then
+          !!Si il manque un des voisins alors on utilise l'ordre 1 classique
           call solver_Riemann_riadh(gi,kvoisin,surf_d,norm,vdlg_d,hijet,vitul,vitvl,hjiet,vitur,vitvr,zml,zmr,flux,ln,pp)
         else
           call solver_Riemann_waf(gi,kvoisin,surf_d,norm,vdlg_d,hijet,vitul,vitvl,hjiet,vitur,vitvr,zml,zmr,kvol_v1,kvol_v1_h,kvol_v1_u,kvol_v1_v,kvol_v2,kvol_v2_h,kvol_v2_u,kvol_v2_v,kvoisin_v1,kvoisin_v1_h,kvoisin_v1_u,kvoisin_v1_v,kvoisin_v2,kvoisin_v2_h,kvoisin_v2_u,kvoisin_v2_v,flux,ln,pp)
