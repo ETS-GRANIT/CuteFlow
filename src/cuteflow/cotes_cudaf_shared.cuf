@@ -34,22 +34,18 @@ attributes(global) subroutine cotes_cudaf3(surf_d, zm_d,vdlg_d)
       real(fp_kind), dimension(ndln_d,nelt_d), intent(in)   :: vdlg
     end subroutine solver_Riemann_riadh
 
-    attributes(device) subroutine solver_Riemann_waf(kvol,kvoisin,surf,norm,vdlg,hl,ul,vl,hr,ur,vr,zml,zmr,kvol_v1,kvol_v1_h,kvol_v1_u,kvol_v1_v,kvol_v2, kvol_v2_h,kvol_v2_u,kvol_v2_v,kvoisin_v1,kvoisin_v1_h,kvoisin_v1_u,kvoisin_v1_v,kvoisin_v2,kvoisin_v2_h,kvoisin_v2_u,kvoisin_v2_v,flux,ln,pp)
+    attributes(device) subroutine solver_Riemann_waf(kvol,kvoisin,surf,norm,vdlg,hl,ul,vl,hr,ur,vr,zml,zmr,hl_upw,ul_upw,vl_upw,hr_upw,ur_upw,vr_upw,flux,ln,pp)
       use global_device
       implicit none
 
       integer, intent(in)                   :: kvol, kvoisin
       integer, intent(inout)                :: pp
       real(fp_kind), intent(in)                   :: hl, ul, vl, hr, ur, vr, zml, zmr, ln
+      real(fp_kind), intent(in)                   :: hl_upw, ul_upw, vl_upw, hr_upw, ur_upw, vr_upw
       real(fp_kind), dimension(2), intent(in)     :: norm
       real(fp_kind), dimension(3), intent(inout)  :: flux
       real(fp_kind), dimension(nelt_d), intent(in)     :: surf
       real(fp_kind), dimension(ndln_d,nelt_d), intent(in)   :: vdlg
-      real(fp_kind)               :: kvol_v1_h, kvol_v1_u, kvol_v1_v
-      real(fp_kind)               :: kvol_v2_h, kvol_v2_u, kvol_v2_v
-      real(fp_kind)               :: kvoisin_v1_h, kvoisin_v1_u, kvoisin_v1_v
-      real(fp_kind)               :: kvoisin_v2_h, kvoisin_v2_u, kvoisin_v2_v
-      integer :: kvol_v1, kvol_v2, kvoisin_v1, kvoisin_v2
     end subroutine solver_Riemann_waf
 
   end interface
@@ -60,11 +56,12 @@ attributes(global) subroutine cotes_cudaf3(surf_d, zm_d,vdlg_d)
   integer                     :: i, nc1, nc2, kvoisin, dl,pp, nc3, kvol, kv
   real(fp_kind)               :: x1, x2, y1, y2, ln, x3, y3
   real(fp_kind)               :: hautl,vitul,vitvl,hautr,vitur,vitvr,zml,zmr,hul, hvl, hur, hvr, hijet, hjiet, zij
-  integer               :: kvol_v1, kvol_v2, kvoisin_v1, kvoisin_v2
+  integer                     :: kvol_v1, kvol_v2, kvoisin_v1, kvoisin_v2
   real(fp_kind)               :: kvol_v1_h, kvol_v1_u, kvol_v1_v
   real(fp_kind)               :: kvol_v2_h, kvol_v2_u, kvol_v2_v
   real(fp_kind)               :: kvoisin_v1_h, kvoisin_v1_u, kvoisin_v1_v
   real(fp_kind)               :: kvoisin_v2_h, kvoisin_v2_u, kvoisin_v2_v
+  real(fp_kind)               :: hl_upw, ul_upw, vl_upw, hr_upw, ur_upw, vr_upw
   real(fp_kind)               :: zero, debitnorm, orient
   real(fp_kind), dimension(2) :: norm
   real(fp_kind), dimension(3) :: flux
@@ -279,11 +276,21 @@ attributes(global) subroutine cotes_cudaf3(surf_d, zm_d,vdlg_d)
           kvoisin_v2_v = 0.
         end if
 
+
         if(((kvol_v1 == kvol) .or. (kvol_v2==kvol)) .or. ((kvoisin_v1==kvoisin) .or. (kvoisin_v2==kvoisin))) then
           !!Si il manque un des voisins alors on utilise l'ordre 1 classique
           call solver_Riemann_riadh(gi,kvoisin,surf_d,norm,vdlg_d,hijet,vitul,vitvl,hjiet,vitur,vitvr,zml,zmr,flux,ln,pp)
         else
-          call solver_Riemann_waf(gi,kvoisin,surf_d,norm,vdlg_d,hijet,vitul,vitvl,hjiet,vitur,vitvr,zml,zmr,kvol_v1,kvol_v1_h,kvol_v1_u,kvol_v1_v,kvol_v2,kvol_v2_h,kvol_v2_u,kvol_v2_v,kvoisin_v1,kvoisin_v1_h,kvoisin_v1_u,kvoisin_v1_v,kvoisin_v2,kvoisin_v2_h,kvoisin_v2_u,kvoisin_v2_v,flux,ln,pp)
+          hl_upw=(surf_d(kvol_v1)*kvol_v1_h+surf_d(kvol_v2)*kvol_v2_h)/(surf_d(kvol_v1)+surf_d(kvol_v2))
+          hr_upw=(surf_d(kvoisin_v1)*kvoisin_v1_h+surf_d(kvoisin_v2)*kvoisin_v2_h)/(surf_d(kvoisin_v1)+surf_d(kvoisin_v2))
+
+          ul_upw=(surf_d(kvol_v1)*kvol_v1_u+surf_d(kvol_v2)*kvol_v2_u)/(surf_d(kvol_v1)+surf_d(kvol_v2))
+          ur_upw=(surf_d(kvoisin_v1)*kvoisin_v1_u+surf_d(kvoisin_v2)*kvoisin_v2_u)/(surf_d(kvoisin_v1)+surf_d(kvoisin_v2))
+
+          vl_upw=(surf_d(kvol_v1)*kvol_v1_v+surf_d(kvol_v2)*kvol_v2_v)/(surf_d(kvol_v1)+surf_d(kvol_v2))
+          vr_upw=(surf_d(kvoisin_v1)*kvoisin_v1_v+surf_d(kvoisin_v2)*kvoisin_v2_v)/(surf_d(kvoisin_v1)+surf_d(kvoisin_v2))
+
+          call solver_Riemann_waf(gi,kvoisin,surf_d,norm,vdlg_d,hijet,vitul,vitvl,hjiet,vitur,vitvr,zml,zmr,hl_upw,ul_upw,vl_upw,hr_upw,ur_upw,vr_upw,flux,ln,pp)
         end if
 
       end if ! de choix schéma iflux
@@ -371,7 +378,7 @@ end if
 
 end subroutine limiter
 
-attributes(device) subroutine solver_Riemann_waf(kvol,kvoisin,surf,norm,vdlg,hl,ul,vl,hr,ur,vr,zml,zmr,kvol_v1,kvol_v1_h,kvol_v1_u,kvol_v1_v,kvol_v2, kvol_v2_h,kvol_v2_u,kvol_v2_v,kvoisin_v1,kvoisin_v1_h,kvoisin_v1_u,kvoisin_v1_v,kvoisin_v2,kvoisin_v2_h,kvoisin_v2_u,kvoisin_v2_v,flux,ln,pp)
+attributes(device) subroutine solver_Riemann_waf(kvol,kvoisin,surf,norm,vdlg,hl,ul,vl,hr,ur,vr,zml,zmr,hl_upw,ul_upw,vl_upw,hr_upw,ur_upw,vr_upw,flux,ln,pp)
   ! Solveur tiré de : "Numerical Tracking of Shallow Water Waves by the Unstructured Finite Volume WAF Approximation" 
   !  Loukili et Soulaimani 2007
 
@@ -396,15 +403,11 @@ attributes(device) subroutine solver_Riemann_waf(kvol,kvoisin,surf,norm,vdlg,hl,
   integer, intent(in)                         :: kvol, kvoisin
   integer, intent(inout)                      :: pp
   real(fp_kind), intent(in)                   :: hl, ul, vl, hr, ur, vr, zml, zmr, ln
+  real(fp_kind), intent(in)                   :: hl_upw, ul_upw, vl_upw, hr_upw, ur_upw, vr_upw
   real(fp_kind), dimension(2), intent(in)     :: norm
   real(fp_kind), dimension(3), intent(inout)  :: flux
   real(fp_kind), dimension(nelt_d), intent(in)     :: surf
   real(fp_kind), dimension(ndln_d,nelt_d), intent(in)   :: vdlg
-  integer :: kvol_v1, kvol_v2, kvoisin_v1, kvoisin_v2
-  real(fp_kind)               :: kvol_v1_h, kvol_v1_u, kvol_v1_v
-  real(fp_kind)               :: kvol_v2_h, kvol_v2_u, kvol_v2_v
-  real(fp_kind)               :: kvoisin_v1_h, kvoisin_v1_u, kvoisin_v1_v
-  real(fp_kind)               :: kvoisin_v2_h, kvoisin_v2_u, kvoisin_v2_v
 
   integer                       :: i 
   real(fp_kind)                 :: eps
@@ -413,7 +416,7 @@ attributes(device) subroutine solver_Riemann_waf(kvol,kvoisin,surf,norm,vdlg,hl,
   real(fp_kind), dimension(3) :: fet, qet
   real(fp_kind)                 :: al, ar, het, gl, gr, sl, sr, set, xl, xr, uet, pql, pqr, denom, pond
   real(fp_kind) :: dtoverdx, cr, cl, cet, wl, wlet, wlr, wr, wret
-  real(fp_kind) :: rr, rl, ret, hl_upw, hr_upw, vr_upw, vl_upw, delta_loc_l, delta_loc_r, delta_loc_et
+  real(fp_kind) :: rr, rl, ret, delta_loc_l, delta_loc_r, delta_loc_et
   real(fp_kind) :: delta_upw_r, delta_upw_l, delta_upw_et, limit_l, limit_r, limit_et
 
   eps = 1e-16
@@ -522,12 +525,6 @@ attributes(device) subroutine solver_Riemann_waf(kvol,kvoisin,surf,norm,vdlg,hl,
   delta_loc_r = hr-hl
   delta_loc_l = hr-hl
   delta_loc_et = vr-vl
-
-  hl_upw=(surf_d(kvol_v1)*kvol_v1_h+surf_d(kvol_v2)*kvol_v2_h)/(surf_d(kvol_v1)+surf_d(kvol_v2))
-  hr_upw=(surf_d(kvoisin_v1)*kvoisin_v1_h+surf_d(kvoisin_v2)*kvoisin_v2_h)/(surf_d(kvoisin_v1)+surf_d(kvoisin_v2))
-
-  vl_upw=(surf_d(kvol_v1)*kvol_v1_v+surf_d(kvol_v2)*kvol_v2_v)/(surf_d(kvol_v1)+surf_d(kvol_v2))
-  vr_upw=(surf_d(kvoisin_v1)*kvoisin_v1_v+surf_d(kvoisin_v2)*kvoisin_v2_v)/(surf_d(kvoisin_v1)+surf_d(kvoisin_v2))
 
   if(sr>0) then
     delta_upw_r = hl-hl_upw
