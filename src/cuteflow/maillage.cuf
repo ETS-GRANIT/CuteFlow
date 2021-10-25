@@ -93,7 +93,7 @@ subroutine lect_const_mail
   allocate(boundary(nelt,3,2), boundary_d(nelt,3,2))
   call cuda_glerror('ierr <- memory allocation in boundary_d <--- maillage.cuf',1)
 
-  if(iflux >=3) allocate(vertex_neighbors_d(6,nnt))
+  if(iflux >=3 .and. iupwind==2) allocate(vertex_neighbors_d(6,nnt))
 
   if (elt_bound==0) then
     call tab_bound_tri_cudaf
@@ -976,7 +976,7 @@ attributes(global) subroutine find_neighbour()
     if ( m1==n3 .and. m3==n1 .or. m3==n3 .and. m2==n1 .or. m2==n3 .and. m1==n1 ) &
       & boundary_d(gi,3,1) = gj
 
-    if(iflux_d >= 3) then
+    if(iflux_d >= 3 .and. iupwind_d==2) then
       found = .FALSE.
       if ( (m1==n1) .or. (m1==n2) .or. (m1==n3))  then
         do k=1,6

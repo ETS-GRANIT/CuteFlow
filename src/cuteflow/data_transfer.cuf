@@ -50,6 +50,7 @@ subroutine global_data_transfer
   iflux_d         = iflux
   debug_mode_d    = debug_mode
   ilimiteur_d     = ilimiteur
+  iupwind_d       = iupwind_d
   fricimplic_d    = fricimplic
   debit_var_d     = debit_var 
   freqaffich_d    = freqaffich

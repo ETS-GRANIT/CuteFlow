@@ -54,7 +54,7 @@ module global
   character(len=10)   :: timedisc
   character(len=6)    :: inlet
   character(len=30)   :: loi_debitglob
-  integer :: iflux, ilimiteur=1, fricimplic, debit_var  
+  integer :: iflux, ilimiteur=1, iupwind=1, fricimplic, debit_var  
   integer :: freqaffich, nbrjauges, nbrcoupes, jauges_snapshots, solrestart, restart_snapshots, coupes_snapshots, simple_snapshots
   real(fp_kind) :: sol_z_offset=0.
   integer :: comptvisu, cptsolvtk, cptsoljauge, cptsolrestart, cptdebit, cptviscoupe, cptsolsimple
@@ -101,7 +101,7 @@ module global
 
   & inlet, inlet_name,  debitglob, debit_var,loi_debitglob, outlet_name, h_sortie, &
 
-  & iflux, ilimiteur,&
+  & iflux, ilimiteur, iupwind&
   & tolisec, timedisc, & 
   & friction, fricimplic, &
   & is_dry_as_wall, local_time_step,&
