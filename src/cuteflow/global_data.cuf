@@ -33,7 +33,7 @@ module global
   integer, dimension(:,:), allocatable :: sendstat, recvstat
 
   !! Variables donnees du terrain
-  integer             :: friction, is_override_manning
+  integer             :: friction=0, is_override_manning
   real(fp_kind)       :: gp, override_manning
 
 
@@ -54,8 +54,8 @@ module global
   character(len=10)   :: timedisc
   character(len=6)    :: inlet
   character(len=30)   :: loi_debitglob
-  integer :: iflux, ilimiteur=1, iupwind=1, fricimplic, debit_var  
-  integer :: freqaffich, nbrjauges, nbrcoupes, jauges_snapshots, solrestart, restart_snapshots, coupes_snapshots, simple_snapshots
+  integer :: iflux, ilimiteur=1, iupwind=1, fricimplic=1, debit_var  
+  integer :: freqaffich, solrestart, restart_snapshots, simple_snapshots
   real(fp_kind) :: sol_z_offset=0.
   integer :: comptvisu, cptsolvtk, cptsoljauge, cptsolrestart, cptdebit, cptviscoupe, cptsolsimple
   real(fp_kind) :: long, critere_arret, debitglob_sum!, dt
@@ -66,7 +66,6 @@ module global
   real(fp_kind), allocatable, pinned :: dt, dt_max
   real(fp_kind) :: tol=1e-6, tolaffiche=1e-1
   real(fp_kind), dimension(10) :: coupe_a, coupe_b
-  real(fp_kind), dimension(100) :: xjauges , yjauges
   integer :: merged_solution
   integer, dimension(:,:), allocatable :: liens_elems, liens_nodes
   real(fp_kind), dimension(:,:,:), allocatable :: vdlg1_vect, sol_nodes_vect, vdlg_vect
@@ -110,9 +109,6 @@ module global
   & is_dt_constant, constant_dt, &
   & freqaffich,tolaffiche&
   & merged_solution,&
-  & nbrjauges, jauges_snapshots &
-  & xjauges, yjauges, &
-  & nbrcoupes, coupes_snapshots, coupe_a, coupe_b,&
 
   & sol_z_offset,& !!ne fonctionne que pour simple vtk et bluekenue
   & solrestart, restart_snapshots,& 

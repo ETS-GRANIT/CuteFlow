@@ -255,64 +255,6 @@ subroutine sol_nodes(vdlg,surf,zm,soleta,solh,solhu,solhv,solu,solv)
   deallocate(surfno, zzz)
 end subroutine sol_nodes
 
-subroutine stock_coupe2D(solh, soleta, solhu, solu)
-
-  use precision_m
-  use global
-  use m_param
-
-  implicit none
-
-  real(fp_kind), dimension(:), intent(inout)  :: solh, soleta, solhu, solu
-
-  character (10) :: no_coupe
-  integer :: kvol, i, j, no
-  real(fp_kind) :: aux, coupe_x, coupe_y
-
-  write(valtemps,'(f18.3)') tc
-
-  if (start == 1) then                
-    do j=1,nbrcoupes
-      nbr_nds_coupes(j) = 0
-      write(no_coupe,'(i2)') j
-      if(num_mpi_process>1) then
-        solfile2d = trim(adjustl(mpi_process_id_string)) //'_solution-2D_coupe_' // trim(adjustl(no_coupe))  // "_" // trim(adjustl(valtemps)) // '_s.txt'
-      else
-        solfile2d = 'solution-2D_coupe_' // trim(adjustl(no_coupe))  // "_" // trim(adjustl(valtemps)) // '_s.txt'
-      end if
-      open(unit=ec_sol2d,file=solfile2d,status="unknown")
-      do i=1,nnt
-        coupe_y = coupe_a(j) * coordonnees(i,1) + coupe_b(j)
-        if ( abs( coordonnees(i,2) - coupe_y ) <= distcote ) then
-          nbr_nds_coupes(j) = nbr_nds_coupes(j) + 1
-          nds_coupes(j,nbr_nds_coupes(j)) = i                 
-          write(ec_sol2d,'(5f16.6)')  coordonnees(i,1), soleta(i) - solh(i), solh(i), soleta(i), solu(i) 
-        endif
-      enddo
-      close (ec_sol2d)
-    enddo
-
-  else
-    do j=1,nbrcoupes
-      write(no_coupe,'(i2)') j            !
-      if(num_mpi_process>1) then
-        solfile2d = trim(adjustl(mpi_process_id_string)) //'_solution-2D_coupe_' // trim(adjustl(no_coupe)) // "_" // trim(adjustl(valtemps)) // '_s.txt'
-      else
-        solfile2d = 'solution-2D_coupe_' // trim(adjustl(no_coupe)) // "_" // trim(adjustl(valtemps)) // '_s.txt'
-      end if
-      open(unit=ec_sol2d,file=solfile2d,status="unknown")
-      if(nbr_nds_coupes(j) > 0) then
-        do i=1,nbr_nds_coupes(j)
-          no = nds_coupes(j,i)
-          write(ec_sol2d,'(5f16.6)') coordonnees(no,1), soleta(no) - solh(no), solh(no), soleta(no), solu(no)     
-        enddo
-      endif
-      close (ec_sol2d)
-    enddo       ! de do j=1,nbrcoupes
-    close (ec_sol2d)
-  endif
-end subroutine stock_coupe2D
-
 subroutine ouv_fichiers(vdlg, vdlg1, zm)
 
   use precision_m
@@ -394,16 +336,6 @@ subroutine ouv_fichiers(vdlg, vdlg1, zm)
     open(unit=3002,file=solfile2d_MC,status="unknown")
     open(unit=3003,file=solfile3d_MC,status="unknown")
   endif
-
-  if (nbrcoupes>1) then
-    if(num_mpi_process>1) then
-      file_Q_coupes = trim(adjustl(mpi_process_id_string)) // '_solution-debit_coupes.txt'
-    else
-      file_Q_coupes = 'solution-debit_coupes.txt'
-    end if
-    open(unit=ec_Q_coupes,file=file_Q_coupes,status="unknown")
-  endif
-
 end subroutine ouv_fichiers
 
 subroutine bluekenue_export(solh, soleta, solhu, solhv)
@@ -506,8 +438,10 @@ subroutine simple_export(vdlg, vdlg1, solh, soleta, solhu, solhv, ci)
 
   if(ci==-1) then
     write(valtemps,*) "Final"
+  else if(ci==0) then
+    write(valtemps,*) "Initial"
   else
-    write(valtemps,'(I20)') ci
+    write(valtemps,'(I20)') ci-1
   end if
 
   if(solsimple==1 .or. solsimple==3) then 
@@ -638,7 +572,7 @@ subroutine cgns_export(solh, solhu, solhv, t, it)
 
 end subroutine cgns_export
 
-subroutine paraview_export(solh, soleta, solhu, solhv, ci)
+subroutine paraview_export(vdlg, zm, solh, soleta, solhu, solhv, ci)
   ! ==============================================================================
   !     paraview_export == Exporte dans un fichier vtk pour postraitement avec paraview
   !     auteur : Delmas Vincent
@@ -651,15 +585,18 @@ subroutine paraview_export(solh, soleta, solhu, solhv, ci)
 
   implicit none
 
-  real(fp_kind), dimension(:), intent(in)  :: soleta, solh, solhu, solhv
+  real(fp_kind), dimension(:,:), intent(in)  :: vdlg
+  real(fp_kind), dimension(:), intent(in)  :: soleta, solh, solhu, solhv, zm
 
   integer :: nd, iel, ci
   real(fp_kind) :: solu, solv
 
   if(ci==-1) then
     write(valtemps,*) "Final"
+  else if(ci==0) then
+    write(valtemps,*) "Initial"
   else
-    write(valtemps,'(I20)') ci
+    write(valtemps,'(I20)') ci-1
   end if
 
   solfile_para = trim(adjustl(trim(mpi_process_id_string)))//'_solution-Paraview_'//trim(adjustl(trim(valtemps)))//adjustl(trim('.vtk'))
@@ -691,33 +628,33 @@ subroutine paraview_export(solh, soleta, solhu, solhv, ci)
   end do
 
   write(ec_Paraview,'(a)') ""
-  write(ec_Paraview,'(a,I10)') "POINT_DATA", nnt
+  write(ec_Paraview,'(a,I10)') "CELL_DATA", nelt
   write(ec_Paraview,'(a)') "SCALARS eta float"
   write(ec_Paraview,'(a)') "LOOKUP_TABLE default"
-  do nd=1, nnt
-    write(ec_Paraview,'(f16.6)') soleta(nd)-sol_z_offset
+  do iel=1, nelt
+    write(ec_Paraview,'(f16.6)') vdlg(1,iel)+zm(iel)-sol_z_offset
   end do
 
   write(ec_Paraview,'(a)') ""
   write(ec_Paraview,'(a)') "SCALARS h float"
   write(ec_Paraview,'(a)') "LOOKUP_TABLE default"
-  do nd=1, nnt
-    write(ec_Paraview,'(f16.6)') solh(nd)
+  do iel=1, nelt
+    write(ec_Paraview,'(f16.6)') vdlg(1,iel)
   end do
 
   write(ec_Paraview,'(a)') ""
   write(ec_Paraview,'(a)') "SCALARS b float"
   write(ec_Paraview,'(a)') "LOOKUP_TABLE default"
-  do nd=1, nnt
-    write(ec_Paraview,'(f16.6)') soleta(nd)-solh(nd)-sol_z_offset
+  do iel=1, nelt
+    write(ec_Paraview,'(f16.6)') zm(iel)-sol_z_offset
   end do
 
   write(ec_Paraview,'(a)') ""
   write(ec_Paraview,'(a)') "VECTORS velocity float"
-  do nd=1, nnt
-    if ( solh(nd) > tolisec ) then
-      solu = solhu(nd)/solh(nd)
-      solv = solhv(nd)/solh(nd)
+  do iel=1, nelt
+    if ( vdlg(1,nd) > tolisec ) then
+      solu = vdlg(2,iel)/vdlg(1,iel)
+      solv = vdlg(3,iel)/vdlg(1,iel)
     else
       solu = 0.d0
       solv = 0.d0

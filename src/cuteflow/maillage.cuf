@@ -93,7 +93,10 @@ subroutine lect_const_mail
   allocate(boundary(nelt,3,2), boundary_d(nelt,3,2))
   call cuda_glerror('ierr <- memory allocation in boundary_d <--- maillage.cuf',1)
 
-  if(iflux >=3 .and. iupwind==2) allocate(vertex_neighbors_d(6,nnt))
+  if(iflux >=3 .and. iupwind==2) then
+    allocate(vertex_neighbors_d(6,nnt))
+    vertex_neighbors_d = -1.
+  end if
 
   if (elt_bound==0) then
     call tab_bound_tri_cudaf
@@ -1008,6 +1011,7 @@ attributes(global) subroutine find_neighbour()
         end do
       end if
     end if
+
   end if
 
 end subroutine find_neighbour
@@ -1019,7 +1023,8 @@ attributes(global) subroutine find_neighbour_big(nmin, nmax)
 
   integer, value :: nmin, nmax
 
-  integer :: ti,tj,gi,gj,m1,m2,m3,n1,n2,n3, by
+  integer :: ti,tj,gi,gj,m1,m2,m3,n1,n2,n3, by, k
+  logical :: found
 
 
   ti = threadidx%x
@@ -1046,6 +1051,39 @@ attributes(global) subroutine find_neighbour_big(nmin, nmax)
 
     if ( n1==m3 .and. n3==m1 .or. n3==m3 .and. n2==m1 .or. n2==m3 .and. n1==m1 ) &
       & boundary_d(gj,3,1) = gi
+
+    if(iflux_d >= 3 .and. iupwind_d==2) then
+      found = .FALSE.
+      if ( (m1==n1) .or. (m1==n2) .or. (m1==n3))  then
+        do k=1,6
+          if(vertex_neighbors_d(k,m1) == gi) found = .TRUE.
+          if((vertex_neighbors_d(k,m1) == -1) .and. (.not. found)) then
+            vertex_neighbors_d(k,m1) = gi
+            exit
+          end if
+        end do
+      end if
+      found = .FALSE.
+      if ( (m2==n1) .or. (m2==n2) .or. (m2==n3))  then
+        do k=1,6
+          if(vertex_neighbors_d(k,m2) == gi) found = .TRUE.
+          if((vertex_neighbors_d(k,m2) == -1) .and. (.not. found)) then
+            vertex_neighbors_d(k,m2) = gi
+            exit
+          end if
+        end do
+      end if
+      found = .FALSE.
+      if ( (m3==n1) .or. (m3==n2) .or. (m3==n3))  then
+        do k=1,6
+          if(vertex_neighbors_d(k,m3) == gi) found = .TRUE.
+          if((vertex_neighbors_d(k,m3) == -1) .and. (.not. found)) then
+            vertex_neighbors_d(k,m3) = gi
+            exit
+          end if
+        end do
+      end if
+    end if
 
   end if
 

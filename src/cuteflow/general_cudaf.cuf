@@ -21,12 +21,13 @@ program general
 
   interface
 
-    subroutine paraview_export(solh, soleta, solhu, solhv, iaff)
+    subroutine paraview_export(vdlg, zm, solh, soleta, solhu, solhv, iaff)
       use precision_m
       use global
       use m_param
       integer, intent(in) :: iaff
-      real(fp_kind), dimension(:), intent(inout)  :: soleta, solh, solhu, solhv
+      real(fp_kind), dimension(:,:), intent(in)  :: vdlg
+      real(fp_kind), dimension(:), intent(in)  :: soleta, solh, solhu, solhv, zm
     end subroutine paraview_export
 
     subroutine simple_export(vdlg, vdlg1, solh, soleta, solhu, solhv, ci)
@@ -228,7 +229,7 @@ program general
   !! Initization of the iteration counters
   comptvisu        = 0
   cptviscoupe      = 1
-  cptsolvtk        = 0
+  cptsolvtk        = 1
   cptsoljauge      = 1
   cptsolrestart    = 1
   cptsolsimple      = 0
@@ -344,8 +345,7 @@ program general
 
   allocate( she0(nnt), sh0(nnt), shu0(nnt), shv0(nnt), su0(nnt), sv0(nnt) )
 
-  allocate( nds_coupes(nbrcoupes,nnt), nbr_nds_coupes(nbrcoupes) )
-  allocate( tsolcoupes(200000), tsoljauge(200000), tsolrestart(200000), tsolvtk(200000), tsolsimple(200000))
+  allocate( tsoljauge(200000), tsolrestart(200000), tsolvtk(200000), tsolsimple(200000))
   call cuda_glerror('ierr <- device memory allocation <-- general_cudaf.cuf',1)
 
   !! Ouverture/creation des fichiers (opening / creating files)
@@ -373,18 +373,6 @@ program general
       tsolrestart(ii)= ii*ts/(1.0*restart_snapshots)
     enddo
   endif 
-
-  if (nbrjauges > 0) then
-    do ii = 1,jauges_snapshots
-      tsoljauge(ii) = ii*ts/(1.0*jauges_snapshots)
-    enddo
-  endif
-
-  if (nbrcoupes > 0) then
-    do ii = 1,coupes_snapshots
-      tsolcoupes(ii) = ii*ts/(1.0*coupes_snapshots)
-    enddo
-  endif
 
   !! Calculation of the area and the gradient term z of each element
   tblock = dim3(64, 1, 1)
@@ -414,9 +402,6 @@ program general
   write(*,*) 'V_AVAL              = ', V_AVAL 
   write(*,*) 'iflux               =', iflux
   write(*,*) 'Fricimplic          =', fricimplic
-  write(*,*) 'jauges_snapshots    =', jauges_snapshots
-  write(*,*) 'nbrjauges           =', nbrjauges
-  write(*,*) 'nbrcoupes           =', nbrcoupes
   write(*,*) 'solrestart          =', solrestart
   write(*,*) 'restart_snapshots   =', restart_snapshots
   write(*,*) 'solvtk               =', solvtk
@@ -492,7 +477,7 @@ program general
   !!  Storage for postraitement with possibility of animation (Tecplot)
   if(solvtk) then             
     start=1
-    call paraview_export(she0, sh0, shu0, shv0, cptsolvtk)
+    call paraview_export(vdlg0, zm, she0, sh0, shu0, shv0, cptsolvtk)
     cptsolvtk = cptsolvtk + 1
   endif
 
@@ -501,12 +486,6 @@ program general
     call simple_export(vdlg0, vdlg01, she0, sh0, shu0, shv0, cptsolsimple)
     cptsolsimple = cptsolsimple + 1
   end if
-
-  !! Storage solution for 2D slices
-  if (nbrcoupes > 0 ) then
-    start=1
-    call stock_coupe2D(she0, sh0, shu0, su0)
-  endif
 
   !! Initialisation du temps et calcul de dt via la CFL
   tc = 0.00
@@ -553,11 +532,8 @@ program general
   deallocate(tempvdlg)
 
   deallocate(she0, sh0, shu0, shv0, su0, sv0)
-  if(nbrcoupes>0) then
-    deallocate(nds_coupes, nbr_nds_coupes)
-  end if
 
-  deallocate(tsolcoupes, tsoljauge, tsolrestart, tsolvtk, tsolsimple)
+  deallocate(tsoljauge, tsolrestart, tsolvtk, tsolsimple)
 
   deallocate(boundary, boundary_d)
   deallocate(coo_table_elemwise, coo_table_elemwise_d)
@@ -633,13 +609,9 @@ program general
   write(ec_bilan_sim,*) '====================================================================='  
 
   close(ec_bilan_sim)
-  if (nbrcoupes > 0) then 
-    close(3000)
-  end if
   close(3001)
   close(3002)
   close(3003)
-  close(ec_Q_coupes)
 
   call MPI_FINALIZE(mpi_ierr)
 end program

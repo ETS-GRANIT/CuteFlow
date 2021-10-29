@@ -10,7 +10,7 @@ module global_device
   integer, device :: mutex
 
   !! Terrain data variables 
-  integer, constant                  :: friction_d, is_override_manning_d
+  integer, constant                  :: diffusion_d, friction_d, is_override_manning_d
   real(fp_kind), constant            :: gp_d, override_manning_d
 
   !! Mesh data variables

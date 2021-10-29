@@ -172,12 +172,13 @@ subroutine Full_FV
       real(fp_kind), dimension(:), intent(in)  :: solh, solhu, solhv
     end subroutine cgns_export
 
-    subroutine paraview_export(solh, soleta, solhu, solhv, iaff)
+    subroutine paraview_export(vdlg, zm, solh, soleta, solhu, solhv, iaff)
       use precision_m
       use global
       use m_param
       integer, intent(in) :: iaff
-      real(fp_kind), dimension(:), intent(inout)  :: soleta, solh, solhu, solhv
+      real(fp_kind), dimension(:,:), intent(in)  :: vdlg
+      real(fp_kind), dimension(:), intent(in)  :: soleta, solh, solhu, solhv, zm
     end subroutine paraview_export
 
     subroutine simple_export(vdlg, vdlg1, solh, soleta, solhu, solhv, ci)
@@ -228,7 +229,6 @@ subroutine Full_FV
   integer :: i, ii, j, p, kk, ss, iel, nd, dl, niter, iter, n, c, nt, n0, som, som1, som2, som3, n_it, nitf, ifant, iaff
   integer :: evoisin, status, k, l, icor, iter_entree, iter_nodes
   integer :: nodjauge, is_solnode, is_recons
-  integer, dimension(30) :: nodjauges
 
   real(fp_kind) :: v, r, uinf, flux, s, xyc, xiel, yiel, coupe_y, distjaugm1, distjaug, dt1, sizecheck
   real(fp_kind) :: x, d, t, dtime, tcm, xc, yc, hauteur, newhaut, xnorm, zero, delta_debit0,delta_debit,deb_entre,deb_sorti,delta_eta
@@ -297,45 +297,6 @@ subroutine Full_FV
   call cuda_glerror('ierr <- cuda device mem allocation <-- Full_FV_cudaf_shared.cuf',1)
 
   call get_io_index()
-
-  !=============================================================================================
-  ! *** detection des noeuds 'nodjauges' les plus proches des jauges ***
-  ! *** detection of nodes 'nodjauges' closest to the gauges ***!
-
-  if ( nbrjauges > 0 ) then
-    do j=1,nbrjauges
-      distjaugm1 = 100 * distcote
-      do i=1,nnt
-        distjaug = sqrt( ( xjauges(j) - coordonnees(i,1) )**2 + ( yjauges(j) - coordonnees(i,2) )**2 )
-        if ( distjaug < distjaugm1 ) then
-          nodjauges(j) = i
-          distjaugm1 = distjaug
-        endif
-      enddo
-    enddo
-  endif
-
-  ! *** early storage solution for gauges ***!
-  if ( nbrjauges > 0 .and. nodjauges(1) >  0) then
-    write(njaug,'(i2)') nbrjauges
-    solfilej_eta = trim(adjustl(mpi_process_id_string)) // '_FV_' // trim(adjustl(njaug)) // '_gauges_eta.txt'
-    solfilej_h = trim(adjustl(mpi_process_id_string)) // '_FV_' // trim(adjustl(njaug)) // '_gauges_h.txt'
-    solfilej_u = trim(adjustl(mpi_process_id_string)) // '_FV_' // trim(adjustl(njaug)) // '_gauges_u.txt'
-    solfilej_v = trim(adjustl(mpi_process_id_string)) // '_FV_' // trim(adjustl(njaug)) // '_gauges_v.txt'
-
-    open(unit=ec_solj_eta,file=solfilej_eta,status="unknown")
-    open(unit=ec_solj_h,file=solfilej_h,status="unknown")
-    open(unit=ec_solj_u,file=solfilej_u,status="unknown")
-    open(unit=ec_solj_v,file=solfilej_v,status="unknown")
-    if ( nbrjauges <= 30 ) then
-      write(ec_solj_eta,'(f8.3,30f14.6)') 0.0 , (sh0(nodjauges(j)), j=1,nbrjauges)
-      write(ec_solj_h,'(f8.3,30f14.6)') 0.0 ,   (she0(nodjauges(j)),j=1,nbrjauges)
-      write(ec_solj_u,'(f8.3,30f14.6)') 0.0 ,   (su0(nodjauges(j)), j=1,nbrjauges)
-      write(ec_solj_v,'(f8.3,30f14.6)') 0.0 ,   (sv0(nodjauges(j)), j=1,nbrjauges)
-    else
-      write(*,*) '*** Attention : nombre de jauges > 30 ***'
-    endif
-  endif
 
   ! *** preparation of the number of iterations concerning time discretization ***
   if ( timedisc == 'euler' ) then         ! *** Euler ***
@@ -745,7 +706,7 @@ subroutine Full_FV
       endif
 
       start=0
-      call paraview_export (she0, sh0, shu0, shv0, cptsolvtk)
+      call paraview_export (vdlg, zm, she0, sh0, shu0, shv0, cptsolvtk)
       cptsolvtk = cptsolvtk + 1
 
       ! if(is_cgns==1) then
