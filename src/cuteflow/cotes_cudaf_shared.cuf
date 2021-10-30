@@ -330,15 +330,15 @@ attributes(global) subroutine cotes_cudaf3(surf_d, zm_d,vdlg_d)
           do i=1,6
             !!Indice de la maille i contenant le sommet nc1+2 (opposé à l'interface)
             kupw1 = vertex_neighbors_d(i,connectivite_d(kvol,1+mod(nc1+1,3))) 
-            ! if( kvol==4928 .and. nc1==1 ) print*,i,kupw1,nc1
             orient = (x_centroid_d(kupw1)-x3)*(x3-x_centroid_d(kvol)) + (y_centroid_d(kupw1)-y3)*(y3-y_centroid_d(kvol)) 
             if(kupw1>0 .and. kupw1/=kvol .and. orient>0.) then
-          ! kvol_v1 = upwind_cells_d(1,tj,kvol)
-          ! kvol_v2 = upwind_cells_d(2,tj,kvol)
-              if( kvol==4928 .and. nc1==1 ) print*,i,kupw1,nc1,upwind_cells_d(1,tj,kvol),upwind_cells_d(2,tj,kvol)
-              hl_upw = hl_upw + vdlg_d(1,kupw1)*surf_d(kupw1)
-              ul_upw = ul_upw + vdlg_d(2,kupw1)*surf_d(kupw1)
-              vl_upw = vl_upw + vdlg_d(3,kupw1)*surf_d(kupw1)
+            ! if(kupw1>0 .and. kupw1/=kvol) then
+              ! if(kvol==6195 .and. kvoisin == 6199) print*, "L",i, kupw1
+              if(vdlg_d(1,kupw1) > tolisec_d) then
+                hl_upw = hl_upw + vdlg_d(1,kupw1)*surf_d(kupw1)
+                ul_upw = ul_upw + (vdlg_d(2,kupw1) * norm(1) + vdlg_d(3,kupw1) * norm(2))*surf_d(kupw1)/vdlg_d(1,kupw1)
+                vl_upw = vl_upw + (vdlg_d(3,kupw1) * norm(1) - vdlg_d(2,kupw1) * norm(2))*surf_d(kupw1)/vdlg_d(1,kupw1)
+              end if
               kupw1_area = kupw1_area + surf_d(kupw1)
             end if
             
@@ -348,9 +348,13 @@ attributes(global) subroutine cotes_cudaf3(surf_d, zm_d,vdlg_d)
             yupw = coo_table_elemwise_d(kvoisin,3*mod((tjv+2)-1,3)+2)
             orient = (x_centroid_d(kupw2)-xupw)*(xupw-x_centroid_d(kvoisin)) + (y_centroid_d(kupw2)-yupw)*(yupw-y_centroid_d(kvoisin)) 
             if(kupw2>0 .and. kupw2/=kvoisin .and. orient>0.) then
-              hr_upw = hl_upw + vdlg_d(1,kupw2)*surf_d(kupw2)
-              ur_upw = ul_upw + vdlg_d(2,kupw2)*surf_d(kupw2)
-              vr_upw = vl_upw + vdlg_d(3,kupw2)*surf_d(kupw2)
+              ! if(kvol==6195 .and. kvoisin == 6199) print*, "R",i, kupw2
+            ! if(kupw2>0 .and. kupw2/=kvoisin) then
+              if(vdlg_d(1,kupw2) > tolisec_d) then
+                hr_upw = hr_upw + vdlg_d(1,kupw2)*surf_d(kupw2)
+                ur_upw = ur_upw + (vdlg_d(2,kupw2) * norm(1) + vdlg_d(3,kupw2) * norm(2))*surf_d(kupw2)/vdlg_d(1,kupw2)
+                vr_upw = vr_upw + (vdlg_d(3,kupw2) * norm(1) - vdlg_d(2,kupw2) * norm(2))*surf_d(kupw2)/vdlg_d(1,kupw2)
+              end if
               kupw2_area = kupw2_area + surf_d(kupw2)
             end if
           end do
@@ -359,6 +363,9 @@ attributes(global) subroutine cotes_cudaf3(surf_d, zm_d,vdlg_d)
             hl_upw = hl_upw / kupw1_area
             ul_upw = ul_upw / kupw1_area
             vl_upw = vl_upw / kupw1_area
+            ! hl_upw = (hl_upw / kupw1_area + hautl)/2.
+            ! ul_upw = (ul_upw / kupw1_area + vitul)/2.
+            ! vl_upw = (vl_upw / kupw1_area + vitvl)/2.
           else
             hl_upw = hautl
             ul_upw = vitul
@@ -369,6 +376,9 @@ attributes(global) subroutine cotes_cudaf3(surf_d, zm_d,vdlg_d)
             hr_upw = hr_upw / kupw2_area
             ur_upw = ur_upw / kupw2_area
             vr_upw = vr_upw / kupw2_area
+            ! hr_upw = (hr_upw / kupw2_area + hautr)/2.
+            ! ur_upw = (ur_upw / kupw2_area + vitur)/2.
+            ! vr_upw = (vr_upw / kupw2_area + vitvr)/2.
           else
             hr_upw = hautr
             ur_upw = vitur

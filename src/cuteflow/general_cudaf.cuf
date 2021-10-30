@@ -414,13 +414,13 @@ program general
   write(*,*) 'freqaffich          =', freqaffich
   write(*,*) 'dry_as_wall         =', is_dry_as_wall
   write(*,*) 'local time step     =', local_time_step
-  write(*,*) 'nombre entree       =', nombre_input
-  do af_input=1,nombre_input
+  write(*,*) 'nombre entree       =', nombre_entrees
+  do af_input=1,nombre_entrees
     write(*,*) 'debitglob       ', af_input, " =", debitglob(af_input)
     write(*,*) 'longueur entree ', af_input, " =", long_entree(af_input)
   end do
-  write(*,*) 'nombre sortie       =', nombre_output
-  do af_input=1,nombre_output
+  write(*,*) 'nombre sortie       =', nombre_sorties
+  do af_input=1,nombre_sorties
     write(*,*) 'H_SORTIE        ', af_input, " =", h_sortie(af_input)
   end do
   write(*,*) '======================================================================'
@@ -591,7 +591,7 @@ program general
   if ( t_reg_perm > 0. ) then
     write(ec_bilan_sim,*) ' REGIME PERMANENR ATTEINT A : T =', t_reg_perm, ' Secondes'
     write(ec_bilan_sim,*) ''
-    do af_input=1,nombre_input
+    do af_input=1,nombre_entrees
       write(ec_bilan_sim,*) 'debit_entre ',af_input, " = ",  debit_entree
     end do
     write(ec_bilan_sim,*) 'debit_sorti =', debit_sortie

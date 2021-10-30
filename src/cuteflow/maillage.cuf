@@ -158,7 +158,7 @@ subroutine lect_const_mail
   call MPI_BARRIER(MPI_COMM_WORLD,mpi_ierr)
   print*,mpi_process_id,"avant reduce entree"
 
-  call mpi_allreduce(mpi_in_place,long_entree,nombre_input,fp_kind_mpi,mpi_sum,mpi_comm_world, mpi_ierr)
+  call mpi_allreduce(mpi_in_place,long_entree,nombre_entrees,fp_kind_mpi,mpi_sum,mpi_comm_world, mpi_ierr)
   long_entree_d=long_entree
 
   call MPI_BARRIER(MPI_COMM_WORLD,mpi_ierr)
@@ -299,11 +299,10 @@ subroutine lec_mail_tri
 
   !! table des noeuds de l'entrée :
   read(lec_mesh,*) tarati
-  if(multi_entree==0) then
+  if(nombre_entrees==1) then
     read(lec_mesh,*) ndi
     allocate(long_entree(1))
     allocate(long_entree_d(1))
-    nombre_input = 1
     if (ndi>0) then
       allocate(ndinput(ndi))
       allocate(numero_ndinput(ndi))
@@ -315,9 +314,9 @@ subroutine lec_mail_tri
       enddo
     endif
   else
-    read(lec_mesh,*) ndi, nombre_input
-    allocate(long_entree(nombre_input))
-    allocate(long_entree_d(nombre_input))
+    read(lec_mesh,*) ndi, nombre_entrees
+    allocate(long_entree(nombre_entrees))
+    allocate(long_entree_d(nombre_entrees))
     if (ndi>0) then
       allocate(ndinput(ndi))
       allocate(numero_ndinput(ndi))
@@ -332,9 +331,8 @@ subroutine lec_mail_tri
 
   !! table des noeuds de la sortie :
   read(lec_mesh,*) tarati
-  if(multi_sortie==0) then
+  if(nombre_sorties==1) then
     read(lec_mesh,*) ndo
-    nombre_output = 1
     if (ndo>0) then
       allocate(numero_ndoutput(ndo))
       allocate(numero_ndoutput_d(ndo))
@@ -346,7 +344,7 @@ subroutine lec_mail_tri
       enddo
     end if
   else
-    read(lec_mesh,*) ndo, nombre_output
+    read(lec_mesh,*) ndo, nombre_sorties
     if(ndo>0) then
       allocate(numero_ndoutput(ndo))
       allocate(numero_ndoutput_d(ndo))
@@ -431,9 +429,9 @@ subroutine lec_mail_tri
   nelt_d = nelt  
   nnt_d  = nnt
   ndi_d  = ndi
-  nombre_input_d  = nombre_input
+  nombre_entrees_d  = nombre_entrees
   ndo_d  = ndo
-  nombre_output_d  = nombre_output
+  nombre_sorties_d  = nombre_sorties
   ndw_d  = ndw
 
   coordonnees_d       = coordonnees
@@ -578,14 +576,12 @@ subroutine lec_mail_cgns
   call cg_nbocos_f(fn, base, zone, n_bocos, ierr)
   if (ierr .ne. CG_OK) call cg_error_exit_f
 
-  nombre_input=0
   ndi = 0
-  nombre_output=0
   ndo = 0
 
   print*, n_bocos, "boundary conditions"
 
-  !!Read a first time to see how many input/outputs there are
+  !!Read a first time to see how many local input/output nodes there are
   do boco=1,n_bocos
     call cg_boco_info_f(fn, base, zone, boco, boconame, bocoType,&
       &ptsetType, n_bcnodes, &
@@ -594,27 +590,27 @@ subroutine lec_mail_cgns
 
     if(n_bcnodes>1) then
       if(bocoType == 9) then !!Inflow
-        nombre_input = nombre_input + 1
         ndi = ndi + n_bcnodes
       else if(bocoType == 13) then !!Outflow
-        nombre_output = nombre_output + 1
         ndo = ndo + n_bcnodes
       end if
     end if
   end do
 
-  print*, "INPUT " , nombre_input, ndi
-  if(nombre_input>0) then
-    allocate(long_entree(nombre_input))
-    allocate(long_entree_d(nombre_input))
-    allocate(ndinput(ndi))
-    allocate(numero_ndinput(ndi))
-    allocate(ndinput_d(ndi))
-    allocate(numero_ndinput_d(ndi))
+  print*, "INPUT " , nombre_entrees, ndi
+  if(nombre_entrees>0) then
+    allocate(long_entree(nombre_entrees))
+    allocate(long_entree_d(nombre_entrees))
+    if(ndi>0) then
+      allocate(ndinput(ndi))
+      allocate(numero_ndinput(ndi))
+      allocate(ndinput_d(ndi))
+      allocate(numero_ndinput_d(ndi))
+    end if
   end if
 
-  print*, "OUTPUT " , nombre_output, ndo
-  if(nombre_output>0) then
+  print*, "OUTPUT " , nombre_sorties, ndo
+  if(nombre_sorties>0 .and. ndo>0) then
     allocate(ndoutput(ndo))
     allocate(numero_ndoutput(ndo))
     allocate(numero_ndoutput_d(ndo))
@@ -636,7 +632,7 @@ subroutine lec_mail_cgns
         call cg_boco_read_f(fn, base, zone, boco, ndinput(ndi+1:), NULL, ierr)
         !!Find which input from the donnees.f file it corresponds to
         found = .FALSE.
-        do it=1,nombre_input
+        do it=1,nombre_entrees
           if(boconame == inlet_name(it)) then
             numero_ndinput(ndi+1:) = it
             found = .TRUE.
@@ -651,7 +647,7 @@ subroutine lec_mail_cgns
         ndi = ndi + n_bcnodes
       else if(bocoType == 13) then
         found = .FALSE.
-        do it=1,nombre_output
+        do it=1,nombre_sorties
           if(boconame == outlet_name(it)) then
             numero_ndoutput(ndo+1:) = it
             found = .TRUE.
@@ -667,13 +663,6 @@ subroutine lec_mail_cgns
       end if
     end if
   end do
-
-  ! if(nombre_input>0) then
-  !   call mpi_allreduce(mpi_in_place,nombre_input,1,MPI_INTEGER,mpi_sum,mpi_comm_world,mpi_ierr)
-  !   allocate(long_entree(nombre_input))
-  !   allocate(long_entree_d(nombre_input))
-  ! end if
-
 
   call cg_goto_f(fn, base, ierr, zonename, 0, "end")
   if (ierr .ne. CG_OK) call cg_error_exit_f
@@ -782,9 +771,9 @@ subroutine lec_mail_cgns
   nelt_d = nelt  
   nnt_d  = nnt
   ndi_d  = ndi
-  nombre_input_d  = nombre_input
+  nombre_entrees_d  = nombre_entrees
   ndo_d  = ndo
-  nombre_output_d  = nombre_output
+  nombre_sorties_d  = nombre_sorties
   ndw_d  = ndw
 
   call cuda_glerror('ierr->memory transfers 1-->lec_mail_cngs--> (maillage.cuf)',1)
@@ -881,6 +870,10 @@ subroutine tab_bound_tri_cudaf
   call set_boundary<<<grid_set, block_set>>>()
   call cuda_glerror('ierr <- tab_bound_tri_cudaf <- set_boundary <- maillage.cuf',1)
 
+  !!Set up mutex for iupwind 2 inside find_neigbour
+  allocate(mutex_d(nnt))
+  mutex_d = 0
+
   if(grid_loc%y > gridylim) then
 
     tblock_loc = dim3(32,32,1)
@@ -910,6 +903,8 @@ subroutine tab_bound_tri_cudaf
     call cuda_glerror('ierr <- tab_bound_tri_cudaf <-- find_neighbour (2) <-- maillage.cuf',1)
 
   endif
+
+  deallocate(mutex_d(nnt))
   !
   ! ... fin du traitement ................................................
   !
@@ -948,12 +943,12 @@ attributes(global) subroutine set_boundary()
 end subroutine set_boundary 
 
 attributes(global) subroutine find_neighbour()
+  use cudafor
   use precision_m
   use global_device
   implicit none
 
   integer :: ti,tj,gi,gj,m1,m2,m3,n1,n2,n3,k
-  logical :: found
 
   ti = threadidx%x
   tj = threadidx%y
@@ -980,31 +975,28 @@ attributes(global) subroutine find_neighbour()
       & boundary_d(gi,3,1) = gj
 
     if(iflux_d >= 3 .and. iupwind_d==2) then
-      found = .FALSE.
       if ( (m1==n1) .or. (m1==n2) .or. (m1==n3))  then
         do k=1,6
-          if(vertex_neighbors_d(k,m1) == gi) found = .TRUE.
-          if((vertex_neighbors_d(k,m1) == -1) .and. (.not. found)) then
+          if(vertex_neighbors_d(k,m1) == gi) exit
+          if(vertex_neighbors_d(k,m1) == -1) then
             vertex_neighbors_d(k,m1) = gi
             exit
           end if
         end do
       end if
-      found = .FALSE.
       if ( (m2==n1) .or. (m2==n2) .or. (m2==n3))  then
         do k=1,6
-          if(vertex_neighbors_d(k,m2) == gi) found = .TRUE.
-          if((vertex_neighbors_d(k,m2) == -1) .and. (.not. found)) then
+          if(vertex_neighbors_d(k,m2) == gi) exit
+          if(vertex_neighbors_d(k,m2) == -1) then
             vertex_neighbors_d(k,m2) = gi
             exit
           end if
         end do
       end if
-      found = .FALSE.
       if ( (m3==n1) .or. (m3==n2) .or. (m3==n3))  then
         do k=1,6
-          if(vertex_neighbors_d(k,m3) == gi) found = .TRUE.
-          if((vertex_neighbors_d(k,m3) == -1) .and. (.not. found)) then
+          if(vertex_neighbors_d(k,m3) == gi) exit
+          if(vertex_neighbors_d(k,m3) == -1) then
             vertex_neighbors_d(k,m3) = gi
             exit
           end if
@@ -1024,7 +1016,6 @@ attributes(global) subroutine find_neighbour_big(nmin, nmax)
   integer, value :: nmin, nmax
 
   integer :: ti,tj,gi,gj,m1,m2,m3,n1,n2,n3, by, k
-  logical :: found
 
 
   ti = threadidx%x
@@ -1053,31 +1044,28 @@ attributes(global) subroutine find_neighbour_big(nmin, nmax)
       & boundary_d(gj,3,1) = gi
 
     if(iflux_d >= 3 .and. iupwind_d==2) then
-      found = .FALSE.
       if ( (m1==n1) .or. (m1==n2) .or. (m1==n3))  then
         do k=1,6
-          if(vertex_neighbors_d(k,m1) == gi) found = .TRUE.
-          if((vertex_neighbors_d(k,m1) == -1) .and. (.not. found)) then
+          if(vertex_neighbors_d(k,m1) == gi) exit
+          if(vertex_neighbors_d(k,m1) == -1) then
             vertex_neighbors_d(k,m1) = gi
             exit
           end if
         end do
       end if
-      found = .FALSE.
       if ( (m2==n1) .or. (m2==n2) .or. (m2==n3))  then
         do k=1,6
-          if(vertex_neighbors_d(k,m2) == gi) found = .TRUE.
-          if((vertex_neighbors_d(k,m2) == -1) .and. (.not. found)) then
+          if(vertex_neighbors_d(k,m2) == gi) exit
+          if(vertex_neighbors_d(k,m2) == -1) then
             vertex_neighbors_d(k,m2) = gi
             exit
           end if
         end do
       end if
-      found = .FALSE.
       if ( (m3==n1) .or. (m3==n2) .or. (m3==n3))  then
         do k=1,6
-          if(vertex_neighbors_d(k,m3) == gi) found = .TRUE.
-          if((vertex_neighbors_d(k,m3) == -1) .and. (.not. found)) then
+          if(vertex_neighbors_d(k,m3) == gi) exit
+          if(vertex_neighbors_d(k,m3) == -1) then
             vertex_neighbors_d(k,m3) = gi
             exit
           end if
@@ -1117,35 +1105,17 @@ end subroutine find_upwind_cells
 
 
 subroutine boundary_kind_cudaf
-  !
-  ! ======================================================================
-  !
-  !     boundary_kind = affectation du genre des frontieres (assignment of the kind of borders)
-  !                     ( entree : -1 ; sortie : -2 : imperm : -3 )
-  !
-  !     auteur : youssef loukili  granit etsmtl
-  !
-  !     version : 1.0  ;  may 12 2003
-  ! ======================================================================
-  !
-  !     parametres =
-  !       connectivite:
-  !       ndinput     :
-  !       ndoutput    :
-  !       ndwall      :
-  !       boundary    :
-  !
-  ! ======================================================================
-  !
+  !boundary_kind = affectation du genre des frontieres (assignment of the kind of borders)
+  !( entree : -1 ; sortie : -2 : imperm : -3 )
+
   use precision_m
   use global
   use global_device
   use m_param
   use cudafor
-  !
+
   implicit none
 
-  ! ... debut de l interface .............................................
   interface
 
     attributes(global) subroutine assign_type_1(ndiow_d, boundary_d, kvol, kfac, nd, n1, n2, id)
@@ -1225,7 +1195,6 @@ subroutine boundary_kind_cudaf
 
   endif
 
-  !
   ! ... debut du traitement
   do kvol=1,nelt
     !
@@ -1549,7 +1518,7 @@ subroutine calcul_long_entree
 
   integer kvol, kfac, n1, n2, id_entree, ientree
 
-  do ientree=1,nombre_input
+  do ientree=1,nombre_entrees
     long_entree(ientree) = 0.
   end do
 

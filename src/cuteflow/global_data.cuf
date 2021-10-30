@@ -39,7 +39,7 @@ module global
 
   !! Variables donnees du maillage
   character(len=60)       :: meshfile, meshfile_path="./"
-  integer                 :: elt_bound, multi_entree, multi_sortie
+  integer                 :: elt_bound, nombre_entrees, nombre_sorties
   integer, dimension(20)  :: elts
 
 
@@ -89,7 +89,7 @@ module global
 
   & is_cgns,&
   & meshfile_path,&
-  & meshfile, elt_bound, multi_entree, multi_sortie, &
+  & meshfile, elt_bound, nombre_entrees, nombre_sorties, &
 
   &cuda_aware,&
 
@@ -140,7 +140,7 @@ module global
   integer, parameter :: convec=1
 
   integer :: n_seq_base     
-  integer :: nelt, nnt, ns, ndi, ndo, ndw, correction, prediction, nbase, nbase_h, nbase_eta, nbase_eta_tild, nbase_hu, nbase_hv, nbase_u, nbase_v, maxdimbase, nombre_input, nombre_output
+  integer :: nelt, nnt, ns, ndi, ndo, ndw, correction, prediction, nbase, nbase_h, nbase_eta, nbase_eta_tild, nbase_hu, nbase_hv, nbase_u, nbase_v, maxdimbase
   integer :: nelt_non_fant
   integer :: nelt_fant_recep !,nelt_fant_envoi
   integer :: nelt_fant_recep_bloc, nelt_fant_envoi_bloc

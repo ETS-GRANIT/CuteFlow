@@ -557,7 +557,7 @@ subroutine Full_FV
     endif
 
     if(ndi>1) then
-      do iter_entree=1,nombre_input
+      do iter_entree=1,nombre_entrees
         debit_entree(iter_entree) = debit_entree(iter_entree)/niter
       end do
     endif
@@ -576,7 +576,7 @@ subroutine Full_FV
 
     !!Reduce sum of all debits
     if(num_mpi_process>1) then
-      call MPI_ALLREDUCE(MPI_IN_PLACE,debit_entree,nombre_input,fp_kind_mpi,MPI_SUM,MPI_COMM_WORLD, mpi_ierr)
+      call MPI_ALLREDUCE(MPI_IN_PLACE,debit_entree,nombre_entrees,fp_kind_mpi,MPI_SUM,MPI_COMM_WORLD, mpi_ierr)
       ! call MPI_BARRIER(MPI_COMM_WORLD,mpi_ierr)
       call MPI_ALLREDUCE(MPI_IN_PLACE,debit_sortie,1,fp_kind_mpi,MPI_SUM,MPI_COMM_WORLD, mpi_ierr)
       ! call MPI_BARRIER(MPI_COMM_WORLD,mpi_ierr)
@@ -681,7 +681,7 @@ subroutine Full_FV
       print*,''
       !!if (debit_var==1) print*, 'debitglob=',debitglob
 
-      do iter_entree=1,nombre_input
+      do iter_entree=1,nombre_entrees
         print*, 'debit_entree ', iter_entree, " = " ,debit_entree(iter_entree)
       end do
       print*, 'debit_sortie =', debit_sortie, 'M3/S'  
@@ -800,7 +800,7 @@ subroutine Full_FV
         if ((3600 <= tc) .and. (tc< 86400))  print*, 'tc = ', tc, ' Secondes   =>', tc/3600,  ' Heures'
         if (tc  >= 86400)        print*, 'tc = ', tc, ' Secondes   =>', tc/86400, ' Jours'
         print*,('')
-        do iter_entree=1,nombre_input
+        do iter_entree=1,nombre_entrees
           print*, 'debit_entree ', iter_entree, " = " ,debit_entree(iter_entree)
         end do
         print*, 'debit_sortie = ', debit_sortie
