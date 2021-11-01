@@ -1,1593 +1,1448 @@
-subroutine lect_const_mail
-
-  use precision_m
-  use global
-  use global_device
-  use m_param
-  use cudafor
-  use mpi
-
+module maillage
   implicit none
+contains
+  subroutine lect_const_mail
 
-  interface
+    use precision_m
+    use global
+    use global_device
+    use m_param
+    use cudafor
+    use mpi
 
-    subroutine tab_bound_tri_cudaf
-      use precision_m
-      use global
-      use global_device
-      use m_param
-      use cudafor
-    end subroutine tab_bound_tri_cudaf
+    implicit none
 
-    attributes(global) subroutine find_upwind_cells
-      use precision_m
-      use global_device
-    end subroutine find_upwind_cells
+    integer                     ::  premnoeud, deuxnoeud
 
-    subroutine lec_mail_tri
-      use precision_m
-      use global
-      use global_device
-      use cudafor
-      use m_param
-    end subroutine lec_mail_tri
+    integer                     :: i, nc, kvol, nc1, nc2, ierr
+    real(fp_kind)               :: x1, x2, y1, y2, ln, errf
+    integer                     :: nc3
+    real(fp_kind)               :: x3, y3, p, ca, cb, cc, aire
+    type(cudaEvent)             :: startEvent , stopEvent
+    real(fp_kind)               :: start_cpu, stop_cpu, errf1, errf2, errf3
+    real                        :: time_cuda
+    type (dim3)                 :: block_set, grid_set
 
-    subroutine lec_mail_cgns
-      use precision_m
-      use global
-      use global_device
-      use cudafor
-      use m_param
-      use cgns
-    end subroutine lec_mail_cgns
+    !! ns = nombre de sommet ici 3 pour des triangles
+    ns = 3
+    ns_d = ns
+    call cuda_glerror( 'ierr <- data transfer ns_d = ns <--- maillage.cuf',1)
 
-    subroutine boundary_kind_cudaf
-      use precision_m
-      use global
-      use global_device
-      use m_param
-      use cudafor
-    end subroutine boundary_kind_cudaf
-
-    subroutine construct_coo_table_elemwise
-      use precision_m
-      use global
-      use global_device
-    end subroutine construct_coo_table_elemwise
-
-    subroutine calcul_long_entree
-      use precision_m
-      use global
-      use global_device
-      use m_param
-      use cudafor
-    end subroutine calcul_long_entree
-
-  end interface 
-
-  integer                     ::  premnoeud, deuxnoeud
-
-  integer                     :: i, nc, kvol, nc1, nc2, ierr
-  real(fp_kind)               :: x1, x2, y1, y2, ln, errf
-  integer                     :: nc3
-  real(fp_kind)               :: x3, y3, p, ca, cb, cc, aire
-  type(cudaEvent)             :: startEvent , stopEvent
-  real(fp_kind)               :: start_cpu, stop_cpu, errf1, errf2, errf3
-  real                        :: time_cuda
-  type (dim3)                 :: block_set, grid_set
-
-  !! ns = nombre de sommet ici 3 pour des triangles
-  ns = 3
-  ns_d = ns
-  call cuda_glerror( 'ierr <- data transfer ns_d = ns <--- maillage.cuf',1)
-
-  print*,mpi_process_id, ' lecture du maillage en cours'
-  if(is_cgns) then
-    call lec_mail_cgns
-  else
-    call lec_mail_tri
-  end if
-  print*,mpi_process_id, ' lecture du maillage reussie'
-  call MPI_BARRIER(MPI_COMM_WORLD,mpi_ierr)
-
-  allocate(boundary(nelt,3,2), boundary_d(nelt,3,2))
-  call cuda_glerror('ierr <- memory allocation in boundary_d <--- maillage.cuf',1)
-
-  if(iflux >=3 .and. iupwind==2) then
-    allocate(vertex_neighbors_d(6,nnt))
-    vertex_neighbors_d = -1.
-  end if
-
-  if (elt_bound==0) then
-    call tab_bound_tri_cudaf
-    print*,mpi_process_id,"tab_bound_tri ok", nelt, nnt
-    call MPI_BARRIER(MPI_COMM_WORLD,mpi_ierr)
-  endif
-
-  !!  Construction/Lecture des éléments voisins
-  if(num_mpi_process>1) then
-    file_bc = trim(adjustl(mpi_process_id_string)) //'_boundary_table_' // trim(adjustl(meshfile))
-  else
-    file_bc = 'boundary_table_' // trim(adjustl(meshfile))
-  end if
-
-  if (elt_bound==0) then
-    !! On construit puis sauvegarde la table des éléments voisins
-    open(unit=1100,file=file_bc,status="unknown")
-    call boundary_kind_cudaf
-    print*,mpi_process_id,"boundary kind ok"
+    print*,mpi_process_id, ' lecture du maillage en cours'
+    if(is_cgns) then
+      call lec_mail_cgns
+    else
+      call lec_mail_tri
+    end if
+    print*,mpi_process_id, ' lecture du maillage reussie'
     call MPI_BARRIER(MPI_COMM_WORLD,mpi_ierr)
 
-    boundary = boundary_d
-    call cuda_glerror('ierr <- (d->h) data transfer boundary =  boundary_d <-- maillage.cuf',1)
+    allocate(boundary(nelt,3,2), boundary_d(nelt,3,2))
+    call cuda_glerror('ierr <- memory allocation in boundary_d <--- maillage.cuf',1)
+
+    if(iflux >=3 .and. iupwind==2) then
+      allocate(vertex_neighbors_d(6,nnt))
+      vertex_neighbors_d = -1.
+    end if
+
+    if (elt_bound==0) then
+      call tab_bound_tri_cudaf
+      print*,mpi_process_id,"tab_bound_tri ok", nelt, nnt
+      call MPI_BARRIER(MPI_COMM_WORLD,mpi_ierr)
+    endif
+
+    !!  Construction/Lecture des éléments voisins
+    if(num_mpi_process>1) then
+      file_bc = trim(adjustl(mpi_process_id_string)) //'_boundary_table_' // trim(adjustl(meshfile))
+    else
+      file_bc = 'boundary_table_' // trim(adjustl(meshfile))
+    end if
+
+    if (elt_bound==0) then
+      !! On construit puis sauvegarde la table des éléments voisins
+      open(unit=1100,file=file_bc,status="unknown")
+      call boundary_kind_cudaf
+      print*,mpi_process_id,"boundary kind ok"
+      call MPI_BARRIER(MPI_COMM_WORLD,mpi_ierr)
+
+      boundary = boundary_d
+      call cuda_glerror('ierr <- (d->h) data transfer boundary =  boundary_d <-- maillage.cuf',1)
+
+      do i=1,nelt
+        write(1100,*) boundary(i,1,1), boundary(i,2,1), boundary(i,3,1), boundary(i,1,2), boundary(i,2,2), boundary(i,3,2)
+      enddo
+      close(1100)
+    else
+      !! On lit la table des éléments voisins
+      open(unit=1101,file=file_bc,status="unknown")
+      do i=1,nelt
+        read(1101,*) boundary(i,1,1), boundary(i,2,1), boundary(i,3,1), boundary(i,1,2), boundary(i,2,2), boundary(i,3,2)
+      enddo
+      close(1101)
+
+      boundary_d = boundary
+      call cuda_glerror('ierr <- (h->d) data transfer boundary_d = boundary <--- maillage.cuf',1)
+    endif
+
+    !!Si iflux==3 alors on calcule les elements upwind de chaque coté de chaque cellule
+    if(iflux==3) then
+      block_set = dim3(32,1,1)
+      grid_set  = dim3(ceiling(real(nelt)/real(block_set%x)),1,1)
+      call check_gridlim(block_set, grid_set, 'err <- tab_bound_tri_cudaf <-- maillage.cuf (1)')
+
+      allocate(upwind_cells_d(2,3,nelt)) !!Pas dealocate pour l'instant
+      call find_upwind_cells<<<grid_set, block_set>>>()
+      call cuda_glerror('ierr <- memory allocation of upwindcells <-- maillage.cuf',1)
+    end if
+
+
+    !! Calcul des longueurs des entrées
+    long_entree = 0.
+    if(ndi > 0) then 
+      call calcul_long_entree
+    end if
+
+    call MPI_BARRIER(MPI_COMM_WORLD,mpi_ierr)
+    print*,mpi_process_id,"avant reduce entree"
+
+    call mpi_allreduce(mpi_in_place,long_entree,nombre_entrees,fp_kind_mpi,mpi_sum,mpi_comm_world, mpi_ierr)
+    long_entree_d=long_entree
+
+    call MPI_BARRIER(MPI_COMM_WORLD,mpi_ierr)
+    print*,mpi_process_id,"apres reduce entree"
+
+    !! calculation of the elementwise coordinates table
+    allocate(coo_table_elemwise(nelt,3*ns) , coo_table_elemwise_d(nelt,3*ns))
+    allocate(x_centroid(nelt), y_centroid(nelt),x_centroid_d(nelt), y_centroid_d(nelt))
+
+    call cuda_glerror('ierr <- memory allocation of coo_table_elemwise_d <-- maillage.cuf',1)
+
+
+    call construct_coo_table_elemwise
+    print*,mpi_process_id,"apres contruct coo table elemwise"
+    call MPI_BARRIER(MPI_COMM_WORLD,mpi_ierr)
+
+
+    !! distance cote entre 1er et 2eme noeuds ***
+    premnoeud = connectivite(1,1)
+    deuxnoeud = connectivite(1,2)
+
+    distcote = sqrt( ( coordonnees(premnoeud,1) - coordonnees(deuxnoeud,1) )**2 + &
+      ( coordonnees(premnoeud,2) - coordonnees(deuxnoeud,2) )**2 )
+    distcote_d = distcote
+    call cuda_glerror('ierr <- (h->d) data transfer to distcote_d <-- maillage.cuf',1)
+
+    !! Calcul de la longueur caracteristique pour le calcul du pas de temps via la cfl
+    !! On choisit de prendre le rayon du cercle inscrit dans l triangle
+
+    allocate(cotemin_arr(nelt), cotemin_arr_d(nelt))
+    cotemin = 1000000.
+    do kvol=1,nelt 
+      nc1 = connectivite(kvol,1)
+      nc2 = connectivite(kvol,2)
+      nc3 = connectivite(kvol,3)
+
+      x1 = coordonnees(nc1,1)
+      y1 = coordonnees(nc1,2)
+
+      x2 = coordonnees(nc2,1)
+      y2 = coordonnees(nc2,2)
+
+      x3 = coordonnees(nc3,1)
+      y3 = coordonnees(nc3,2)
+
+      ca = sqrt((x1-x2)**2+(y1-y2)**2)
+      cb = sqrt((x2-x3)**2+(y2-y3)**2)
+      cc = sqrt((x3-x1)**2+(y3-y1)**2)
+
+      p = (ca + cb+ cc)/2.
+
+      aire = sqrt(p*(p-ca)*(p-cb)*(p-cc))
+
+      cotemin_arr(kvol) = 0.5*aire/p
+      cotemin_arr(kvol) = 1.8 * cotemin_arr(kvol) !! 1.8 * rayon du cercle inscrit
+      cotemin = min(cotemin,cotemin_arr(kvol))
+    enddo
+
+    print*,mpi_process_id,"avant all reduce"
+    call MPI_BARRIER(MPI_COMM_WORLD,mpi_ierr)
+    call mpi_allreduce(mpi_in_place,cotemin,1,fp_kind_mpi,mpi_min,mpi_comm_world, mpi_ierr)
+    call MPI_BARRIER(MPI_COMM_WORLD,mpi_ierr)
+    print*,mpi_process_id,"apres all reduce"
+    cotemin_d = cotemin
+    call cuda_glerror('ierr <- (h->d) data transfer to cotemin_d <-- maillage.cuf',1)
+    call cuda_glerror('ierr <- lect_const_mail (towards_end_of_function) <-- maillage.cuf',1)
+  end subroutine lect_const_mail
+
+  subroutine lec_donnees
+
+    use precision_m
+    use global
+    use m_param
+
+    implicit none
+
+    open(lu_fich,file='donnees.f',form='formatted',status='old')
+    read(lu_fich,nml=donnees_namelist)
+    close(lu_fich)
+
+    !! Ajout du numéro de process MPI en préfixe des fichiers de maillage et de solution initiale
+    if(num_mpi_process>1 .and. is_cgns==0) then
+      meshfile = trim(mpi_process_id_string)//'_'//trim(meshfile)
+      fich_sol_init = trim(mpi_process_id_string)//'_'//trim(fich_sol_init)
+    else
+      meshfile = trim(meshfile)
+      fich_sol_init = trim(fich_sol_init)
+    end if
+
+  end subroutine lec_donnees
+
+  subroutine lec_mail_tri
+    ! ======================================================================
+    !     lec_mail_tri = routine de lecture d'un maillage triangulaire
+    !     auteur : Delmas vincent
+    !     version : 1.0  ;  may 28 2019
+    ! ======================================================================
+
+    use precision_m
+    use global
+    use global_device
+    use cudafor
+    use m_param
+
+    implicit none
+
+    character(len=1) :: tarati
+    integer          :: i, n, ierr, curproc
+
+    open(lec_mesh,file=trim(adjustl(meshfile_path))//trim(adjustl(meshfile)),form='formatted',status='old')
+
+    !! table des coordonnees :
+    read(lec_mesh,*) tarati
+    read(lec_mesh,*) nnt
+    print*,"id ", mpi_process_id, ", ", nnt, " nodes"
+    allocate(coordonnees(nnt,3), manning_nd(nnt))
+
+    do i=1,nnt
+      read(lec_mesh,*) n, coordonnees(i,1), coordonnees(i,2), coordonnees(i,3) , manning_nd(i)
+    enddo
+
+    !! table de connectivité :
+    read(lec_mesh,*) tarati
+    if(num_mpi_process>1) then
+      read(lec_mesh,*) nelt, nelt_non_fant
+      nelt_fant_recep = nelt-nelt_non_fant
+    else
+      read(lec_mesh,*) nelt
+      nelt_non_fant=nelt
+      nelt_fant_recep = 0
+    end if
+    print*,"id ", mpi_process_id, ", ", nelt, " elems"
+    allocate(connectivite(nelt,3), manning_nelt(nelt))
 
     do i=1,nelt
-      write(1100,*) boundary(i,1,1), boundary(i,2,1), boundary(i,3,1), boundary(i,1,2), boundary(i,2,2), boundary(i,3,2)
+      read(lec_mesh,*) n,connectivite(i,1),connectivite(i,2),connectivite(i,3), manning_nelt(i)
     enddo
-    close(1100)
-  else
-    !! On lit la table des éléments voisins
-    open(unit=1101,file=file_bc,status="unknown")
+
+    !! table des noeuds de l'entrée :
+    read(lec_mesh,*) tarati
+    if(nombre_entrees==1) then
+      read(lec_mesh,*) ndi
+      allocate(long_entree(1))
+      allocate(long_entree_d(1))
+      if (ndi>0) then
+        allocate(ndinput(ndi))
+        allocate(numero_ndinput(ndi))
+        allocate(ndinput_d(ndi))
+        allocate(numero_ndinput_d(ndi))
+        do i=1,ndi
+          read(lec_mesh,*) ndinput(i)
+          numero_ndinput(i) = 1
+        enddo
+      endif
+    else
+      read(lec_mesh,*) ndi, nombre_entrees
+      allocate(long_entree(nombre_entrees))
+      allocate(long_entree_d(nombre_entrees))
+      if (ndi>0) then
+        allocate(ndinput(ndi))
+        allocate(numero_ndinput(ndi))
+        allocate(ndinput_d(ndi))
+        allocate(numero_ndinput_d(ndi))
+        do i=1,ndi
+          read(lec_mesh,*) ndinput(i), numero_ndinput(i)
+        enddo
+      endif
+    end if
+    print*,"id ", mpi_process_id, ", ", ndi, " noeuds d'entree"
+
+    !! table des noeuds de la sortie :
+    read(lec_mesh,*) tarati
+    if(nombre_sorties==1) then
+      read(lec_mesh,*) ndo
+      if (ndo>0) then
+        allocate(numero_ndoutput(ndo))
+        allocate(numero_ndoutput_d(ndo))
+        allocate(ndoutput(ndo))
+        allocate(ndoutput_d(ndo))
+        do i=1,ndo
+          read(lec_mesh,*) ndoutput(i)
+          numero_ndoutput(i) = 1
+        enddo
+      end if
+    else
+      read(lec_mesh,*) ndo, nombre_sorties
+      if(ndo>0) then
+        allocate(numero_ndoutput(ndo))
+        allocate(numero_ndoutput_d(ndo))
+        allocate(ndoutput(ndo))
+        allocate(ndoutput_d(ndo))
+        do i=1,ndo
+          read(lec_mesh,*) ndoutput(i), numero_ndoutput(i)
+        enddo
+      endif
+    endif
+    print*,"id ", mpi_process_id, ", ", ndo, " noeuds de sortie"
+
+    !! table des noeuds de la frontière solide :
+    read(lec_mesh,*) tarati
+    read(lec_mesh,*) ndw
+    print*,"id ", mpi_process_id, ", ", ndw, " noeuds de murs"
+    if (ndw>0) then
+      allocate(ndwall(ndw))
+      allocate(ndwall_d(ndw))
+      do i=1,ndw
+        read(lec_mesh,*) ndwall(i)
+      enddo
+    endif
+
+    if(num_mpi_process>1) then
+      ! !! table des mailles fantomes a recep:
+      ! read(lec_mesh,*) tarati
+      ! read(lec_mesh,*) nelt_fant_recep
+      ! print*,"id ", mpi_process_id, ", ", nelt_fant_recep, " mailles fantomes a recep"
+      ! if (nelt_fant_recep>0) then
+      !   allocate(elt_fant_recep(nelt_fant_recep,3))
+      !   do i=1,nelt_fant_recep
+      !     read(lec_mesh,*) elt_fant_recep(i, 1), elt_fant_recep(i, 2), elt_fant_recep(i, 3)
+      !   enddo
+      ! endif
+
+      ! !! table des mailles fantomes a envoyer:
+      ! read(lec_mesh,*) tarati
+      ! read(lec_mesh,*) nelt_fant_envoi
+      ! print*,"id ", mpi_process_id, ", ", nelt_fant_envoi, " mailles fantomes a envoyer"
+      ! if (nelt_fant_envoi>0) then
+      !   allocate(elt_fant_envoi(nelt_fant_envoi,3))
+      !   do i=1,nelt_fant_envoi
+      !     read(lec_mesh,*) elt_fant_envoi(i, 1), elt_fant_envoi(i, 2), elt_fant_envoi(i, 3)
+      !   enddo
+      ! endif
+
+      !! table des mailles fantomes à receptionner par bloc
+      read(lec_mesh,*) tarati
+      read(lec_mesh,*) nelt_fant_recep_bloc
+      print*,"id ", mpi_process_id, ", ", nelt_fant_recep_bloc, " bloc fantomes a receptionner"
+      if (nelt_fant_recep_bloc>0) then
+        allocate(elt_fant_recep_bloc(nelt_fant_recep_bloc,3))
+        do i=1,nelt_fant_recep_bloc
+          read(lec_mesh,*) elt_fant_recep_bloc(i, 1), elt_fant_recep_bloc(i, 2), elt_fant_recep_bloc(i, 3)
+          print*, elt_fant_recep_bloc(i, 1), elt_fant_recep_bloc(i, 2), elt_fant_recep_bloc(i, 3)
+        enddo
+      endif
+
+      !! table des mailles fantomes à envoyer par bloc
+      read(lec_mesh,*) tarati
+      read(lec_mesh,*) nelt_fant_envoi_bloc
+      print*,"id ", mpi_process_id, ", ", nelt_fant_envoi_bloc, " bloc fantomes a envoyer"
+      if (nelt_fant_envoi_bloc>0) then
+        allocate(elt_fant_envoi_bloc(nelt_fant_envoi_bloc,3))
+        do i=1,nelt_fant_envoi_bloc
+          read(lec_mesh,*) elt_fant_envoi_bloc(i, 1), elt_fant_envoi_bloc(i, 2), elt_fant_envoi_bloc(i, 3)
+          print*, elt_fant_envoi_bloc(i, 1), elt_fant_envoi_bloc(i, 2), elt_fant_envoi_bloc(i, 3)
+        enddo
+      endif
+
+    end if 
+    close(lec_mesh)
+
+    !! device memory allocation :
+    allocate(coordonnees_d(nnt,3), manning_nd_d(nnt))
+    allocate(connectivite_d(nelt,3), manning_nelt_d(nelt))
+
+    call cuda_glerror('ierr->memory allocation-->lec_mail_tri--> (maillage.cuf)',1)
+
+    !! host to device data transfer :
+    nelt_d = nelt  
+    nnt_d  = nnt
+    ndi_d  = ndi
+    nombre_entrees_d  = nombre_entrees
+    ndo_d  = ndo
+    nombre_sorties_d  = nombre_sorties
+    ndw_d  = ndw
+
+    coordonnees_d       = coordonnees
+    manning_nd_d        = manning_nd
+    connectivite_d      = connectivite
+    manning_nelt_d      = manning_nelt
+    ndinput_d           = ndinput
+    numero_ndinput_d    = numero_ndinput
+    ndoutput_d          = ndoutput
+    numero_ndoutput_d   = numero_ndoutput
+    ndwall_d            = ndwall
+
+    if(num_mpi_process>1) then
+      nelt_fant_recep_d = nelt_fant_recep
+      ! nelt_fant_envoi_d = nelt_fant_envoi
+    end if
+
+    call cuda_glerror('ierr->data_transfer->lec_mail_tri--> (maillage.cuf)',1)
+  end subroutine lec_mail_tri
+
+  subroutine lec_mail_cgns
+    use global
+    use global_device
+    use precision_m
+    use cgns
+
+    implicit none
+
+    integer :: dummy_int, dummy_wall, i, j, it
+    real(fp_kind) :: dummy_real
+    character(200) :: dummy_char
+    logical :: found
+
+    integer :: ierr, cellDim, physDim
+    integer :: fn, n_bases, base, n_zones, zone, zoneType, n_sections, section, ord
+    integer :: n_bocos, boco, bocoType, normListFlag, normDataType, nDataSet, n_bcnodes 
+    integer :: normalIndex
+    ! integer, dimension(:), allocatable :: normalIndex
+    ! integer, dimension(3) :: normalIndex
+    integer :: ptSetType, n_userdata, n_ptSet, n_userdata2
+    integer :: sizes(3*3), sectionType, nBeg, nEnd, eBeg, eEnd, nBdry, flag
+    character(200) :: filename, basename, command, zonename, sectionname, boconame
+    character(200) :: userdataname, userdataname2
+
+    real(fp_kind), dimension(:), allocatable :: coord
+    integer, dimension(:), allocatable :: conn
+
+    !!Copy meshfile localy and use it for further processing
+    if(mpi_process_id==0) then
+      write(command, *) "cp "//trim(adjustl(meshfile_path))//trim(adjustl(meshfile))//&
+        &" out_"//trim(adjustl(meshfile))
+      call system(command)
+    end if
+    call MPI_BARRIER(MPI_COMM_WORLD,mpi_ierr)
+    meshfile = trim(adjustl("out_"))//trim(adjustl(meshfile))
+
+    call cg_open_f(meshfile, CG_MODE_READ, fn, ierr)
+    if (ierr .ne. CG_OK) call cg_error_exit_f
+
+    call cg_nbases_f(fn, n_bases, ierr)
+    if (ierr .ne. CG_OK) call cg_error_exit_f
+    base = 1
+
+    call cg_base_read_f(fn, base, basename, cellDim, physDim, ierr)
+    if (ierr .ne. CG_OK) call cg_error_exit_f
+
+    call cg_nzones_f(fn, base, n_zones, ierr)
+    if (ierr .ne. CG_OK) call cg_error_exit_f
+
+    do zone=1,n_zones
+      call cg_zone_type_f(fn, base, zone, zoneType, ierr)
+      if (ierr .ne. CG_OK) call cg_error_exit_f
+
+      call cg_zone_read_f(fn, base, zone, zonename, sizes, ierr)
+      if (ierr .ne. CG_OK) call cg_error_exit_f
+
+      call cg_goto_f(fn, base, ierr, trim(adjustl(zonename)), 0, "end")
+      if (ierr .ne. CG_OK) call cg_error_exit_f
+
+      call cg_ordinal_read_f(ord, ierr)
+      if (ierr .ne. CG_OK) call cg_error_exit_f
+
+      if(ord == mpi_process_id) then
+        exit
+      end if
+    end do
+
+    print*,mpi_process_id,zone
+
+
+    nnt = sizes(1)
+    nelt = sizes(2)
+
+
+    nnt = nnt
+    allocate(coord(nnt), coordonnees(nnt,3), manning_nd(nnt))
+
+    call cg_coord_read_f(fn, base, zone, "CoordinateX", 4, 1, nnt, coord, ierr)
+    if (ierr .ne. CG_OK) call cg_error_exit_f
+
+    do i=1,nnt
+      coordonnees(i,1) = coord(i)
+    end do
+
+    call cg_coord_read_f(fn, base, zone, "CoordinateY", 4, 1, nnt, coord, ierr)
+    if (ierr .ne. CG_OK) call cg_error_exit_f
+
+    do i=1,nnt
+      coordonnees(i,2) = coord(i)
+    end do
+
+    call cg_coord_read_f(fn, base, zone, "CoordinateZ", 4, 1, nnt, coord, ierr)
+    if (ierr .ne. CG_OK) call cg_error_exit_f
+
+    do i=1,nnt
+      coordonnees(i,3) = coord(i)
+    end do
+
+    deallocate(coord)
+
+
+    call cg_nsections_f(fn, base, zone, n_sections, ierr)
+    if (ierr .ne. CG_OK) call cg_error_exit_f
+    section = 1
+
+    call cg_section_read_f(fn, base, zone, section, sectionname,  sectionType,&
+      &eBeg, eEnd, nBdry, flag, ierr)
+    if (ierr .ne. CG_OK) call cg_error_exit_f
+
+    nelt = nelt
+    allocate(conn(nelt*3), manning_nelt(nelt))
+    allocate(connectivite(nelt,3))
+    call cg_elements_read_f(fn, base, zone, section, conn, NULL, ierr)
+    if (ierr .ne. CG_OK) call cg_error_exit_f
     do i=1,nelt
-      read(1101,*) boundary(i,1,1), boundary(i,2,1), boundary(i,3,1), boundary(i,1,2), boundary(i,2,2), boundary(i,3,2)
-    enddo
-    close(1101)
+      connectivite(i,1) = conn(3*(i-1)+1)
+      connectivite(i,2) = conn(3*(i-1)+2)
+      connectivite(i,3) = conn(3*(i-1)+3)
+    end do
+    deallocate(conn)
 
-    boundary_d = boundary
-    call cuda_glerror('ierr <- (h->d) data transfer boundary_d = boundary <--- maillage.cuf',1)
-  endif
+    call cg_nbocos_f(fn, base, zone, n_bocos, ierr)
+    if (ierr .ne. CG_OK) call cg_error_exit_f
 
-  !!Si iflux==3 alors on calcule les elements upwind de chaque coté de chaque cellule
-  if(iflux==3) then
+    ndi = 0
+    ndo = 0
+
+    print*, n_bocos, "boundary conditions"
+
+    !!Read a first time to see how many local input/output nodes there are
+    do boco=1,n_bocos
+      call cg_boco_info_f(fn, base, zone, boco, boconame, bocoType,&
+        &ptsetType, n_bcnodes, &
+        &normalIndex, normListFlag, normDataType, nDataset, ierr)
+      if (ierr .ne. CG_OK) call cg_error_exit_f
+
+      if(n_bcnodes>1) then
+        if(bocoType == 9) then !!Inflow
+          ndi = ndi + n_bcnodes
+        else if(bocoType == 13) then !!Outflow
+          ndo = ndo + n_bcnodes
+        end if
+      end if
+    end do
+
+    print*, "INPUT " , nombre_entrees, ndi
+    if(nombre_entrees>0) then
+      allocate(long_entree(nombre_entrees))
+      allocate(long_entree_d(nombre_entrees))
+      if(ndi>0) then
+        allocate(ndinput(ndi))
+        allocate(numero_ndinput(ndi))
+        allocate(ndinput_d(ndi))
+        allocate(numero_ndinput_d(ndi))
+      end if
+    end if
+
+    print*, "OUTPUT " , nombre_sorties, ndo
+    if(nombre_sorties>0 .and. ndo>0) then
+      allocate(ndoutput(ndo))
+      allocate(numero_ndoutput(ndo))
+      allocate(numero_ndoutput_d(ndo))
+      allocate(ndoutput_d(ndo))
+    end if
+
+    ndi = 0
+    ndo = 0
+
+    do boco=1,n_bocos
+      call cg_boco_info_f(fn, base, zone, boco, boconame, bocoType,&
+        &ptsetType, n_bcnodes, &
+        &normalIndex, normListFlag, normDataType, nDataset, ierr)
+      if (ierr .ne. CG_OK) call cg_error_exit_f
+      boconame = trim(adjustl(boconame))
+
+      if(n_bcnodes>1) then
+        if(bocoType == 9) then
+          call cg_boco_read_f(fn, base, zone, boco, ndinput(ndi+1:), NULL, ierr)
+          !!Find which input from the donnees.f file it corresponds to
+          found = .FALSE.
+          do it=1,nombre_entrees
+            if(boconame == inlet_name(it)) then
+              numero_ndinput(ndi+1:) = it
+              found = .TRUE.
+            end if
+          end do
+          if (not (found)) then
+            print*,"Inlet name : ", trim(adjustl(boconame)), ", not found in donnees.f file ! Setting it to 1"
+            numero_ndinput(ndi+1:) = 1
+          end if
+          ! print*,mpi_process_id," input nodes ",ndi,numero_ndinput(ndi+1),ndinput(ndi+1)
+          if (ierr .ne. CG_OK) call cg_error_exit_f
+          ndi = ndi + n_bcnodes
+        else if(bocoType == 13) then
+          found = .FALSE.
+          do it=1,nombre_sorties
+            if(boconame == outlet_name(it)) then
+              numero_ndoutput(ndo+1:) = it
+              found = .TRUE.
+            end if
+          end do
+          if (not (found)) then
+            print*,"Outlet name : ", trim(adjustl(boconame)), ", not found in donnees.f file ! Setting it to 1"
+            numero_ndinput(ndi+1:) = 1
+          end if
+          call cg_boco_read_f(fn, base, zone, boco, ndoutput(ndo+1:), NULL, ierr)
+          if (ierr .ne. CG_OK) call cg_error_exit_f
+          ndo = ndo + n_bcnodes
+        end if
+      end if
+    end do
+
+    call cg_goto_f(fn, base, ierr, zonename, 0, "end")
+    if (ierr .ne. CG_OK) call cg_error_exit_f
+    call cg_nuser_data_f(n_userdata, ierr)
+    if (ierr .ne. CG_OK) call cg_error_exit_f
+    do i=1,n_userdata
+      call cg_user_data_read_f(i,userdataname,ierr)
+      if (ierr .ne. CG_OK) call cg_error_exit_f
+      !!Si elems à envoyer
+      if(userdataname == "ElemsToSend") then
+        call cg_goto_f(fn, base, ierr, zonename, 0, userdataname, 0, "end")
+        if (ierr .ne. CG_OK) call cg_error_exit_f
+        call cg_nuser_data_f(n_userdata2, ierr)
+        if (ierr .ne. CG_OK) call cg_error_exit_f
+
+        nelt_fant_envoi_bloc = n_userdata2
+        allocate(elt_fant_envoi_list(nelt_fant_envoi_bloc))
+        ! allocate(reqsend(nelt_fant_envoi_bloc), sendstat(MPI_STATUS_SIZE, nelt_fant_envoi_bloc))
+
+        !!Pour tous les voisins
+        do j=1,n_userdata2
+
+          call cg_user_data_read_f(j,userdataname2,ierr)
+          if (ierr .ne. CG_OK) call cg_error_exit_f
+
+          call cg_goto_f(fn, base, ierr, zonename, 0, userdataname, 0, userdataname2, 0, "end")
+          if (ierr .ne. CG_OK) call cg_error_exit_f
+
+          call cg_ptset_info_f(ptSetType, n_ptset, ierr)
+          if (ierr .ne. CG_OK) call cg_error_exit_f
+
+          call cg_ordinal_read_f(ord, ierr)
+          if (ierr .ne. CG_OK) call cg_error_exit_f
+
+          allocate(elt_fant_envoi_list(j)%elem_id(n_ptset))
+          allocate(elt_fant_envoi_list(j)%elem_sol(3,n_ptset))
+
+          elt_fant_envoi_list(j)%length = n_ptset !! Longueur du message
+          elt_fant_envoi_list(j)%proc = ord !! Destinataire
+
+          call cg_ptset_read_f(elt_fant_envoi_list(j)%elem_id, ierr)
+          if (ierr .ne. CG_OK) call cg_error_exit_f
+
+          call cg_goto_f(fn, base, ierr, zonename, 0, userdataname, 0, "end")
+          if (ierr .ne. CG_OK) call cg_error_exit_f
+        end do
+        call cg_goto_f(fn, base, ierr, zonename, 0, "end")
+        if (ierr .ne. CG_OK) call cg_error_exit_f
+
+      else if(userdataname == "ElemsToRecv") then
+
+        call cg_goto_f(fn, base, ierr, zonename, 0, userdataname, 0, "end")
+        if (ierr .ne. CG_OK) call cg_error_exit_f
+        call cg_nuser_data_f(n_userdata2, ierr)
+        if (ierr .ne. CG_OK) call cg_error_exit_f
+
+        nelt_fant_recep_bloc = n_userdata2
+        nelt_fant_recep = 0
+        allocate(elt_fant_recep_range(nelt_fant_recep_bloc))
+        ! allocate(reqrecv(nelt_fant_recep_bloc), recvstat(MPI_STATUS_SIZE, nelt_fant_recep_bloc))
+
+        !!Pour tous les voisins
+        do j=1,n_userdata2
+
+          call cg_user_data_read_f(j,userdataname2,ierr)
+          if (ierr .ne. CG_OK) call cg_error_exit_f
+
+          call cg_goto_f(fn, base, ierr, zonename, 0, userdataname, 0, userdataname2, 0, "end")
+          if (ierr .ne. CG_OK) call cg_error_exit_f
+
+          call cg_ptset_info_f(ptSetType, n_ptset, ierr)
+          if (ierr .ne. CG_OK) call cg_error_exit_f
+
+          call cg_ordinal_read_f(ord, ierr)
+          if (ierr .ne. CG_OK) call cg_error_exit_f
+
+          elt_fant_recep_range(j)%length = n_ptset !! Longueur du message
+          elt_fant_recep_range(j)%proc = ord !! Destinataire
+
+          call cg_ptset_read_f(elt_fant_recep_range(j)%start, ierr)
+          if (ierr .ne. CG_OK) call cg_error_exit_f
+
+          if((nelt - elt_fant_recep_range(j)%start ) > nelt_fant_recep) nelt_fant_recep = nelt-elt_fant_recep_range(j)%start
+
+          ! print*, me, i, j, " ElemsToRecv", elt_fant_recep_range(j)
+
+          call cg_goto_f(fn, base, ierr, zonename, 0, userdataname, 0, "end")
+          if (ierr .ne. CG_OK) call cg_error_exit_f
+        end do
+        call cg_goto_f(fn, base, ierr, zonename, 0, "end")
+        if (ierr .ne. CG_OK) call cg_error_exit_f
+      end if
+    end do
+    ! if(cg_goto(index_file, index_base, zss.str().c_str(), 0, "end")) cg_error_exit();
+
+    ndwall = 0
+
+    call cg_close_f(fn, ierr)
+    if (ierr .ne. CG_OK) call cg_error_exit_f
+
+    !! device memory allocation :
+    allocate(coordonnees_d(nnt,3), manning_nd_d(nnt))
+    allocate(connectivite_d(nelt,3), manning_nelt_d(nelt))
+
+    !! host to device data transfer :
+    nelt_d = nelt  
+    nnt_d  = nnt
+    ndi_d  = ndi
+    nombre_entrees_d  = nombre_entrees
+    ndo_d  = ndo
+    nombre_sorties_d  = nombre_sorties
+    ndw_d  = ndw
+
+    call cuda_glerror('ierr->memory transfers 1-->lec_mail_cngs--> (maillage.cuf)',1)
+
+    coordonnees_d       = coordonnees
+    manning_nd_d        = manning_nd
+    connectivite_d      = connectivite
+    manning_nelt_d      = manning_nelt
+    ndinput_d           = ndinput
+    numero_ndinput_d    = numero_ndinput
+    ndoutput_d          = ndoutput
+    numero_ndoutput_d   = numero_ndoutput
+    ndwall_d            = ndwall
+
+    call cuda_glerror('ierr->memory transfers 2-->lec_mail_cngs--> (maillage.cuf)',1)
+
+    if(num_mpi_process>1) then
+      nelt_fant_recep_d = nelt_fant_recep
+      ! nelt_fant_envoi_d = nelt_fant_envoi
+    end if
+
+  end subroutine lec_mail_cgns
+
+
+  subroutine tab_bound_tri_cudaf
+    ! ======================================================================
+    !
+    !     tab_bound_tri = construction table des elements frontiers (cas triangulaire)
+    !     construction table of boundary elements (triangular case)
+    !
+    !     auteur : youssef loukili  granit etsmtl
+    !              
+    !     version : 1.0  ;  may 12 2003
+    ! ======================================================================
+
+    use precision_m
+    use global
+    use global_device
+    use m_param
+    use cudafor
+
+    implicit none
+
+    type ( dim3 ) :: grid_loc, tblock_loc, block_set, grid_set
+    integer :: ierr_loc, nity, i
+
     block_set = dim3(32,1,1)
     grid_set  = dim3(ceiling(real(nelt)/real(block_set%x)),1,1)
     call check_gridlim(block_set, grid_set, 'err <- tab_bound_tri_cudaf <-- maillage.cuf (1)')
 
-    allocate(upwind_cells_d(2,3,nelt)) !!Pas dealocate pour l'instant
-    call find_upwind_cells<<<grid_set, block_set>>>()
-    call cuda_glerror('ierr <- memory allocation of upwindcells <-- maillage.cuf',1)
-  end if
-
-
-  !! Calcul des longueurs des entrées
-  long_entree = 0.
-  if(ndi > 0) then 
-    call calcul_long_entree
-  end if
-
-  call MPI_BARRIER(MPI_COMM_WORLD,mpi_ierr)
-  print*,mpi_process_id,"avant reduce entree"
-
-  call mpi_allreduce(mpi_in_place,long_entree,nombre_entrees,fp_kind_mpi,mpi_sum,mpi_comm_world, mpi_ierr)
-  long_entree_d=long_entree
-
-  call MPI_BARRIER(MPI_COMM_WORLD,mpi_ierr)
-  print*,mpi_process_id,"apres reduce entree"
-
-  !! calculation of the elementwise coordinates table
-  allocate(coo_table_elemwise(nelt,3*ns) , coo_table_elemwise_d(nelt,3*ns))
-  allocate(x_centroid(nelt), y_centroid(nelt),x_centroid_d(nelt), y_centroid_d(nelt))
-
-  call cuda_glerror('ierr <- memory allocation of coo_table_elemwise_d <-- maillage.cuf',1)
-
-
-  call construct_coo_table_elemwise
-  print*,mpi_process_id,"apres contruct coo table elemwise"
-  call MPI_BARRIER(MPI_COMM_WORLD,mpi_ierr)
-
-
-  !! distance cote entre 1er et 2eme noeuds ***
-  premnoeud = connectivite(1,1)
-  deuxnoeud = connectivite(1,2)
-
-  distcote = sqrt( ( coordonnees(premnoeud,1) - coordonnees(deuxnoeud,1) )**2 + &
-    ( coordonnees(premnoeud,2) - coordonnees(deuxnoeud,2) )**2 )
-  distcote_d = distcote
-  call cuda_glerror('ierr <- (h->d) data transfer to distcote_d <-- maillage.cuf',1)
-
-  !! Calcul de la longueur caracteristique pour le calcul du pas de temps via la cfl
-  !! On choisit de prendre le rayon du cercle inscrit dans l triangle
-
-  allocate(cotemin_arr(nelt), cotemin_arr_d(nelt))
-  cotemin = 1000000.
-  do kvol=1,nelt 
-    nc1 = connectivite(kvol,1)
-    nc2 = connectivite(kvol,2)
-    nc3 = connectivite(kvol,3)
-
-    x1 = coordonnees(nc1,1)
-    y1 = coordonnees(nc1,2)
-
-    x2 = coordonnees(nc2,1)
-    y2 = coordonnees(nc2,2)
-
-    x3 = coordonnees(nc3,1)
-    y3 = coordonnees(nc3,2)
-
-    ca = sqrt((x1-x2)**2+(y1-y2)**2)
-    cb = sqrt((x2-x3)**2+(y2-y3)**2)
-    cc = sqrt((x3-x1)**2+(y3-y1)**2)
-
-    p = (ca + cb+ cc)/2.
-
-    aire = sqrt(p*(p-ca)*(p-cb)*(p-cc))
-
-    cotemin_arr(kvol) = 0.5*aire/p
-    cotemin_arr(kvol) = 1.8 * cotemin_arr(kvol) !! 1.8 * rayon du cercle inscrit
-    cotemin = min(cotemin,cotemin_arr(kvol))
-  enddo
-
-  print*,mpi_process_id,"avant all reduce"
-  call MPI_BARRIER(MPI_COMM_WORLD,mpi_ierr)
-  call mpi_allreduce(mpi_in_place,cotemin,1,fp_kind_mpi,mpi_min,mpi_comm_world, mpi_ierr)
-  call MPI_BARRIER(MPI_COMM_WORLD,mpi_ierr)
-  print*,mpi_process_id,"apres all reduce"
-  cotemin_d = cotemin
-  call cuda_glerror('ierr <- (h->d) data transfer to cotemin_d <-- maillage.cuf',1)
-  call cuda_glerror('ierr <- lect_const_mail (towards_end_of_function) <-- maillage.cuf',1)
-end subroutine lect_const_mail
-
-subroutine lec_donnees
-
-  use precision_m
-  use global
-  use m_param
-
-  implicit none
-
-  open(lu_fich,file='donnees.f',form='formatted',status='old')
-  read(lu_fich,nml=donnees_namelist)
-  close(lu_fich)
-
-  !! Ajout du numéro de process MPI en préfixe des fichiers de maillage et de solution initiale
-  if(num_mpi_process>1 .and. is_cgns==0) then
-    meshfile = trim(mpi_process_id_string)//'_'//trim(meshfile)
-    fich_sol_init = trim(mpi_process_id_string)//'_'//trim(fich_sol_init)
-  else
-    meshfile = trim(meshfile)
-    fich_sol_init = trim(fich_sol_init)
-  end if
-
-end subroutine lec_donnees
-
-subroutine lec_mail_tri
-  ! ======================================================================
-  !     lec_mail_tri = routine de lecture d'un maillage triangulaire
-  !     auteur : Delmas vincent
-  !     version : 1.0  ;  may 28 2019
-  ! ======================================================================
-
-  use precision_m
-  use global
-  use global_device
-  use cudafor
-  use m_param
-
-  implicit none
-
-  character(len=1) :: tarati
-  integer          :: i, n, ierr, curproc
-
-  open(lec_mesh,file=trim(adjustl(meshfile_path))//trim(adjustl(meshfile)),form='formatted',status='old')
-
-  !! table des coordonnees :
-  read(lec_mesh,*) tarati
-  read(lec_mesh,*) nnt
-  print*,"id ", mpi_process_id, ", ", nnt, " nodes"
-  allocate(coordonnees(nnt,3), manning_nd(nnt))
-
-  do i=1,nnt
-    read(lec_mesh,*) n, coordonnees(i,1), coordonnees(i,2), coordonnees(i,3) , manning_nd(i)
-  enddo
-
-  !! table de connectivité :
-  read(lec_mesh,*) tarati
-  if(num_mpi_process>1) then
-    read(lec_mesh,*) nelt, nelt_non_fant
-    nelt_fant_recep = nelt-nelt_non_fant
-  else
-    read(lec_mesh,*) nelt
-    nelt_non_fant=nelt
-    nelt_fant_recep = 0
-  end if
-  print*,"id ", mpi_process_id, ", ", nelt, " elems"
-  allocate(connectivite(nelt,3), manning_nelt(nelt))
-
-  do i=1,nelt
-    read(lec_mesh,*) n,connectivite(i,1),connectivite(i,2),connectivite(i,3), manning_nelt(i)
-  enddo
-
-  !! table des noeuds de l'entrée :
-  read(lec_mesh,*) tarati
-  if(nombre_entrees==1) then
-    read(lec_mesh,*) ndi
-    allocate(long_entree(1))
-    allocate(long_entree_d(1))
-    if (ndi>0) then
-      allocate(ndinput(ndi))
-      allocate(numero_ndinput(ndi))
-      allocate(ndinput_d(ndi))
-      allocate(numero_ndinput_d(ndi))
-      do i=1,ndi
-        read(lec_mesh,*) ndinput(i)
-        numero_ndinput(i) = 1
-      enddo
-    endif
-  else
-    read(lec_mesh,*) ndi, nombre_entrees
-    allocate(long_entree(nombre_entrees))
-    allocate(long_entree_d(nombre_entrees))
-    if (ndi>0) then
-      allocate(ndinput(ndi))
-      allocate(numero_ndinput(ndi))
-      allocate(ndinput_d(ndi))
-      allocate(numero_ndinput_d(ndi))
-      do i=1,ndi
-        read(lec_mesh,*) ndinput(i), numero_ndinput(i)
-      enddo
-    endif
-  end if
-  print*,"id ", mpi_process_id, ", ", ndi, " noeuds d'entree"
-
-  !! table des noeuds de la sortie :
-  read(lec_mesh,*) tarati
-  if(nombre_sorties==1) then
-    read(lec_mesh,*) ndo
-    if (ndo>0) then
-      allocate(numero_ndoutput(ndo))
-      allocate(numero_ndoutput_d(ndo))
-      allocate(ndoutput(ndo))
-      allocate(ndoutput_d(ndo))
-      do i=1,ndo
-        read(lec_mesh,*) ndoutput(i)
-        numero_ndoutput(i) = 1
-      enddo
-    end if
-  else
-    read(lec_mesh,*) ndo, nombre_sorties
-    if(ndo>0) then
-      allocate(numero_ndoutput(ndo))
-      allocate(numero_ndoutput_d(ndo))
-      allocate(ndoutput(ndo))
-      allocate(ndoutput_d(ndo))
-      do i=1,ndo
-        read(lec_mesh,*) ndoutput(i), numero_ndoutput(i)
-      enddo
-    endif
-  endif
-  print*,"id ", mpi_process_id, ", ", ndo, " noeuds de sortie"
-
-  !! table des noeuds de la frontière solide :
-  read(lec_mesh,*) tarati
-  read(lec_mesh,*) ndw
-  print*,"id ", mpi_process_id, ", ", ndw, " noeuds de murs"
-  if (ndw>0) then
-    allocate(ndwall(ndw))
-    allocate(ndwall_d(ndw))
-    do i=1,ndw
-      read(lec_mesh,*) ndwall(i)
-    enddo
-  endif
-
-  if(num_mpi_process>1) then
-    ! !! table des mailles fantomes a recep:
-    ! read(lec_mesh,*) tarati
-    ! read(lec_mesh,*) nelt_fant_recep
-    ! print*,"id ", mpi_process_id, ", ", nelt_fant_recep, " mailles fantomes a recep"
-    ! if (nelt_fant_recep>0) then
-    !   allocate(elt_fant_recep(nelt_fant_recep,3))
-    !   do i=1,nelt_fant_recep
-    !     read(lec_mesh,*) elt_fant_recep(i, 1), elt_fant_recep(i, 2), elt_fant_recep(i, 3)
-    !   enddo
-    ! endif
-
-    ! !! table des mailles fantomes a envoyer:
-    ! read(lec_mesh,*) tarati
-    ! read(lec_mesh,*) nelt_fant_envoi
-    ! print*,"id ", mpi_process_id, ", ", nelt_fant_envoi, " mailles fantomes a envoyer"
-    ! if (nelt_fant_envoi>0) then
-    !   allocate(elt_fant_envoi(nelt_fant_envoi,3))
-    !   do i=1,nelt_fant_envoi
-    !     read(lec_mesh,*) elt_fant_envoi(i, 1), elt_fant_envoi(i, 2), elt_fant_envoi(i, 3)
-    !   enddo
-    ! endif
-
-    !! table des mailles fantomes à receptionner par bloc
-    read(lec_mesh,*) tarati
-    read(lec_mesh,*) nelt_fant_recep_bloc
-    print*,"id ", mpi_process_id, ", ", nelt_fant_recep_bloc, " bloc fantomes a receptionner"
-    if (nelt_fant_recep_bloc>0) then
-      allocate(elt_fant_recep_bloc(nelt_fant_recep_bloc,3))
-      do i=1,nelt_fant_recep_bloc
-        read(lec_mesh,*) elt_fant_recep_bloc(i, 1), elt_fant_recep_bloc(i, 2), elt_fant_recep_bloc(i, 3)
-        print*, elt_fant_recep_bloc(i, 1), elt_fant_recep_bloc(i, 2), elt_fant_recep_bloc(i, 3)
-      enddo
-    endif
-
-    !! table des mailles fantomes à envoyer par bloc
-    read(lec_mesh,*) tarati
-    read(lec_mesh,*) nelt_fant_envoi_bloc
-    print*,"id ", mpi_process_id, ", ", nelt_fant_envoi_bloc, " bloc fantomes a envoyer"
-    if (nelt_fant_envoi_bloc>0) then
-      allocate(elt_fant_envoi_bloc(nelt_fant_envoi_bloc,3))
-      do i=1,nelt_fant_envoi_bloc
-        read(lec_mesh,*) elt_fant_envoi_bloc(i, 1), elt_fant_envoi_bloc(i, 2), elt_fant_envoi_bloc(i, 3)
-        print*, elt_fant_envoi_bloc(i, 1), elt_fant_envoi_bloc(i, 2), elt_fant_envoi_bloc(i, 3)
-      enddo
-    endif
-
-  end if 
-  close(lec_mesh)
-
-  !! device memory allocation :
-  allocate(coordonnees_d(nnt,3), manning_nd_d(nnt))
-  allocate(connectivite_d(nelt,3), manning_nelt_d(nelt))
-
-  call cuda_glerror('ierr->memory allocation-->lec_mail_tri--> (maillage.cuf)',1)
-
-  !! host to device data transfer :
-  nelt_d = nelt  
-  nnt_d  = nnt
-  ndi_d  = ndi
-  nombre_entrees_d  = nombre_entrees
-  ndo_d  = ndo
-  nombre_sorties_d  = nombre_sorties
-  ndw_d  = ndw
-
-  coordonnees_d       = coordonnees
-  manning_nd_d        = manning_nd
-  connectivite_d      = connectivite
-  manning_nelt_d      = manning_nelt
-  ndinput_d           = ndinput
-  numero_ndinput_d    = numero_ndinput
-  ndoutput_d          = ndoutput
-  numero_ndoutput_d   = numero_ndoutput
-  ndwall_d            = ndwall
-
-  if(num_mpi_process>1) then
-    nelt_fant_recep_d = nelt_fant_recep
-    ! nelt_fant_envoi_d = nelt_fant_envoi
-  end if
-
-  call cuda_glerror('ierr->data_transfer->lec_mail_tri--> (maillage.cuf)',1)
-end subroutine lec_mail_tri
-
-subroutine lec_mail_cgns
-  use global
-  use global_device
-  use precision_m
-  use cgns
-
-  implicit none
-
-  integer :: dummy_int, dummy_wall, i, j, it
-  real(fp_kind) :: dummy_real
-  character(200) :: dummy_char
-  logical :: found
-
-  integer :: ierr, cellDim, physDim
-  integer :: fn, n_bases, base, n_zones, zone, zoneType, n_sections, section, ord
-  integer :: n_bocos, boco, bocoType, normListFlag, normDataType, nDataSet, n_bcnodes 
-  integer :: normalIndex
-  ! integer, dimension(:), allocatable :: normalIndex
-  ! integer, dimension(3) :: normalIndex
-  integer :: ptSetType, n_userdata, n_ptSet, n_userdata2
-  integer :: sizes(3*3), sectionType, nBeg, nEnd, eBeg, eEnd, nBdry, flag
-  character(200) :: filename, basename, command, zonename, sectionname, boconame
-  character(200) :: userdataname, userdataname2
-
-  real(fp_kind), dimension(:), allocatable :: coord
-  integer, dimension(:), allocatable :: conn
-
-  !!Copy meshfile localy and use it for further processing
-  if(mpi_process_id==0) then
-    write(command, *) "cp "//trim(adjustl(meshfile_path))//trim(adjustl(meshfile))//&
-    &" out_"//trim(adjustl(meshfile))
-    call system(command)
-  end if
-  call MPI_BARRIER(MPI_COMM_WORLD,mpi_ierr)
-  meshfile = trim(adjustl("out_"))//trim(adjustl(meshfile))
-
-  call cg_open_f(meshfile, CG_MODE_READ, fn, ierr)
-  if (ierr .ne. CG_OK) call cg_error_exit_f
-
-  call cg_nbases_f(fn, n_bases, ierr)
-  if (ierr .ne. CG_OK) call cg_error_exit_f
-  base = 1
-
-  call cg_base_read_f(fn, base, basename, cellDim, physDim, ierr)
-  if (ierr .ne. CG_OK) call cg_error_exit_f
-
-  call cg_nzones_f(fn, base, n_zones, ierr)
-  if (ierr .ne. CG_OK) call cg_error_exit_f
-
-  do zone=1,n_zones
-    call cg_zone_type_f(fn, base, zone, zoneType, ierr)
-    if (ierr .ne. CG_OK) call cg_error_exit_f
-
-    call cg_zone_read_f(fn, base, zone, zonename, sizes, ierr)
-    if (ierr .ne. CG_OK) call cg_error_exit_f
-
-    call cg_goto_f(fn, base, ierr, trim(adjustl(zonename)), 0, "end")
-    if (ierr .ne. CG_OK) call cg_error_exit_f
-
-    call cg_ordinal_read_f(ord, ierr)
-    if (ierr .ne. CG_OK) call cg_error_exit_f
-
-    if(ord == mpi_process_id) then
-      exit
-    end if
-  end do
-
-  print*,mpi_process_id,zone
-
-
-  nnt = sizes(1)
-  nelt = sizes(2)
-
-
-  nnt = nnt
-  allocate(coord(nnt), coordonnees(nnt,3), manning_nd(nnt))
-
-  call cg_coord_read_f(fn, base, zone, "CoordinateX", 4, 1, nnt, coord, ierr)
-  if (ierr .ne. CG_OK) call cg_error_exit_f
-
-  do i=1,nnt
-    coordonnees(i,1) = coord(i)
-  end do
-
-  call cg_coord_read_f(fn, base, zone, "CoordinateY", 4, 1, nnt, coord, ierr)
-  if (ierr .ne. CG_OK) call cg_error_exit_f
-
-  do i=1,nnt
-    coordonnees(i,2) = coord(i)
-  end do
-
-  call cg_coord_read_f(fn, base, zone, "CoordinateZ", 4, 1, nnt, coord, ierr)
-  if (ierr .ne. CG_OK) call cg_error_exit_f
-
-  do i=1,nnt
-    coordonnees(i,3) = coord(i)
-  end do
-
-  deallocate(coord)
-
-
-  call cg_nsections_f(fn, base, zone, n_sections, ierr)
-  if (ierr .ne. CG_OK) call cg_error_exit_f
-  section = 1
-
-  call cg_section_read_f(fn, base, zone, section, sectionname,  sectionType,&
-    &eBeg, eEnd, nBdry, flag, ierr)
-  if (ierr .ne. CG_OK) call cg_error_exit_f
-
-  nelt = nelt
-  allocate(conn(nelt*3), manning_nelt(nelt))
-  allocate(connectivite(nelt,3))
-  call cg_elements_read_f(fn, base, zone, section, conn, NULL, ierr)
-  if (ierr .ne. CG_OK) call cg_error_exit_f
-  do i=1,nelt
-    connectivite(i,1) = conn(3*(i-1)+1)
-    connectivite(i,2) = conn(3*(i-1)+2)
-    connectivite(i,3) = conn(3*(i-1)+3)
-  end do
-  deallocate(conn)
-
-  call cg_nbocos_f(fn, base, zone, n_bocos, ierr)
-  if (ierr .ne. CG_OK) call cg_error_exit_f
-
-  ndi = 0
-  ndo = 0
-
-  print*, n_bocos, "boundary conditions"
-
-  !!Read a first time to see how many local input/output nodes there are
-  do boco=1,n_bocos
-    call cg_boco_info_f(fn, base, zone, boco, boconame, bocoType,&
-      &ptsetType, n_bcnodes, &
-      &normalIndex, normListFlag, normDataType, nDataset, ierr)
-    if (ierr .ne. CG_OK) call cg_error_exit_f
-
-    if(n_bcnodes>1) then
-      if(bocoType == 9) then !!Inflow
-        ndi = ndi + n_bcnodes
-      else if(bocoType == 13) then !!Outflow
-        ndo = ndo + n_bcnodes
-      end if
-    end if
-  end do
-
-  print*, "INPUT " , nombre_entrees, ndi
-  if(nombre_entrees>0) then
-    allocate(long_entree(nombre_entrees))
-    allocate(long_entree_d(nombre_entrees))
-    if(ndi>0) then
-      allocate(ndinput(ndi))
-      allocate(numero_ndinput(ndi))
-      allocate(ndinput_d(ndi))
-      allocate(numero_ndinput_d(ndi))
-    end if
-  end if
-
-  print*, "OUTPUT " , nombre_sorties, ndo
-  if(nombre_sorties>0 .and. ndo>0) then
-    allocate(ndoutput(ndo))
-    allocate(numero_ndoutput(ndo))
-    allocate(numero_ndoutput_d(ndo))
-    allocate(ndoutput_d(ndo))
-  end if
-
-  ndi = 0
-  ndo = 0
-
-  do boco=1,n_bocos
-    call cg_boco_info_f(fn, base, zone, boco, boconame, bocoType,&
-      &ptsetType, n_bcnodes, &
-      &normalIndex, normListFlag, normDataType, nDataset, ierr)
-    if (ierr .ne. CG_OK) call cg_error_exit_f
-    boconame = trim(adjustl(boconame))
-
-    if(n_bcnodes>1) then
-      if(bocoType == 9) then
-        call cg_boco_read_f(fn, base, zone, boco, ndinput(ndi+1:), NULL, ierr)
-        !!Find which input from the donnees.f file it corresponds to
-        found = .FALSE.
-        do it=1,nombre_entrees
-          if(boconame == inlet_name(it)) then
-            numero_ndinput(ndi+1:) = it
-            found = .TRUE.
-          end if
-        end do
-        if (not (found)) then
-          print*,"Inlet name : ", trim(adjustl(boconame)), ", not found in donnees.f file ! Setting it to 1"
-          numero_ndinput(ndi+1:) = 1
-        end if
-        ! print*,mpi_process_id," input nodes ",ndi,numero_ndinput(ndi+1),ndinput(ndi+1)
-        if (ierr .ne. CG_OK) call cg_error_exit_f
-        ndi = ndi + n_bcnodes
-      else if(bocoType == 13) then
-        found = .FALSE.
-        do it=1,nombre_sorties
-          if(boconame == outlet_name(it)) then
-            numero_ndoutput(ndo+1:) = it
-            found = .TRUE.
-          end if
-        end do
-        if (not (found)) then
-          print*,"Outlet name : ", trim(adjustl(boconame)), ", not found in donnees.f file ! Setting it to 1"
-          numero_ndinput(ndi+1:) = 1
-        end if
-        call cg_boco_read_f(fn, base, zone, boco, ndoutput(ndo+1:), NULL, ierr)
-        if (ierr .ne. CG_OK) call cg_error_exit_f
-        ndo = ndo + n_bcnodes
-      end if
-    end if
-  end do
-
-  call cg_goto_f(fn, base, ierr, zonename, 0, "end")
-  if (ierr .ne. CG_OK) call cg_error_exit_f
-  call cg_nuser_data_f(n_userdata, ierr)
-  if (ierr .ne. CG_OK) call cg_error_exit_f
-  do i=1,n_userdata
-    call cg_user_data_read_f(i,userdataname,ierr)
-    if (ierr .ne. CG_OK) call cg_error_exit_f
-    !!Si elems à envoyer
-    if(userdataname == "ElemsToSend") then
-      call cg_goto_f(fn, base, ierr, zonename, 0, userdataname, 0, "end")
-      if (ierr .ne. CG_OK) call cg_error_exit_f
-      call cg_nuser_data_f(n_userdata2, ierr)
-      if (ierr .ne. CG_OK) call cg_error_exit_f
-
-      nelt_fant_envoi_bloc = n_userdata2
-      allocate(elt_fant_envoi_list(nelt_fant_envoi_bloc))
-      ! allocate(reqsend(nelt_fant_envoi_bloc), sendstat(MPI_STATUS_SIZE, nelt_fant_envoi_bloc))
-
-      !!Pour tous les voisins
-      do j=1,n_userdata2
-
-        call cg_user_data_read_f(j,userdataname2,ierr)
-        if (ierr .ne. CG_OK) call cg_error_exit_f
-
-        call cg_goto_f(fn, base, ierr, zonename, 0, userdataname, 0, userdataname2, 0, "end")
-        if (ierr .ne. CG_OK) call cg_error_exit_f
-
-        call cg_ptset_info_f(ptSetType, n_ptset, ierr)
-        if (ierr .ne. CG_OK) call cg_error_exit_f
-
-        call cg_ordinal_read_f(ord, ierr)
-        if (ierr .ne. CG_OK) call cg_error_exit_f
-
-        allocate(elt_fant_envoi_list(j)%elem_id(n_ptset))
-        allocate(elt_fant_envoi_list(j)%elem_sol(3,n_ptset))
-
-        elt_fant_envoi_list(j)%length = n_ptset !! Longueur du message
-        elt_fant_envoi_list(j)%proc = ord !! Destinataire
-
-        call cg_ptset_read_f(elt_fant_envoi_list(j)%elem_id, ierr)
-        if (ierr .ne. CG_OK) call cg_error_exit_f
-
-        call cg_goto_f(fn, base, ierr, zonename, 0, userdataname, 0, "end")
-        if (ierr .ne. CG_OK) call cg_error_exit_f
-      end do
-      call cg_goto_f(fn, base, ierr, zonename, 0, "end")
-      if (ierr .ne. CG_OK) call cg_error_exit_f
-
-    else if(userdataname == "ElemsToRecv") then
-
-      call cg_goto_f(fn, base, ierr, zonename, 0, userdataname, 0, "end")
-      if (ierr .ne. CG_OK) call cg_error_exit_f
-      call cg_nuser_data_f(n_userdata2, ierr)
-      if (ierr .ne. CG_OK) call cg_error_exit_f
-
-      nelt_fant_recep_bloc = n_userdata2
-      nelt_fant_recep = 0
-      allocate(elt_fant_recep_range(nelt_fant_recep_bloc))
-      ! allocate(reqrecv(nelt_fant_recep_bloc), recvstat(MPI_STATUS_SIZE, nelt_fant_recep_bloc))
-
-      !!Pour tous les voisins
-      do j=1,n_userdata2
-
-        call cg_user_data_read_f(j,userdataname2,ierr)
-        if (ierr .ne. CG_OK) call cg_error_exit_f
-
-        call cg_goto_f(fn, base, ierr, zonename, 0, userdataname, 0, userdataname2, 0, "end")
-        if (ierr .ne. CG_OK) call cg_error_exit_f
-
-        call cg_ptset_info_f(ptSetType, n_ptset, ierr)
-        if (ierr .ne. CG_OK) call cg_error_exit_f
-
-        call cg_ordinal_read_f(ord, ierr)
-        if (ierr .ne. CG_OK) call cg_error_exit_f
-
-        elt_fant_recep_range(j)%length = n_ptset !! Longueur du message
-        elt_fant_recep_range(j)%proc = ord !! Destinataire
-
-        call cg_ptset_read_f(elt_fant_recep_range(j)%start, ierr)
-        if (ierr .ne. CG_OK) call cg_error_exit_f
-
-        if((nelt - elt_fant_recep_range(j)%start ) > nelt_fant_recep) nelt_fant_recep = nelt-elt_fant_recep_range(j)%start
-
-        ! print*, me, i, j, " ElemsToRecv", elt_fant_recep_range(j)
-
-        call cg_goto_f(fn, base, ierr, zonename, 0, userdataname, 0, "end")
-        if (ierr .ne. CG_OK) call cg_error_exit_f
-      end do
-      call cg_goto_f(fn, base, ierr, zonename, 0, "end")
-      if (ierr .ne. CG_OK) call cg_error_exit_f
-    end if
-  end do
-  ! if(cg_goto(index_file, index_base, zss.str().c_str(), 0, "end")) cg_error_exit();
-
-  ndwall = 0
-
-  call cg_close_f(fn, ierr)
-  if (ierr .ne. CG_OK) call cg_error_exit_f
-
-  !! device memory allocation :
-  allocate(coordonnees_d(nnt,3), manning_nd_d(nnt))
-  allocate(connectivite_d(nelt,3), manning_nelt_d(nelt))
-
-  !! host to device data transfer :
-  nelt_d = nelt  
-  nnt_d  = nnt
-  ndi_d  = ndi
-  nombre_entrees_d  = nombre_entrees
-  ndo_d  = ndo
-  nombre_sorties_d  = nombre_sorties
-  ndw_d  = ndw
-
-  call cuda_glerror('ierr->memory transfers 1-->lec_mail_cngs--> (maillage.cuf)',1)
-
-  coordonnees_d       = coordonnees
-  manning_nd_d        = manning_nd
-  connectivite_d      = connectivite
-  manning_nelt_d      = manning_nelt
-  ndinput_d           = ndinput
-  numero_ndinput_d    = numero_ndinput
-  ndoutput_d          = ndoutput
-  numero_ndoutput_d   = numero_ndoutput
-  ndwall_d            = ndwall
-
-  call cuda_glerror('ierr->memory transfers 2-->lec_mail_cngs--> (maillage.cuf)',1)
-
-  if(num_mpi_process>1) then
-    nelt_fant_recep_d = nelt_fant_recep
-    ! nelt_fant_envoi_d = nelt_fant_envoi
-  end if
-
-end subroutine lec_mail_cgns
-
-
-subroutine tab_bound_tri_cudaf
-  ! ======================================================================
-  !
-  !     tab_bound_tri = construction table des elements frontiers (cas triangulaire)
-  !     construction table of boundary elements (triangular case)
-  !
-  !     auteur : youssef loukili  granit etsmtl
-  !              
-  !     version : 1.0  ;  may 12 2003
-  ! ======================================================================
-
-  use precision_m
-  use global
-  use global_device
-  use m_param
-  use cudafor
-
-  implicit none
-
-  ! ... debut de l interface .............................................
-  interface
-    attributes(global) subroutine set_boundary()
-      use precision_m
-      use global_device
-      implicit none
-    end subroutine set_boundary
-
-    attributes(global) subroutine find_neighbour()
-      use precision_m
-      use global_device
-      implicit none
-    end subroutine find_neighbour
-
-    attributes(global) subroutine find_neighbour_big(nmin, nmax)
-      use precision_m
-      use global_device
-      implicit none
-
-      integer, value :: nmin, nmax
-
-    end subroutine find_neighbour_big
-
-
-  end interface
-  type ( dim3 ) :: grid_loc, tblock_loc, block_set, grid_set
-  integer :: ierr_loc, nity, i
-
-  block_set = dim3(32,1,1)
-  grid_set  = dim3(ceiling(real(nelt)/real(block_set%x)),1,1)
-  call check_gridlim(block_set, grid_set, 'err <- tab_bound_tri_cudaf <-- maillage.cuf (1)')
-
-  tblock_loc = dim3(16,16,1)
-  grid_loc  =  dim3(ceiling(real(nelt)/real(tblock_loc%x)), ceiling(real(nelt)/real(tblock_loc%y)),1) 
-
-
-  if(grid_loc%x > gridxlim) then 
-    tblock_loc = dim3(32,32,1)
-    grid_loc  =  dim3(ceiling(real(nelt)/real(tblock_loc%x)), ceiling(real(nelt)/real(tblock_loc%y)),1)
-
-    if(grid_loc%x  > gridxlim) then 
-      write(*,*) 'error -> the no. of blocks required to complete the operation of constructing boundary table exceed the limits'
-      write(*,*) 'exiting....'
-      call exit(1)
-    endif
-
-  endif 
-
-
-  write(*,*) 'gridx, gridy (for set_boundary) = ', grid_loc%x, grid_loc%y
-  call set_boundary<<<grid_set, block_set>>>()
-  call cuda_glerror('ierr <- tab_bound_tri_cudaf <- set_boundary <- maillage.cuf',1)
-
-  !!Set up mutex for iupwind 2 inside find_neigbour
-  allocate(mutex_d(nnt))
-  mutex_d = 0
-
-  if(grid_loc%y > gridylim) then
-
-    tblock_loc = dim3(32,32,1)
+    tblock_loc = dim3(16,16,1)
     grid_loc  =  dim3(ceiling(real(nelt)/real(tblock_loc%x)), ceiling(real(nelt)/real(tblock_loc%y)),1) 
+
+
+    if(grid_loc%x > gridxlim) then 
+      tblock_loc = dim3(32,32,1)
+      grid_loc  =  dim3(ceiling(real(nelt)/real(tblock_loc%x)), ceiling(real(nelt)/real(tblock_loc%y)),1)
+
+      if(grid_loc%x  > gridxlim) then 
+        write(*,*) 'error -> the no. of blocks required to complete the operation of constructing boundary table exceed the limits'
+        write(*,*) 'exiting....'
+        call exit(1)
+      endif
+
+    endif 
+
+
+    write(*,*) 'gridx, gridy (for set_boundary) = ', grid_loc%x, grid_loc%y
+    call set_boundary<<<grid_set, block_set>>>()
+    call cuda_glerror('ierr <- tab_bound_tri_cudaf <- set_boundary <- maillage.cuf',1)
 
     if(grid_loc%y > gridylim) then
 
-      nity = ceiling(real(grid_loc%y)/real(gridylim))
+      tblock_loc = dim3(32,32,1)
+      grid_loc  =  dim3(ceiling(real(nelt)/real(tblock_loc%x)), ceiling(real(nelt)/real(tblock_loc%y)),1) 
 
-      grid_loc = dim3(ceiling(real(nelt)/real(tblock_loc%x)), gridylim, 1)
-      write(*,*) 'nity = ', nity
-      write(*,*) 'grid_loc%x, grid_loc%y  = ', grid_loc%x, grid_loc%y
+      if(grid_loc%y > gridylim) then
 
-      do i = 1,nity
-        call find_neighbour_big<<<grid_loc, tblock_loc>>>((i-1)*gridylim*tblock_loc%y + 1, i*gridylim*tblock_loc%y)
-        call cuda_glerror('ierr <- tab_bound_tri_cudaf <--find_neighbour_big <-- maillage.cuf',1)
-      enddo
+        nity = ceiling(real(grid_loc%y)/real(gridylim))
+
+        grid_loc = dim3(ceiling(real(nelt)/real(tblock_loc%x)), gridylim, 1)
+        write(*,*) 'nity = ', nity
+        write(*,*) 'grid_loc%x, grid_loc%y  = ', grid_loc%x, grid_loc%y
+
+        do i = 1,nity
+          call find_neighbour_big<<<grid_loc, tblock_loc>>>((i-1)*gridylim*tblock_loc%y + 1, i*gridylim*tblock_loc%y)
+          call cuda_glerror('ierr <- tab_bound_tri_cudaf <--find_neighbour_big <-- maillage.cuf',1)
+        enddo
+
+      else
+        call find_neighbour<<<grid_loc, tblock_loc>>>()
+        call cuda_glerror('ierr <- tab_bound_tri_cudaf <-- find_neighbour (1) <-- maillage.cuf',1)
+      endif
 
     else
+
       call find_neighbour<<<grid_loc, tblock_loc>>>()
-      call cuda_glerror('ierr <- tab_bound_tri_cudaf <-- find_neighbour (1) <-- maillage.cuf',1)
+      call cuda_glerror('ierr <- tab_bound_tri_cudaf <-- find_neighbour (2) <-- maillage.cuf',1)
+
+    endif
+  end subroutine tab_bound_tri_cudaf
+
+
+  attributes(global) subroutine set_boundary()
+    use precision_m
+    use global_device
+    implicit none
+
+    integer :: ti,gi
+
+    ti = threadidx%x
+    gi = (blockidx%x - 1)*blockdim%x + ti
+
+    if(gi <= nelt_d) then
+      if(ns_d==3) then
+        boundary_d(gi,1,1) = gi
+        boundary_d(gi,2,1) = gi
+        boundary_d(gi,3,1) = gi
+        boundary_d(gi,1,2) = gi
+        boundary_d(gi,2,2) = gi
+        boundary_d(gi,3,2) = gi
+      else if(ns_d==4) then
+        boundary_d(gi,1,1) = gi
+        boundary_d(gi,2,1) = gi
+        boundary_d(gi,3,1) = gi
+        boundary_d(gi,4,1) = gi
+        boundary_d(gi,1,2) = gi
+        boundary_d(gi,2,2) = gi
+        boundary_d(gi,3,2) = gi
+        boundary_d(gi,4,2) = gi
+      end if
+    end if
+  end subroutine set_boundary 
+
+  attributes(global) subroutine find_neighbour()
+    use cudafor
+    use precision_m
+    use global_device
+    implicit none
+
+    integer :: ti,tj,gi,gj,m1,m2,m3,n1,n2,n3,k
+
+    ti = threadidx%x
+    tj = threadidx%y
+    gi = (blockidx%x - 1)*blockdim%x + ti
+    gj = (blockidx%y - 1)*blockdim%y + tj
+
+    if(gi /= gj .and. gi <= nelt_d .and. gj <=nelt_d) then
+
+      n1 = connectivite_d(gi,1)
+      n2 = connectivite_d(gi,2)
+      n3 = connectivite_d(gi,3)
+
+      m1 = connectivite_d(gj,1)
+      m2 = connectivite_d(gj,2)
+      m3 = connectivite_d(gj,3)
+
+      if ( m1==n1 .and. m3==n2 .or. m3==n1 .and. m2==n2 .or. m2==n1 .and. m1==n2 ) &
+        & boundary_d(gi,1,1) = gj
+
+      if ( m1==n2 .and. m3==n3 .or. m3==n2 .and. m2==n3 .or. m2==n2 .and. m1==n3 ) &
+        & boundary_d(gi,2,1) = gj
+
+      if ( m1==n3 .and. m3==n1 .or. m3==n3 .and. m2==n1 .or. m2==n3 .and. m1==n1 ) &
+        & boundary_d(gi,3,1) = gj
+
+      if(iflux_d >= 3 .and. iupwind_d==2) then
+        if ( (m1==n1) .or. (m1==n2) .or. (m1==n3))  then
+          do k=1,6
+            if(vertex_neighbors_d(k,m1) == gi) exit
+            if(vertex_neighbors_d(k,m1) == -1) then
+              vertex_neighbors_d(k,m1) = gi
+              exit
+            end if
+          end do
+        end if
+        if ( (m2==n1) .or. (m2==n2) .or. (m2==n3))  then
+          do k=1,6
+            if(vertex_neighbors_d(k,m2) == gi) exit
+            if(vertex_neighbors_d(k,m2) == -1) then
+              vertex_neighbors_d(k,m2) = gi
+              exit
+            end if
+          end do
+        end if
+        if ( (m3==n1) .or. (m3==n2) .or. (m3==n3))  then
+          do k=1,6
+            if(vertex_neighbors_d(k,m3) == gi) exit
+            if(vertex_neighbors_d(k,m3) == -1) then
+              vertex_neighbors_d(k,m3) = gi
+              exit
+            end if
+          end do
+        end if
+      end if
+
+    end if
+
+  end subroutine find_neighbour
+
+  attributes(global) subroutine find_neighbour_big(nmin, nmax)
+    use precision_m
+    use global_device
+    implicit none
+
+    integer, value :: nmin, nmax
+
+    integer :: ti,tj,gi,gj,m1,m2,m3,n1,n2,n3, by, k
+
+
+    ti = threadidx%x
+    tj = threadidx%y
+    gi = (blockidx%x - 1)*blockdim%x + ti
+
+    gj = nmin - 1 + (blockidx%y - 1)*blockdim%y + tj
+
+    if(gi /= gj .and. gi <= nelt_d .and. gj <= nmax .and. gj >= nmin .and. gj <= nelt_d) then
+
+      n1 = connectivite_d(gi,1)
+      n2 = connectivite_d(gi,2)
+      n3 = connectivite_d(gi,3)
+
+      m1 = connectivite_d(gj,1)
+      m2 = connectivite_d(gj,2)
+      m3 = connectivite_d(gj,3)
+
+      if ( n1==m1 .and. n3==m2 .or. n3==m1 .and. n2==m2 .or. n2==m1 .and. n1==m2 ) &
+        & boundary_d(gj,1,1) = gi
+
+      if ( n1==m2 .and. n3==m3 .or. n3==m2 .and. n2==m3 .or. n2==m2 .and. n1==m3 ) &
+        & boundary_d(gj,2,1) = gi
+
+      if ( n1==m3 .and. n3==m1 .or. n3==m3 .and. n2==m1 .or. n2==m3 .and. n1==m1 ) &
+        & boundary_d(gj,3,1) = gi
+
+      if(iflux_d >= 3 .and. iupwind_d==2) then
+        if ( (m1==n1) .or. (m1==n2) .or. (m1==n3))  then
+          do k=1,6
+            if(vertex_neighbors_d(k,m1) == gi) exit
+            if(vertex_neighbors_d(k,m1) == -1) then
+              vertex_neighbors_d(k,m1) = gi
+              exit
+            end if
+          end do
+        end if
+        if ( (m2==n1) .or. (m2==n2) .or. (m2==n3))  then
+          do k=1,6
+            if(vertex_neighbors_d(k,m2) == gi) exit
+            if(vertex_neighbors_d(k,m2) == -1) then
+              vertex_neighbors_d(k,m2) = gi
+              exit
+            end if
+          end do
+        end if
+        if ( (m3==n1) .or. (m3==n2) .or. (m3==n3))  then
+          do k=1,6
+            if(vertex_neighbors_d(k,m3) == gi) exit
+            if(vertex_neighbors_d(k,m3) == -1) then
+              vertex_neighbors_d(k,m3) = gi
+              exit
+            end if
+          end do
+        end if
+      end if
+
+    end if
+
+  end subroutine find_neighbour_big
+
+  attributes(global) subroutine find_upwind_cells()
+    use precision_m
+    use global_device
+    implicit none
+
+    integer :: ti, gi, kv, c
+
+    ti = threadidx%x
+    gi = (blockidx%x - 1)*blockdim%x + ti
+
+    if(gi <= nelt_d) then
+      do c=1,3
+        if(boundary_d(gi,1+mod((c+1)-1,3),1)>0) then
+          upwind_cells_d(1,c,gi) = boundary_d(gi,1+mod((c+1)-1,3),1)
+        else
+          upwind_cells_d(1,c,gi) = gi
+        endif
+        if(boundary_d(gi,1+mod((c+2)-1,3),1)>0) then
+          upwind_cells_d(2,c,gi) = boundary_d(gi,1+mod((c+2)-1,3),1)
+        else
+          upwind_cells_d(2,c,gi) = gi
+        endif
+      end do
+    end if
+  end subroutine find_upwind_cells
+
+
+  subroutine boundary_kind_cudaf
+    !boundary_kind = affectation du genre des frontieres (assignment of the kind of borders)
+    !( entree : -1 ; sortie : -2 : imperm : -3 )
+
+    use precision_m
+    use global
+    use global_device
+    use m_param
+    use cudafor
+
+    implicit none
+
+    integer                                     :: kvol, kfac, n1, n2, i, j, check1, ierr
+    integer, device                             :: check
+    type ( dim3 )                               :: grid_i, tblock_i, grid_o, tblock_o, grid_w, tblock_w, grid_wi, tblock_wi, grid_wo, tblock_wo
+    integer, dimension(:,:,:),   allocatable      :: boundary_temp
+    integer                                     :: ierr_loc
+
+    allocate(boundary_temp(nelt, ns, 2))
+    boundary_temp = boundary_d
+
+    if(ndi > 0) then 
+      tblock_i = dim3(16, 16, 1)
+      grid_i   = dim3(ceiling(real(ndi)/real(tblock_i%x)), ceiling(real(ndi)/real(tblock_i%y)), 1)
+      call check_gridlim(tblock_i, grid_i, 'err <- boundary_kind_cudaf (1) <-- maillage.cuf ')
+
     endif
 
-  else
+    if(ndo > 0) then 
+      tblock_o = dim3(16, 16, 1)
+      grid_o = dim3(ceiling(real(ndo)/real(tblock_o%x)), ceiling(real(ndo)/real(tblock_o%y)), 1)
+      call check_gridlim(tblock_o, grid_o,  'err <- boundary_kind_cudaf (2) <-- maillage.cuf ')
+    endif
 
-    call find_neighbour<<<grid_loc, tblock_loc>>>()
-    call cuda_glerror('ierr <- tab_bound_tri_cudaf <-- find_neighbour (2) <-- maillage.cuf',1)
+    if(ndw > 0) then 
+      tblock_w = dim3(16, 16, 1)
+      grid_w = dim3(ceiling(real(ndw)/real(tblock_w%x)), ceiling(real(ndw)/real(tblock_w%y)), 1)
+      call check_gridlim(tblock_w, grid_w, 'err <- boundary_kind_cudaf (3) <-- maillage.cuf ')
+    endif
 
-  endif
+    if(ndi >0 .and. ndw > 0) then 
+      tblock_wi = dim3(16, 16, 1)
+      grid_wi = dim3(ceiling(real(ndw)/real(tblock_wi%x)), ceiling(real(ndi)/real(tblock_wi%y)), 1)
+      call check_gridlim(tblock_wi, grid_wi,'err <- boundary_kind_cudaf (4) <-- maillage.cuf ')
+    endif
 
-  deallocate(mutex_d(nnt))
-  !
-  ! ... fin du traitement ................................................
-  !
-end subroutine tab_bound_tri_cudaf
+    if(ndo >0 .and. ndw > 0) then 
+      tblock_wo = dim3(16, 16, 1)
+      grid_wo = dim3(ceiling(real(ndw)/real(tblock_wo%x)), ceiling(real(ndo)/real(tblock_wo%y)), 1)
+      call check_gridlim(tblock_wo, grid_wo,'err <- boundary_kind_cudaf (4) <-- maillage.cuf ')
 
+    endif
 
-attributes(global) subroutine set_boundary()
-  use precision_m
-  use global_device
-  implicit none
-
-  integer :: ti,gi
-
-  ti = threadidx%x
-  gi = (blockidx%x - 1)*blockdim%x + ti
-
-  if(gi <= nelt_d) then
-    if(ns_d==3) then
-      boundary_d(gi,1,1) = gi
-      boundary_d(gi,2,1) = gi
-      boundary_d(gi,3,1) = gi
-      boundary_d(gi,1,2) = gi
-      boundary_d(gi,2,2) = gi
-      boundary_d(gi,3,2) = gi
-    else if(ns_d==4) then
-      boundary_d(gi,1,1) = gi
-      boundary_d(gi,2,1) = gi
-      boundary_d(gi,3,1) = gi
-      boundary_d(gi,4,1) = gi
-      boundary_d(gi,1,2) = gi
-      boundary_d(gi,2,2) = gi
-      boundary_d(gi,3,2) = gi
-      boundary_d(gi,4,2) = gi
-    end if
-  end if
-end subroutine set_boundary 
-
-attributes(global) subroutine find_neighbour()
-  use cudafor
-  use precision_m
-  use global_device
-  implicit none
-
-  integer :: ti,tj,gi,gj,m1,m2,m3,n1,n2,n3,k
-
-  ti = threadidx%x
-  tj = threadidx%y
-  gi = (blockidx%x - 1)*blockdim%x + ti
-  gj = (blockidx%y - 1)*blockdim%y + tj
-
-  if(gi /= gj .and. gi <= nelt_d .and. gj <=nelt_d) then
-
-    n1 = connectivite_d(gi,1)
-    n2 = connectivite_d(gi,2)
-    n3 = connectivite_d(gi,3)
-
-    m1 = connectivite_d(gj,1)
-    m2 = connectivite_d(gj,2)
-    m3 = connectivite_d(gj,3)
-
-    if ( m1==n1 .and. m3==n2 .or. m3==n1 .and. m2==n2 .or. m2==n1 .and. m1==n2 ) &
-      & boundary_d(gi,1,1) = gj
-
-    if ( m1==n2 .and. m3==n3 .or. m3==n2 .and. m2==n3 .or. m2==n2 .and. m1==n3 ) &
-      & boundary_d(gi,2,1) = gj
-
-    if ( m1==n3 .and. m3==n1 .or. m3==n3 .and. m2==n1 .or. m2==n3 .and. m1==n1 ) &
-      & boundary_d(gi,3,1) = gj
-
-    if(iflux_d >= 3 .and. iupwind_d==2) then
-      if ( (m1==n1) .or. (m1==n2) .or. (m1==n3))  then
-        do k=1,6
-          if(vertex_neighbors_d(k,m1) == gi) exit
-          if(vertex_neighbors_d(k,m1) == -1) then
-            vertex_neighbors_d(k,m1) = gi
-            exit
-          end if
-        end do
-      end if
-      if ( (m2==n1) .or. (m2==n2) .or. (m2==n3))  then
-        do k=1,6
-          if(vertex_neighbors_d(k,m2) == gi) exit
-          if(vertex_neighbors_d(k,m2) == -1) then
-            vertex_neighbors_d(k,m2) = gi
-            exit
-          end if
-        end do
-      end if
-      if ( (m3==n1) .or. (m3==n2) .or. (m3==n3))  then
-        do k=1,6
-          if(vertex_neighbors_d(k,m3) == gi) exit
-          if(vertex_neighbors_d(k,m3) == -1) then
-            vertex_neighbors_d(k,m3) = gi
-            exit
-          end if
-        end do
-      end if
-    end if
-
-  end if
-
-end subroutine find_neighbour
-
-attributes(global) subroutine find_neighbour_big(nmin, nmax)
-  use precision_m
-  use global_device
-  implicit none
-
-  integer, value :: nmin, nmax
-
-  integer :: ti,tj,gi,gj,m1,m2,m3,n1,n2,n3, by, k
-
-
-  ti = threadidx%x
-  tj = threadidx%y
-  gi = (blockidx%x - 1)*blockdim%x + ti
-
-  gj = nmin - 1 + (blockidx%y - 1)*blockdim%y + tj
-
-  if(gi /= gj .and. gi <= nelt_d .and. gj <= nmax .and. gj >= nmin .and. gj <= nelt_d) then
-
-    n1 = connectivite_d(gi,1)
-    n2 = connectivite_d(gi,2)
-    n3 = connectivite_d(gi,3)
-
-    m1 = connectivite_d(gj,1)
-    m2 = connectivite_d(gj,2)
-    m3 = connectivite_d(gj,3)
-
-    if ( n1==m1 .and. n3==m2 .or. n3==m1 .and. n2==m2 .or. n2==m1 .and. n1==m2 ) &
-      & boundary_d(gj,1,1) = gi
-
-    if ( n1==m2 .and. n3==m3 .or. n3==m2 .and. n2==m3 .or. n2==m2 .and. n1==m3 ) &
-      & boundary_d(gj,2,1) = gi
-
-    if ( n1==m3 .and. n3==m1 .or. n3==m3 .and. n2==m1 .or. n2==m3 .and. n1==m1 ) &
-      & boundary_d(gj,3,1) = gi
-
-    if(iflux_d >= 3 .and. iupwind_d==2) then
-      if ( (m1==n1) .or. (m1==n2) .or. (m1==n3))  then
-        do k=1,6
-          if(vertex_neighbors_d(k,m1) == gi) exit
-          if(vertex_neighbors_d(k,m1) == -1) then
-            vertex_neighbors_d(k,m1) = gi
-            exit
-          end if
-        end do
-      end if
-      if ( (m2==n1) .or. (m2==n2) .or. (m2==n3))  then
-        do k=1,6
-          if(vertex_neighbors_d(k,m2) == gi) exit
-          if(vertex_neighbors_d(k,m2) == -1) then
-            vertex_neighbors_d(k,m2) = gi
-            exit
-          end if
-        end do
-      end if
-      if ( (m3==n1) .or. (m3==n2) .or. (m3==n3))  then
-        do k=1,6
-          if(vertex_neighbors_d(k,m3) == gi) exit
-          if(vertex_neighbors_d(k,m3) == -1) then
-            vertex_neighbors_d(k,m3) = gi
-            exit
-          end if
-        end do
-      end if
-    end if
-
-  end if
-
-end subroutine find_neighbour_big
-
-attributes(global) subroutine find_upwind_cells()
-  use precision_m
-  use global_device
-  implicit none
-
-  integer :: ti, gi, kv, c
-
-  ti = threadidx%x
-  gi = (blockidx%x - 1)*blockdim%x + ti
-
-  if(gi <= nelt_d) then
-    do c=1,3
-      if(boundary_d(gi,1+mod((c+1)-1,3),1)>0) then
-        upwind_cells_d(1,c,gi) = boundary_d(gi,1+mod((c+1)-1,3),1)
-      else
-        upwind_cells_d(1,c,gi) = gi
-      endif
-      if(boundary_d(gi,1+mod((c+2)-1,3),1)>0) then
-        upwind_cells_d(2,c,gi) = boundary_d(gi,1+mod((c+2)-1,3),1)
-      else
-        upwind_cells_d(2,c,gi) = gi
-      endif
-    end do
-  end if
-end subroutine find_upwind_cells
-
-
-subroutine boundary_kind_cudaf
-  !boundary_kind = affectation du genre des frontieres (assignment of the kind of borders)
-  !( entree : -1 ; sortie : -2 : imperm : -3 )
-
-  use precision_m
-  use global
-  use global_device
-  use m_param
-  use cudafor
-
-  implicit none
-
-  interface
-
-    attributes(global) subroutine assign_type_1(ndiow_d, boundary_d, kvol, kfac, nd, n1, n2, id)
-      implicit none
-      integer, intent(inout) :: boundary_d(:,:,:)
-      integer, value :: kvol, kfac, nd, n1, n2, id
-      integer, intent(in) :: ndiow_d(:)
-    end subroutine assign_type_1
-
-    attributes(global) subroutine assign_type_1_numero(ndiow_d, numero_ndinput_d, boundary_d, kvol, kfac, nd, n1, n2, id)
-      implicit none
-      integer, intent(inout) :: boundary_d(:,:,:)
-      integer, value :: kvol, kfac, nd, n1, n2, id
-      integer, intent(in) :: ndiow_d(:), numero_ndinput_d(:)
-    end subroutine assign_type_1_numero
-
-    attributes(global) subroutine assign_type_2(ndwall_d, ndio_d, boundary_d, kvol, kfac, ndw, nd, n1, n2, id)
-      implicit none
-      integer, intent(inout) :: boundary_d(:,:,:)
-      integer, value :: kvol, kfac, ndw, nd, n1, n2, id
-      integer, intent(in) :: ndio_d(:), ndwall_d(:)
-    end subroutine assign_type_2
-
-    attributes(global) subroutine assign_type_2_numero_entree(ndwall_d, ndio_d, numero_ndinput_d, boundary_d, kvol, kfac, ndw, nd, n1, n2, id)
-      implicit none
-      integer, intent(inout) :: boundary_d(:,:,:)
-      integer, value :: kvol, kfac, ndw, nd, n1, n2, id
-      integer, intent(in) :: ndio_d(:), ndwall_d(:), numero_ndinput_d(:)
-    end subroutine assign_type_2_numero_entree
-
-    attributes(global) subroutine check_assign(check, kvol, kfac)
-      implicit none
-      integer, intent(out) :: check
-      integer, value :: kvol, kfac
-    end subroutine check_assign
-
-  end interface
-
-  integer                                     :: kvol, kfac, n1, n2, i, j, check1, ierr
-  integer, device                             :: check
-  type ( dim3 )                               :: grid_i, tblock_i, grid_o, tblock_o, grid_w, tblock_w, grid_wi, tblock_wi, grid_wo, tblock_wo
-  integer, dimension(:,:,:),   allocatable      :: boundary_temp
-  integer                                     :: ierr_loc
-
-  allocate(boundary_temp(nelt, ns, 2))
-  boundary_temp = boundary_d
-
-  if(ndi > 0) then 
-    tblock_i = dim3(16, 16, 1)
-    grid_i   = dim3(ceiling(real(ndi)/real(tblock_i%x)), ceiling(real(ndi)/real(tblock_i%y)), 1)
-    call check_gridlim(tblock_i, grid_i, 'err <- boundary_kind_cudaf (1) <-- maillage.cuf ')
-
-  endif
-
-  if(ndo > 0) then 
-    tblock_o = dim3(16, 16, 1)
-    grid_o = dim3(ceiling(real(ndo)/real(tblock_o%x)), ceiling(real(ndo)/real(tblock_o%y)), 1)
-    call check_gridlim(tblock_o, grid_o,  'err <- boundary_kind_cudaf (2) <-- maillage.cuf ')
-  endif
-
-  if(ndw > 0) then 
-    tblock_w = dim3(16, 16, 1)
-    grid_w = dim3(ceiling(real(ndw)/real(tblock_w%x)), ceiling(real(ndw)/real(tblock_w%y)), 1)
-    call check_gridlim(tblock_w, grid_w, 'err <- boundary_kind_cudaf (3) <-- maillage.cuf ')
-  endif
-
-  if(ndi >0 .and. ndw > 0) then 
-    tblock_wi = dim3(16, 16, 1)
-    grid_wi = dim3(ceiling(real(ndw)/real(tblock_wi%x)), ceiling(real(ndi)/real(tblock_wi%y)), 1)
-    call check_gridlim(tblock_wi, grid_wi,'err <- boundary_kind_cudaf (4) <-- maillage.cuf ')
-  endif
-
-  if(ndo >0 .and. ndw > 0) then 
-    tblock_wo = dim3(16, 16, 1)
-    grid_wo = dim3(ceiling(real(ndw)/real(tblock_wo%x)), ceiling(real(ndo)/real(tblock_wo%y)), 1)
-    call check_gridlim(tblock_wo, grid_wo,'err <- boundary_kind_cudaf (4) <-- maillage.cuf ')
-
-  endif
-
-  ! ... debut du traitement
-  do kvol=1,nelt
-    !
-    do kfac=1,ns
+    ! ... debut du traitement
+    do kvol=1,nelt
       !
-      if ( boundary_temp(kvol,kfac,1) == kvol ) then
-        n1 = connectivite(kvol,kfac)
+      do kfac=1,ns
         !
+        if ( boundary_temp(kvol,kfac,1) == kvol ) then
+          n1 = connectivite(kvol,kfac)
+          !
+          if ( kfac < ns ) then
+            n2 = connectivite(kvol,kfac+1)
+          else
+            n2 = connectivite(kvol,1)
+          endif
+
+          if(ndi > 0) then 
+
+            call assign_type_1<<<grid_i, tblock_i>>>(ndinput_d,boundary_d,kvol,kfac, ndi, n1, n2, -1)
+            call assign_type_1_numero<<<grid_i, tblock_i>>>(ndinput_d, numero_ndinput_d, boundary_d,kvol,kfac, ndi, n1, n2, -1)
+            call cuda_glerror('ierr <- boundary_kind_cudaf <-- assign_type_1 (1) <-- maillage.cuf',1)
+
+            call check_assign<<<1,1>>>(check, kvol, kfac)
+            call cuda_glerror('ierr <- boundary_kind_cudaf <-- check_assign (1) <-- maillage.cuf',1)
+
+            check1 = check
+            if ( check1 < 0 ) goto 190
+
+          endif 
+
+          if(ndo > 0) then 
+
+            call assign_type_1<<<grid_o, tblock_o>>>(ndoutput_d,boundary_d,kvol,kfac, ndo, n1, n2, -2)
+            call assign_type_1_numero<<<grid_o, tblock_o>>>(ndoutput_d,numero_ndoutput_d,boundary_d,kvol,kfac, ndo, n1, n2, -2)
+            call cuda_glerror('ierr <- boundary_kind_cudaf <-- assign_type_1 (2) <-- maillage.cuf',1)
+
+            call check_assign<<<1,1>>>(check, kvol, kfac)
+            call cuda_glerror('ierr <- boundary_kind_cudaf <-- check_assign (2) <-- maillage.cuf',1)
+
+            check1 = check
+            if ( check1 < 0 ) goto 190
+
+          endif
+
+          if(ndw > 0) then 
+
+            call assign_type_1<<<grid_w, tblock_w>>>(ndwall_d,boundary_d,kvol,kfac, ndw, n1, n2, -3)
+            call cuda_glerror('ierr <- boundary_kind_cudaf <-- assign_type_1 (3) <--- maillage.cuf',1)
+
+            call check_assign<<<1,1>>>(check, kvol, kfac)
+            call cuda_glerror('ierr <- boundary_kind_cudaf <-- check_assign (3) <--- maillage.cuf',1)
+
+            check1 = check
+            if ( check1 < 0 ) goto 190
+
+          endif
+
+          if(ndi > 0 .and. ndw > 0 ) then 
+            !! Si à la fois noeud de mur et noeud input alors mur
+            call assign_type_2<<<grid_wi, tblock_wi>>>(ndwall_d, ndinput_d,boundary_d,kvol,kfac,ndw, ndi, n1, n2, -3)
+            call cuda_glerror( 'ierr <- boundary_kind_cudaf <-- assign_type_2 (1) <--- maillage.cuf',1)
+          endif
+
+          if(ndo > 0 .and. ndw > 0) then 
+            !! Si à la fois noeud de mur et noeud sortie alors mur
+            call assign_type_2<<<grid_wo, tblock_wo>>>(ndwall_d, ndoutput_d,boundary_d,kvol,kfac,ndw, ndo, n1, n2, -3)
+            call cuda_glerror('ierr <- boundary_kind_cudaf <-- assign_type_2 (2) <--- maillage.cuf',1)
+          endif
+
+          190 continue
+
+        endif
+      enddo
+    enddo
+
+    deallocate(boundary_temp)
+
+    call cuda_glerror('ierr <- boundary_kind_cudaf(towards_end_of_function) <-- maillage.cuf',1)
+  end subroutine boundary_kind_cudaf
+
+  attributes(global) subroutine check_assign(check, kvol, kfac)
+    use precision_m
+    use global_device
+    implicit none
+    integer, intent(out) :: check
+    integer, value :: kvol, kfac
+
+    check = boundary_d(kvol, kfac, 1)
+  end subroutine check_assign
+
+
+  attributes(global) subroutine assign_type_1_numero(ndiow_d, numero_ndinput_d, boundary_d, kvol, kfac, nd, n1, n2, id)
+    implicit none
+    integer, intent(inout) :: boundary_d(:,:,:)
+    integer, value :: kvol, kfac, nd, n1, n2, id
+    integer, intent(in) :: ndiow_d(:), numero_ndinput_d(:)
+
+    integer :: ti,tj,gi,gj,ndiow_i, ndiow_j
+
+
+    ti = threadidx%x
+    tj = threadidx%y
+    gi = (blockidx%x - 1)*blockdim%x + ti
+    gj = (blockidx%y - 1)*blockdim%y + tj
+
+    if(gi <= (nd-1) .and. gj <= nd .and. gj > gi) then
+      ndiow_i = ndiow_d(gi)
+      ndiow_j = ndiow_d(gj)
+
+      if ( n1 == ndiow_i .and. n2 == ndiow_j .or. n1 == ndiow_j .and. n2 == ndiow_i ) then  
+        boundary_d(kvol,kfac,2) = numero_ndinput_d(gi)
+      end if
+
+    end if
+
+  end subroutine assign_type_1_numero
+
+  attributes(global) subroutine assign_type_1(ndiow_d, boundary_d, kvol, kfac, nd, n1, n2, id)
+    implicit none
+    integer, intent(inout) :: boundary_d(:,:,:)
+    integer, value :: kvol, kfac, nd, n1, n2, id
+    integer, intent(in) :: ndiow_d(:)
+
+    integer :: ti,tj,gi,gj,ndiow_i, ndiow_j
+
+
+    ti = threadidx%x
+    tj = threadidx%y
+    gi = (blockidx%x - 1)*blockdim%x + ti
+    gj = (blockidx%y - 1)*blockdim%y + tj
+
+    if(gi <= (nd-1) .and. gj <= nd .and. gj > gi) then
+      ndiow_i = ndiow_d(gi)
+      ndiow_j = ndiow_d(gj)
+
+      if ( n1 == ndiow_i .and. n2 == ndiow_j .or. n1 == ndiow_j .and. n2 == ndiow_i ) then  
+        boundary_d(kvol,kfac,1) = id
+      end if
+
+    end if
+
+  end subroutine assign_type_1
+
+  attributes(global) subroutine assign_type_2_numero_entree(ndwall_d, ndio_d, numero_ndinput_d, boundary_d, kvol, kfac, ndw, nd, n1, n2, id)
+    implicit none
+    integer, intent(inout) :: boundary_d(:,:,:)
+    integer, value :: kvol, kfac, ndw, nd, n1, n2, id
+    integer, intent(in) :: ndio_d(:), ndwall_d(:), numero_ndinput_d(:)
+
+    integer :: ti,tj,gi,gj, ndiow_j, ndwall_i
+
+    ti = threadidx%x
+    tj = threadidx%y
+    gi = (blockidx%x - 1)*blockdim%x + ti
+    gj = (blockidx%y - 1)*blockdim%y + tj
+
+    if(gi <= ndw .and. gj <= nd ) then
+
+      ndiow_j  = ndio_d(gj)
+      ndwall_i = ndwall_d(gi)
+
+      if ( n1 == ndwall_i .and. n2 == ndiow_j .or. n1 == ndiow_j .and. n2 == ndwall_i ) then  
+        boundary_d(kvol,kfac,2) = numero_ndinput_d(gj)
+      end if
+
+    end if
+
+  end subroutine assign_type_2_numero_entree
+
+  attributes(global) subroutine assign_type_2(ndwall_d, ndio_d, boundary_d, kvol, kfac, ndw, nd, n1, n2, id)
+    implicit none
+    integer, intent(inout) :: boundary_d(:,:,:)
+    integer, value :: kvol, kfac, ndw, nd, n1, n2, id
+    integer, intent(in) :: ndio_d(:), ndwall_d(:)
+
+    integer :: ti,tj,gi,gj, ndiow_j, ndwall_i
+
+    ti = threadidx%x
+    tj = threadidx%y
+    gi = (blockidx%x - 1)*blockdim%x + ti
+    gj = (blockidx%y - 1)*blockdim%y + tj
+
+    if(gi <= ndw .and. gj <= nd ) then
+
+      ndiow_j  = ndio_d(gj)
+      ndwall_i = ndwall_d(gi)
+
+      if ( n1 == ndwall_i .and. n2 == ndiow_j .or. n1 == ndiow_j .and. n2 == ndwall_i ) then  
+        boundary_d(kvol,kfac,1) = id
+      end if
+
+    end if
+
+  end subroutine assign_type_2
+
+  attributes(global) subroutine assign_dry_as_wall(vdlg_d)
+    !! Si maille voisine est sèche alors on le met en wall
+    use precision_m
+    use global_device
+
+    implicit none
+    real(fp_kind), intent(in) :: vdlg_d(:,:)
+
+    integer :: ti,gi,kfac, kvoisin
+
+    ti = threadIdx%x
+    gi = (blockIdx%x - 1)*blockDim%x + ti
+
+    if(gi <= nelt_d) then
+      do kfac=1,ns_d
+        kvoisin = boundary_d(gi,kfac,1)
+        if (kvoisin>0)then
+          if(vdlg_d(1,kvoisin)<tolisec_d) then
+            boundary_d(gi,kfac,1) = -3
+          end if
+        end if
+      end do
+    end if
+
+  end subroutine assign_dry_as_wall
+
+
+  subroutine construct_coo_table_elemwise
+
+    ! caluclates the elementwise coordinate table and the x and y coordinate of the centroid of each element
+    use precision_m
+    use global
+    use global_device
+    implicit none
+
+    integer :: kvol, i, s1, s2, s3,s4, ierr1
+
+    do kvol = 1,nelt    
+      s1 = connectivite(kvol,1)
+      s2 = connectivite(kvol,2)
+      s3 = connectivite(kvol,3)
+      coo_table_elemwise(kvol,1:3) = coordonnees(s1,1:3)
+      coo_table_elemwise(kvol,4:6) = coordonnees(s2,1:3)
+      coo_table_elemwise(kvol,7:9) = coordonnees(s3,1:3)
+      x_centroid(kvol) = (coordonnees(s1,1) + coordonnees(s2,1) + coordonnees(s3,1))/3
+      y_centroid(kvol) = (coordonnees(s1,2) + coordonnees(s2,2) + coordonnees(s3,2))/3
+
+    end do
+
+    coo_table_elemwise_d = coo_table_elemwise
+    x_centroid_d = x_centroid
+    y_centroid_d = y_centroid
+
+    call cuda_glerror('ierr->data_transfer(construct_coo_table_elemwise)-> maillage.cuf',1)
+
+  end subroutine construct_coo_table_elemwise
+
+  attributes(global) subroutine surfzm_cudaf(surf_d,zm_d)
+    use precision_m
+    use global_device
+    implicit none
+
+    real(fp_kind), dimension(:), intent(inout)    :: surf_d, zm_d
+
+    real(fp_kind) :: x1, x2 ,x3, x4, y1, y2, y3, y4, z1, z2, z3, z4, gz1, gz2
+    real(fp_kind) :: xg, yg, zg, d1, d2, d3, d4, aaa, bbb, ddd, dx, surf_area
+
+    integer :: ti,gi
+
+    ti = threadidx%x
+    gi = (blockidx%x - 1)*blockdim%x + ti
+
+    if(gi <= nelt_d) then
+      x1 = coo_table_elemwise_d(gi,1)
+      y1 = coo_table_elemwise_d(gi,2)
+
+      x2 = coo_table_elemwise_d(gi,4)
+      y2 = coo_table_elemwise_d(gi,5)
+
+      x3 = coo_table_elemwise_d(gi,7)
+      y3 = coo_table_elemwise_d(gi,8)
+
+      surf_area = ( (x3-x2)*y1 + (x1-x3)*y2 + (x2-x1)*y3 ) / 2
+      surf_d(gi) = surf_area
+
+      z1 = coo_table_elemwise_d(gi,3)
+      z2 = coo_table_elemwise_d(gi,6)
+      z3 = coo_table_elemwise_d(gi,9)
+
+      xg = ( x1 + x2 + x3 ) / 3.00
+      yg = ( y1 + y2 + y3 ) / 3.00
+      d1 = sqrt( (x1-xg)**2 + (y1-yg)**2 )
+      d2 = sqrt( (x2-xg)**2 + (y2-yg)**2 )
+      d3 = sqrt( (x3-xg)**2 + (y3-yg)**2 )
+
+      zm_d(gi) = ( d1*z1 + d2*z2 + d3*z3 ) / ( d1 + d2 + d3 ) ! planimetrique
+    endif
+  end subroutine surfzm_cudaf
+
+  subroutine calcul_long_entree
+    use precision_m
+    use global
+    use global_device
+    use m_param
+    use cudafor
+    implicit none
+
+    integer kvol, kfac, n1, n2, id_entree, ientree
+
+    do ientree=1,nombre_entrees
+      long_entree(ientree) = 0.
+    end do
+
+    print*,nelt_fant_recep
+    do kvol=1,nelt-nelt_fant_recep
+      do kfac=1,ns
+        n1 = connectivite(kvol,kfac)
         if ( kfac < ns ) then
           n2 = connectivite(kvol,kfac+1)
         else
           n2 = connectivite(kvol,1)
         endif
 
-        if(ndi > 0) then 
-
-          call assign_type_1<<<grid_i, tblock_i>>>(ndinput_d,boundary_d,kvol,kfac, ndi, n1, n2, -1)
-          call assign_type_1_numero<<<grid_i, tblock_i>>>(ndinput_d, numero_ndinput_d, boundary_d,kvol,kfac, ndi, n1, n2, -1)
-          call cuda_glerror('ierr <- boundary_kind_cudaf <-- assign_type_1 (1) <-- maillage.cuf',1)
-
-          call check_assign<<<1,1>>>(check, kvol, kfac)
-          call cuda_glerror('ierr <- boundary_kind_cudaf <-- check_assign (1) <-- maillage.cuf',1)
-
-          check1 = check
-          if ( check1 < 0 ) goto 190
-
-        endif 
-
-        if(ndo > 0) then 
-
-          call assign_type_1<<<grid_o, tblock_o>>>(ndoutput_d,boundary_d,kvol,kfac, ndo, n1, n2, -2)
-          call assign_type_1_numero<<<grid_o, tblock_o>>>(ndoutput_d,numero_ndoutput_d,boundary_d,kvol,kfac, ndo, n1, n2, -2)
-          call cuda_glerror('ierr <- boundary_kind_cudaf <-- assign_type_1 (2) <-- maillage.cuf',1)
-
-          call check_assign<<<1,1>>>(check, kvol, kfac)
-          call cuda_glerror('ierr <- boundary_kind_cudaf <-- check_assign (2) <-- maillage.cuf',1)
-
-          check1 = check
-          if ( check1 < 0 ) goto 190
-
-        endif
-
-        if(ndw > 0) then 
-
-          call assign_type_1<<<grid_w, tblock_w>>>(ndwall_d,boundary_d,kvol,kfac, ndw, n1, n2, -3)
-          call cuda_glerror('ierr <- boundary_kind_cudaf <-- assign_type_1 (3) <--- maillage.cuf',1)
-
-          call check_assign<<<1,1>>>(check, kvol, kfac)
-          call cuda_glerror('ierr <- boundary_kind_cudaf <-- check_assign (3) <--- maillage.cuf',1)
-
-          check1 = check
-          if ( check1 < 0 ) goto 190
-
-        endif
-
-        if(ndi > 0 .and. ndw > 0 ) then 
-          !! Si à la fois noeud de mur et noeud input alors mur
-          call assign_type_2<<<grid_wi, tblock_wi>>>(ndwall_d, ndinput_d,boundary_d,kvol,kfac,ndw, ndi, n1, n2, -3)
-          call cuda_glerror( 'ierr <- boundary_kind_cudaf <-- assign_type_2 (1) <--- maillage.cuf',1)
-        endif
-
-        if(ndo > 0 .and. ndw > 0) then 
-          !! Si à la fois noeud de mur et noeud sortie alors mur
-          call assign_type_2<<<grid_wo, tblock_wo>>>(ndwall_d, ndoutput_d,boundary_d,kvol,kfac,ndw, ndo, n1, n2, -3)
-          call cuda_glerror('ierr <- boundary_kind_cudaf <-- assign_type_2 (2) <--- maillage.cuf',1)
-        endif
-
-        190 continue
-
-      endif
-    enddo
-  enddo
-
-  deallocate(boundary_temp)
-
-  call cuda_glerror('ierr <- boundary_kind_cudaf(towards_end_of_function) <-- maillage.cuf',1)
-end subroutine boundary_kind_cudaf
-
-attributes(global) subroutine check_assign(check, kvol, kfac)
-  use precision_m
-  use global_device
-  implicit none
-  integer, intent(out) :: check
-  integer, value :: kvol, kfac
-
-  check = boundary_d(kvol, kfac, 1)
-end subroutine check_assign
-
-
-attributes(global) subroutine assign_type_1_numero(ndiow_d, numero_ndinput_d, boundary_d, kvol, kfac, nd, n1, n2, id)
-  implicit none
-  integer, intent(inout) :: boundary_d(:,:,:)
-  integer, value :: kvol, kfac, nd, n1, n2, id
-  integer, intent(in) :: ndiow_d(:), numero_ndinput_d(:)
-
-  integer :: ti,tj,gi,gj,ndiow_i, ndiow_j
-
-
-  ti = threadidx%x
-  tj = threadidx%y
-  gi = (blockidx%x - 1)*blockdim%x + ti
-  gj = (blockidx%y - 1)*blockdim%y + tj
-
-  if(gi <= (nd-1) .and. gj <= nd .and. gj > gi) then
-    ndiow_i = ndiow_d(gi)
-    ndiow_j = ndiow_d(gj)
-
-    if ( n1 == ndiow_i .and. n2 == ndiow_j .or. n1 == ndiow_j .and. n2 == ndiow_i ) then  
-      boundary_d(kvol,kfac,2) = numero_ndinput_d(gi)
-    end if
-
-  end if
-
-end subroutine assign_type_1_numero
-
-attributes(global) subroutine assign_type_1(ndiow_d, boundary_d, kvol, kfac, nd, n1, n2, id)
-  implicit none
-  integer, intent(inout) :: boundary_d(:,:,:)
-  integer, value :: kvol, kfac, nd, n1, n2, id
-  integer, intent(in) :: ndiow_d(:)
-
-  integer :: ti,tj,gi,gj,ndiow_i, ndiow_j
-
-
-  ti = threadidx%x
-  tj = threadidx%y
-  gi = (blockidx%x - 1)*blockdim%x + ti
-  gj = (blockidx%y - 1)*blockdim%y + tj
-
-  if(gi <= (nd-1) .and. gj <= nd .and. gj > gi) then
-    ndiow_i = ndiow_d(gi)
-    ndiow_j = ndiow_d(gj)
-
-    if ( n1 == ndiow_i .and. n2 == ndiow_j .or. n1 == ndiow_j .and. n2 == ndiow_i ) then  
-      boundary_d(kvol,kfac,1) = id
-    end if
-
-  end if
-
-end subroutine assign_type_1
-
-attributes(global) subroutine assign_type_2_numero_entree(ndwall_d, ndio_d, numero_ndinput_d, boundary_d, kvol, kfac, ndw, nd, n1, n2, id)
-  implicit none
-  integer, intent(inout) :: boundary_d(:,:,:)
-  integer, value :: kvol, kfac, ndw, nd, n1, n2, id
-  integer, intent(in) :: ndio_d(:), ndwall_d(:), numero_ndinput_d(:)
-
-  integer :: ti,tj,gi,gj, ndiow_j, ndwall_i
-
-  ti = threadidx%x
-  tj = threadidx%y
-  gi = (blockidx%x - 1)*blockdim%x + ti
-  gj = (blockidx%y - 1)*blockdim%y + tj
-
-  if(gi <= ndw .and. gj <= nd ) then
-
-    ndiow_j  = ndio_d(gj)
-    ndwall_i = ndwall_d(gi)
-
-    if ( n1 == ndwall_i .and. n2 == ndiow_j .or. n1 == ndiow_j .and. n2 == ndwall_i ) then  
-      boundary_d(kvol,kfac,2) = numero_ndinput_d(gj)
-    end if
-
-  end if
-
-end subroutine assign_type_2_numero_entree
-
-attributes(global) subroutine assign_type_2(ndwall_d, ndio_d, boundary_d, kvol, kfac, ndw, nd, n1, n2, id)
-  implicit none
-  integer, intent(inout) :: boundary_d(:,:,:)
-  integer, value :: kvol, kfac, ndw, nd, n1, n2, id
-  integer, intent(in) :: ndio_d(:), ndwall_d(:)
-
-  integer :: ti,tj,gi,gj, ndiow_j, ndwall_i
-
-  ti = threadidx%x
-  tj = threadidx%y
-  gi = (blockidx%x - 1)*blockdim%x + ti
-  gj = (blockidx%y - 1)*blockdim%y + tj
-
-  if(gi <= ndw .and. gj <= nd ) then
-
-    ndiow_j  = ndio_d(gj)
-    ndwall_i = ndwall_d(gi)
-
-    if ( n1 == ndwall_i .and. n2 == ndiow_j .or. n1 == ndiow_j .and. n2 == ndwall_i ) then  
-      boundary_d(kvol,kfac,1) = id
-    end if
-
-  end if
-
-end subroutine assign_type_2
-
-attributes(global) subroutine assign_dry_as_wall(vdlg_d)
-  !! Si maille voisine est sèche alors on le met en wall
-  use precision_m
-  use global_device
-
-  implicit none
-  real(fp_kind), intent(in) :: vdlg_d(:,:)
-
-  integer :: ti,gi,kfac, kvoisin
-
-  ti = threadIdx%x
-  gi = (blockIdx%x - 1)*blockDim%x + ti
-
-  if(gi <= nelt_d) then
-    do kfac=1,ns_d
-      kvoisin = boundary_d(gi,kfac,1)
-      if (kvoisin>0)then
-        if(vdlg_d(1,kvoisin)<tolisec_d) then
-          boundary_d(gi,kfac,1) = -3
+        if(boundary(kvol,kfac,1) == -1) then
+          id_entree = boundary(kvol,kfac,2)
+          long_entree(id_entree) = long_entree(id_entree) + sqrt((coordonnees(n1,1)-coordonnees(n2,1))**2+(coordonnees(n1,2)-coordonnees(n2,2))**2)
         end if
-      end if
+      end do
     end do
-  end if
+  end subroutine calcul_long_entree
 
-end subroutine assign_dry_as_wall
+  attributes(global) subroutine set_unset_as_wall()
+    !! Si le voisin n'as pas changé depuis l'initialisation alors on met un mur
+    use precision_m
+    use global_device
+    implicit none
 
+    integer :: ti,gi,ki
 
-subroutine construct_coo_table_elemwise
+    ti = threadidx%x
+    gi = (blockidx%x - 1)*blockdim%x + ti
 
-  ! caluclates the elementwise coordinate table and the x and y coordinate of the centroid of each element
-  use precision_m
-  use global
-  use global_device
-  implicit none
+    if(gi <= nelt_d-nelt_fant_recep_d) then
+      !! Il faudrait enlever la boucle et multiplier les threads par ns_d
+      do ki=1,ns_d
+        if(boundary_d(gi,ki,1) == gi) then
+          boundary_d(gi,ki,1) = -3 !wall
+        end if
+      end do
+    end if
+  end subroutine set_unset_as_wall
 
-  integer :: kvol, i, s1, s2, s3,s4, ierr1
+  subroutine centroid(kvol,xg,yg)
+    ! ======================================================================
+    !     centroid = calcul les coordonnees du centre de gravite de kvol
+    !     auteur : Youssef Loukili  GRANIT ETSMTL
+    !     version : 1.0  ;  May 12 2003
+    ! ======================================================================
 
-  do kvol = 1,nelt    
-    s1 = connectivite(kvol,1)
-    s2 = connectivite(kvol,2)
-    s3 = connectivite(kvol,3)
-    coo_table_elemwise(kvol,1:3) = coordonnees(s1,1:3)
-    coo_table_elemwise(kvol,4:6) = coordonnees(s2,1:3)
-    coo_table_elemwise(kvol,7:9) = coordonnees(s3,1:3)
-    x_centroid(kvol) = (coordonnees(s1,1) + coordonnees(s2,1) + coordonnees(s3,1))/3
-    y_centroid(kvol) = (coordonnees(s1,2) + coordonnees(s2,2) + coordonnees(s3,2))/3
+    use precision_m
+    use global
+    use m_param
 
-  end do
+    implicit none
 
-  coo_table_elemwise_d = coo_table_elemwise
-  x_centroid_d = x_centroid
-  y_centroid_d = y_centroid
+    integer , intent(in)         :: kvol
+    real(fp_kind), intent(inout) :: xg, yg
 
-  call cuda_glerror('ierr->data_transfer(construct_coo_table_elemwise)-> maillage.cuf',1)
+    integer :: i, nc
 
-end subroutine construct_coo_table_elemwise
+    xg = 0.
+    yg = 0.
 
-attributes(global) subroutine surfzmgradz_cudaf(surf_d,zm_d,gradz_d,gradz2_d)
-  !
-  ! ======================================================================
-  !
-  !     surfzmgradz = calcul la surface des volume (triangle ou quadrilatere)
-  !                   ainsi que z moyenne et son gradient sur chaque volume
-  !     surfzmgradz = calculates the volume area (triangle or quadrilateral)
-  !                   as well as z mean and its gradient on each volume
-  !
-  !     auteur : youssef loukili  granit etsmtl
-  !
-  !     version : 1.0  ;  may 12 2003
-  ! ======================================================================
+    do i=1,ns
+      nc = connectivite(kvol,i)
+      xg = xg + coordonnees(nc,1)
+      yg = yg + coordonnees(nc,2)
+    enddo
 
-  use precision_m
-  use global_device
-  implicit none
-
-  real(fp_kind), dimension(:), intent(inout)    :: surf_d, zm_d
-  real(fp_kind), dimension(:,:), intent(inout)  :: gradz_d, gradz2_d
-
-  real(fp_kind) :: x1, x2 ,x3, x4, y1, y2, y3, y4, z1, z2, z3, z4, gz1, gz2
-  real(fp_kind) :: xg, yg, zg, d1, d2, d3, d4, aaa, bbb, ddd, dx, surf_area
-
-  integer :: ti,gi
-
-  ti = threadidx%x
-  gi = (blockidx%x - 1)*blockdim%x + ti
-
-  if(gi <= nelt_d) then
-    x1 = coo_table_elemwise_d(gi,1)
-    y1 = coo_table_elemwise_d(gi,2)
-
-    x2 = coo_table_elemwise_d(gi,4)
-    y2 = coo_table_elemwise_d(gi,5)
-
-    x3 = coo_table_elemwise_d(gi,7)
-    y3 = coo_table_elemwise_d(gi,8)
-
-    surf_area = ( (x3-x2)*y1 + (x1-x3)*y2 + (x2-x1)*y3 ) / 2
-    surf_d(gi) = surf_area
-
-    z1 = coo_table_elemwise_d(gi,3)
-    z2 = coo_table_elemwise_d(gi,6)
-    z3 = coo_table_elemwise_d(gi,9)
-
-    xg = ( x1 + x2 + x3 ) / 3.00
-    yg = ( y1 + y2 + y3 ) / 3.00
-    d1 = sqrt( (x1-xg)**2 + (y1-yg)**2 )
-    d2 = sqrt( (x2-xg)**2 + (y2-yg)**2 )
-    d3 = sqrt( (x3-xg)**2 + (y3-yg)**2 )
-
-    !zm(kvol) = ( z1 + z2 + z3 ) / 3                         ! arithmetique
-    zm_d(gi) = ( d1*z1 + d2*z2 + d3*z3 ) / ( d1 + d2 + d3 ) ! planimetrique
-
-    gradz_d(1,gi) = ( (y2-y3)*z1 + (y3-y1)*z2 + (y1-y2)*z3 ) / surf_area / 2.00
-    gradz_d(2,gi) = ( (x3-x2)*z1 + (x1-x3)*z2 + (x2-x1)*z3 ) / surf_area / 2.00
-
-    gradz2_d(1,gi) = ( (y2-y3)*z1**2 + (y3-y1)*z2**2 + (y1-y2)*z3**2 ) / surf_area / 2.00
-    gradz2_d(2,gi) = ( (x3-x2)*z1**2 + (x1-x3)*z2**2 + (x2-x1)*z3**2 ) / surf_area / 2.00
-  endif
-end subroutine surfzmgradz_cudaf
-
-subroutine calcul_long_entree
-  use precision_m
-  use global
-  use global_device
-  use m_param
-  use cudafor
-  implicit none
-
-  integer kvol, kfac, n1, n2, id_entree, ientree
-
-  do ientree=1,nombre_entrees
-    long_entree(ientree) = 0.
-  end do
-
-  print*,nelt_fant_recep
-  do kvol=1,nelt-nelt_fant_recep
-    do kfac=1,ns
-      n1 = connectivite(kvol,kfac)
-      if ( kfac < ns ) then
-        n2 = connectivite(kvol,kfac+1)
-      else
-        n2 = connectivite(kvol,1)
-      endif
-
-      if(boundary(kvol,kfac,1) == -1) then
-        id_entree = boundary(kvol,kfac,2)
-        long_entree(id_entree) = long_entree(id_entree) + sqrt((coordonnees(n1,1)-coordonnees(n2,1))**2+(coordonnees(n1,2)-coordonnees(n2,2))**2)
-      end if
-    end do
-  end do
-end subroutine calcul_long_entree
-
-attributes(global) subroutine set_unset_as_wall()
-  !! Si le voisin n'as pas changé depuis l'initialisation alors on met un mur
-  use precision_m
-  use global_device
-  implicit none
-
-  integer :: ti,gi,ki
-
-  ti = threadidx%x
-  gi = (blockidx%x - 1)*blockdim%x + ti
-
-  if(gi <= nelt_d-nelt_fant_recep_d) then
-    !! Il faudrait enlever la boucle et multiplier les threads par ns_d
-    do ki=1,ns_d
-      if(boundary_d(gi,ki,1) == gi) then
-        boundary_d(gi,ki,1) = -3 !wall
-      end if
-    end do
-  end if
-end subroutine set_unset_as_wall
-
-subroutine centroid(kvol,xg,yg)
-  ! ======================================================================
-  !     centroid = calcul les coordonnees du centre de gravite de kvol
-  !     auteur : Youssef Loukili  GRANIT ETSMTL
-  !     version : 1.0  ;  May 12 2003
-  ! ======================================================================
-
-  use precision_m
-  use global
-  use m_param
-
-  implicit none
-
-  integer , intent(in)         :: kvol
-  real(fp_kind), intent(inout) :: xg, yg
-
-  integer :: i, nc
-
-  xg = 0.
-  yg = 0.
-
-  do i=1,ns
-    nc = connectivite(kvol,i)
-    xg = xg + coordonnees(nc,1)
-    yg = yg + coordonnees(nc,2)
-  enddo
-
-  xg = xg / ns
-  yg = yg / ns
-end subroutine centroid
+    xg = xg / ns
+    yg = yg / ns
+  end subroutine centroid
+end module maillage

@@ -33,7 +33,7 @@ module global
   integer, dimension(:,:), allocatable :: sendstat, recvstat
 
   !! Variables donnees du terrain
-  integer             :: friction=0, is_override_manning
+  integer             :: friction=0, is_override_manning, diffusion=0
   real(fp_kind)       :: gp, override_manning
 
 
@@ -51,7 +51,6 @@ module global
   real(fp_kind)             :: x1eqbar, x2eqbar, y1eqbar, y2eqbar
 
   !! Variables donnees de simulation
-  character(len=10)   :: timedisc
   character(len=6)    :: inlet
   character(len=30)   :: loi_debitglob
   integer :: iflux, ilimiteur=1, iupwind=1, fricimplic=1, debit_var  
@@ -66,16 +65,10 @@ module global
   real(fp_kind), allocatable, pinned :: dt, dt_max
   real(fp_kind) :: tol=1e-6, tolaffiche=1e-1
   real(fp_kind), dimension(10) :: coupe_a, coupe_b
-  integer :: merged_solution
-  integer, dimension(:,:), allocatable :: liens_elems, liens_nodes
-  real(fp_kind), dimension(:,:,:), allocatable :: vdlg1_vect, sol_nodes_vect, vdlg_vect
-  real(fp_kind), dimension(:,:), allocatable :: vdlg1_global, sol_nodes_global, vdlg_global
-  integer, dimension(:), allocatable :: mpi_nelts, mpi_nelts_non_fant
-  integer, dimension(:), allocatable :: mpi_nnts
+
   integer :: nelt_global, nelt_global_non_fant
   integer :: nnt_global
   integer :: vtk_snapshots, base_unique, nonlin, solvtk, k_base
-  integer :: monte_carlo, is_dry_as_wall, local_time_step
   integer :: cuda_aware=1
   integer :: is_cgns=0, is_dt_constant=0
   integer :: debug_mode=0, max_iter=5
@@ -101,14 +94,13 @@ module global
   & inlet, inlet_name,  debitglob, debit_var,loi_debitglob, outlet_name, h_sortie, &
 
   & iflux, ilimiteur, iupwind&
-  & tolisec, timedisc, & 
+  & tolisec, & 
   & friction, fricimplic, &
-  & is_dry_as_wall, local_time_step,&
+  & diffusion, &
    
   & ts, cfl, tol_reg_perm,& 
   & is_dt_constant, constant_dt, &
   & freqaffich,tolaffiche&
-  & merged_solution,&
 
   & sol_z_offset,& !!ne fonctionne que pour simple vtk et bluekenue
   & solrestart, restart_snapshots,& 
@@ -185,4 +177,8 @@ module global
   real(fp_kind), allocatable :: vol_tot_sorti_arr(:)
   integer, allocatable :: io_identifier(:)
   integer :: gridxlim, gridylim
+
+  real(fp_kind), dimension(:)  , allocatable :: surf, sh0, shu0, shv0, su0,she0, sv0, zm
+  real(fp_kind), pinned, dimension(:,:), allocatable :: vdlg, vdlg0, vdlg_nodes
+  real(fp_kind) :: temps_initial, temps_final
 end module global

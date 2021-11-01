@@ -1,115 +1,104 @@
-attributes(global) subroutine cond_initial_cudaf(zm_d, ut_d, ut1_d)
-  ! ======================================================================
-  !     cd limit = sets the initial conditions for the state variable ut
-  !                and for the active visualization visualization vector! 
-  ! ======================================================================
-
-  use precision_m
-  use global_device
+module condition_initial
   implicit none
+contains
+  attributes(global) subroutine cond_initial_cudaf(zm_d, vdlg_d)
 
-  real(fp_kind), dimension(:), intent(in)     :: zm_d
-  real(fp_kind), dimension(:,:), intent(inout):: ut_d, ut1_d
+    use precision_m
+    use global_device
 
-  real(fp_kind) :: x1, x2 ,x3, x4, y1, y2, y3, y4, rayvol, ut_dgi1, v1, v2, zmd
-  real(fp_kind) :: alpha, beta, X, Y, r_sup, omega, dist_min, x1coupe, x2coupe, y1coupe, y2coupe, dO_P1, dO_P2
-  integer :: ti,gi 
+    implicit none
 
-  ti = threadIdx%x
-  gi = (blockIdx%x - 1)*blockDim%x + ti
+    real(fp_kind), dimension(nelt_d), intent(in)     :: zm_d
+    real(fp_kind), dimension(ndln_d,nelt_d), intent(inout):: vdlg_d
 
-  if(gi <= nelt_d) then
+    real(fp_kind) :: x1, x2 ,x3, x4, y1, y2, y3, y4, rayvol, vdlg_dgi1, v1, v2, zmd
+    real(fp_kind) :: alpha, beta, X, Y, r_sup, omega, dist_min, x1coupe, x2coupe, y1coupe, y2coupe, dO_P1, dO_P2
+    integer :: ti,gi 
 
-    zmd = zm_d(gi)
-    x1 = coo_table_elemwise_d(gi,1)
-    y1 = coo_table_elemwise_d(gi,2)
+    ti = threadIdx%x
+    gi = (blockIdx%x - 1)*blockDim%x + ti
 
-    x2 = coo_table_elemwise_d(gi,4)
-    y2 = coo_table_elemwise_d(gi,5)
+    if(gi <= nelt_d) then
 
-    x3 = coo_table_elemwise_d(gi,7)
-    y3 = coo_table_elemwise_d(gi,8)
+      zmd = zm_d(gi)
+      x1 = coo_table_elemwise_d(gi,1)
+      y1 = coo_table_elemwise_d(gi,2)
 
-    v1 = ( x1 + x2 + x3 ) / 3
-    v2 = ( y1 + y2 + y3 ) / 3
+      x2 = coo_table_elemwise_d(gi,4)
+      y2 = coo_table_elemwise_d(gi,5)
 
-    if (eqlin_barrage_d==1) then
-      alpha = (y1eqbar_d - y2eqbar_d)/(x1eqbar_d - x2eqbar_d)
-      beta = y1eqbar_d - alpha*x1eqbar_d
+      x3 = coo_table_elemwise_d(gi,7)
+      y3 = coo_table_elemwise_d(gi,8)
 
-      if ( alpha*v1 - v2 + beta >= 0.00) then        
-        ut_dgi1    = h_amont_d - zmd
-        ut_d(1,gi) = ut_dgi1
+      v1 = ( x1 + x2 + x3 ) / 3
+      v2 = ( y1 + y2 + y3 ) / 3
 
-        if(ut_dgi1 > tolisec_d) then
-          ut_d(2,gi) = ut_dgi1 * u_amont_d
-          ut_d(3,gi) = ut_dgi1 * v_amont_d   
+      if (eqlin_barrage_d==1) then
+        alpha = (y1eqbar_d - y2eqbar_d)/(x1eqbar_d - x2eqbar_d)
+        beta = y1eqbar_d - alpha*x1eqbar_d
+
+        if ( alpha*v1 - v2 + beta >= 0.00) then        
+          vdlg_dgi1    = h_amont_d - zmd
+          vdlg_d(1,gi) = vdlg_dgi1
+
+          if(vdlg_dgi1 > tolisec_d) then
+            vdlg_d(2,gi) = vdlg_dgi1 * u_amont_d
+            vdlg_d(3,gi) = vdlg_dgi1 * v_amont_d   
+          else
+            vdlg_d(1,gi) = tolisec_d
+            vdlg_d(2,gi) = 0.
+            vdlg_d(3,gi) = 0.
+          end if
+
         else
-          ut_d(1,gi) = tolisec_d
-          ut_d(2,gi) = 0.
-          ut_d(3,gi) = 0.
-        end if
+          vdlg_dgi1 = h_aval_d - zmd
+          vdlg_d(1,gi) = vdlg_dgi1
 
-      else
-        ut_dgi1 = h_aval_d - zmd
-        ut_d(1,gi) = ut_dgi1
+          if(vdlg_dgi1 > tolisec_d) then
+            vdlg_d(2,gi) = vdlg_dgi1 * u_aval_d
+            vdlg_d(3,gi) = vdlg_dgi1 * v_aval_d
+          else
+            vdlg_d(1,gi) = tolisec_d
+            vdlg_d(2,gi) = 0.
+            vdlg_d(3,gi) = 0.
+          end if
+        endif
+      endif
 
-        if(ut_dgi1 > tolisec_d) then
-          ut_d(2,gi) = ut_dgi1 * u_aval_d
-          ut_d(3,gi) = ut_dgi1 * v_aval_d
+      if (plan_d==1) then
+        vdlg_dgi1 = (-xplan_d*(xpoint_d-v1)-yplan_d*(ypoint_d-v2))/zplan_d + zpoint_d - zmd
+        vdlg_d(1,gi) = vdlg_dgi1
+
+        if(vdlg_dgi1 > tolisec_d) then
+          vdlg_d(2,gi) = vdlg_dgi1 * u_aval_d
+          vdlg_d(3,gi) = vdlg_dgi1 * v_aval_d
         else
-          ut_d(1,gi) = tolisec_d
-          ut_d(2,gi) = 0.
-          ut_d(3,gi) = 0.
+          vdlg_d(1,gi) = tolisec_d
+          vdlg_d(2,gi) = 0.
+          vdlg_d(3,gi) = 0.
         end if
       endif
     endif
+  end subroutine cond_initial_cudaf
 
-    if (plan_d==1) then
-      ut_dgi1 = (-xplan_d*(xpoint_d-v1)-yplan_d*(ypoint_d-v2))/zplan_d + zpoint_d - zmd
-      ut_d(1,gi) = ut_dgi1
+  subroutine read_cond_initial(vdlg)
+    use precision_m
+    use global
+    use m_param
 
-      if(ut_dgi1 > tolisec_d) then
-        ut_d(2,gi) = ut_dgi1 * u_aval_d
-        ut_d(3,gi) = ut_dgi1 * v_aval_d
-      else
-        ut_d(1,gi) = tolisec_d
-        ut_d(2,gi) = 0.
-        ut_d(3,gi) = 0.
-      end if
-    endif
+    implicit none
 
-    ut1_d(1,gi) = ut_d(1,gi) + zmd
-    ut1_d(2,gi) = ut_d(2,gi)
-    ut1_d(3,gi) = ut_d(3,gi)
-  endif
-end subroutine cond_initial_cudaf
+    real(fp_kind), dimension(:,:), intent(inout):: vdlg
 
-subroutine cond_initial2(ut,ut1)
-  ! ======================================================================
-  !     cd_limite2 = fixe les conditions initiales pour la variable d'etat ut
-  !     auteur : Jean-Marie Zokagoa  GRANIT ETSMTL
-  !     version : 1.0  ;  sep 10 2007
-  ! ======================================================================
+    integer :: iel
 
-  use precision_m
-  use global
-  use m_param
+    open(390,file=fich_sol_init,status='old')
+    read (390,*) tc_init
 
-  implicit none
+    do iel=1,nelt
+      read (390,*) vdlg(1,iel), vdlg(2,iel), vdlg(3,iel)
+    enddo
 
-  real(fp_kind), dimension(:,:), intent(inout):: ut1, ut
-
-  integer :: kvol
-
-  open(390,file=fich_sol_init,status='old')
-  read (390,*) tc_init
-
-  do kvol=1,nelt
-    read (390,*) ut(1,kvol), ut1(1,kvol) , ut1(2,kvol) , ut1(3,kvol)
-    ut(2,kvol)=ut1(2,kvol)
-    ut(3,kvol)=ut1(3,kvol)
-  enddo
-
-  close (390) 
-end subroutine cond_initial2
+    close (390) 
+  end subroutine read_cond_initial
+end module condition_initial

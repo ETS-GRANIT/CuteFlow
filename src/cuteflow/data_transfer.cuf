@@ -73,8 +73,6 @@ subroutine global_data_transfer
   tolisec_d       = tolisec
   tolaffiche_d    = tolaffiche
   tol_reg_perm_d  = tol_reg_perm
-  monte_carlo_d   = monte_carlo
-  local_time_step_d = local_time_step
 
   !! Input for stochastic analysis
   ndim_d              =ndim 

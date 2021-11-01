@@ -13,169 +13,15 @@ program general
   use m_param
   use cudafor
   use global_device
-  use main_prog_variables
   use mpi
   use mpiDeviceUtil
 
+  use pre_post_traitement
+  use Full_FV_module
+  use condition_initial
+  use maillage
+
   implicit none
-
-  interface
-
-    subroutine paraview_export(vdlg, zm, solh, soleta, solhu, solhv, iaff)
-      use precision_m
-      use global
-      use m_param
-      integer, intent(in) :: iaff
-      real(fp_kind), dimension(:,:), intent(in)  :: vdlg
-      real(fp_kind), dimension(:), intent(in)  :: soleta, solh, solhu, solhv, zm
-    end subroutine paraview_export
-
-    subroutine simple_export(vdlg, vdlg1, solh, soleta, solhu, solhv, ci)
-
-      use precision_m
-      use global
-      use m_param
-
-      implicit none
-
-      integer, intent(in) :: ci
-      real(fp_kind), dimension(:), intent(in)  :: soleta, solh, solhu, solhv
-      real(fp_kind), dimension(:,:), intent(in)  :: vdlg1, vdlg
-    end subroutine simple_export
-
-    subroutine reconstruction(vdlg, vdlg1, solh, soleta, solhu, solhv)
-
-      use precision_m
-      use global
-      use m_param
-
-      implicit none
-
-      real(fp_kind), dimension(:), intent(in)  :: soleta, solh, solhu, solhv
-      real(fp_kind), dimension(:,:), intent(in)  :: vdlg1, vdlg
-    end subroutine reconstruction
-
-    subroutine ouv_fichiers(vdlg, vdlg1, zm)
-      use precision_m
-      use global
-      use m_param
-      real(fp_kind), dimension(:), intent(in)         :: zm
-      real(fp_kind), dimension(:,:), intent(inout)    :: vdlg, vdlg1
-    end subroutine ouv_fichiers
-
-    attributes(global) subroutine surfzmgradz_cudaf(surf_d,zm_d,gradz_d,gradz2_d)
-      use precision_m
-      use global_device
-      real(fp_kind), dimension(:), intent(inout)    :: surf_d, zm_d
-      real(fp_kind), dimension(:,:), intent(inout)  :: gradz_d, gradz2_d
-    end subroutine surfzmgradz_cudaf
-
-    attributes(global) subroutine cond_initial_cudaf(zm_d, ut_d, ut1_d)
-      use precision_m
-      use global_device
-      real(fp_kind), dimension(:), intent(in)     :: zm_d
-      real(fp_kind), dimension(:,:), intent(inout):: ut_d, ut1_d
-    end subroutine cond_initial_cudaf
-
-    attributes(global) subroutine assign_dry_as_wall(vdlg_d)
-      use precision_m
-      use global_device
-      real(fp_kind), intent(in) :: vdlg_d(:,:)
-    end subroutine assign_dry_as_wall
-
-    attributes(global) subroutine set_unset_as_wall()
-      use precision_m
-      use global_device
-      implicit none
-    end subroutine set_unset_as_wall
-
-    subroutine cond_initial2(ut1,ut)
-      use precision_m
-      use global
-      use m_param
-      real(fp_kind), dimension(:,:), intent(inout):: ut, ut1
-    end subroutine cond_initial2
-
-    subroutine stock_coupe2D(solh, soleta, solhu, solu)
-      use precision_m
-      use global
-      use m_param
-      real(fp_kind), dimension(:), intent(inout)  :: solh, soleta, solhu, solu
-    end subroutine stock_coupe2D
-
-    subroutine sol_nodes(vdlg,surf,zm,soleta,solh,solhu,solhv,solu,solv)
-      use precision_m
-      use global
-      use m_param
-      real(fp_kind), dimension(:,:), intent(in)   :: vdlg
-      real(fp_kind), dimension(:), intent(in)     :: surf, zm
-      real(fp_kind), dimension(:), intent(inout)  :: soleta,solh,solhu,solhv,solu,solv
-    end subroutine sol_nodes
-
-    attributes(global) subroutine mise_a_jr_zone_seche_cudaf(zm_d,vdlg_d, vdlg1_d)
-      use precision_m
-      use global_device
-      real(fp_kind), dimension(:), intent(in)         :: zm_d
-      real(fp_kind), dimension(:,:), intent(inout)    :: vdlg_d, vdlg1_d
-    end subroutine mise_a_jr_zone_seche_cudaf
-
-    subroutine prod_Mpk_vect(droite,ni,nj,mat,vect1,vect2)
-      use precision_m
-      integer ,  intent(in)               :: ni,nj, droite
-      real(fp_kind), dimension(:),  intent(in)  :: vect1
-      real(fp_kind), dimension(:),  intent(out) :: vect2
-      real(fp_kind), dimension(:,:),intent(in)  :: mat
-    end subroutine prod_Mpk_vect
-
-    subroutine prod_tenseur_vect(ni,nj,nk,tenseur,vect,matrx)
-      use precision_m
-      integer ,intent(in)                   :: ni,nj,nk
-      real(fp_kind), dimension(:),    intent(in)  :: vect
-      real(fp_kind), dimension(:,:),  intent(out) :: matrx
-      real(fp_kind), dimension(:,:,:),intent(in)  :: tenseur
-    end subroutine prod_tenseur_vect
-
-    subroutine prod_scalaire(ni,vect1,vect2,scal)
-      use precision_m
-      integer ,  intent(in)               :: ni
-      real(fp_kind), dimension(:),  intent(in)  :: vect1, vect2
-      real(fp_kind),                intent(out)  :: scal
-    end subroutine prod_scalaire
-
-    subroutine ouv_ferm_fich_elem_selct(ouv, ferm)
-      use precision_m
-      integer,               intent(in)     :: ouv, ferm
-    end subroutine ouv_ferm_fich_elem_selct
-
-    subroutine res_elem_selct(icel,bathy,solution)
-      use precision_m
-      integer,                 intent(in)     :: icel
-      real(fp_kind), dimension(:), intent(inout)    :: bathy
-      real(fp_kind), dimension(:,:), intent(inout)  :: solution
-    end subroutine res_elem_selct
-
-    subroutine res_elem_selct_ligne(icel,bathy,solution)
-      use precision_m
-      integer,                 intent(in)     :: icel
-      real(fp_kind), dimension(:), intent(inout)    :: bathy
-      real(fp_kind), dimension(:,:), intent(inout)  :: solution
-    end subroutine res_elem_selct_ligne
-
-    subroutine Full_FV 
-      use precision_m
-      use global
-      use global_device
-      use main_prog_variables
-      use m_param
-    end subroutine Full_FV
-
-    subroutine tecplot_export(solh, soleta, solhu, solhv)
-      use precision_m
-      use global
-      use m_param
-      real(fp_kind), dimension(:), intent(inout)  :: solh, soleta, solhu, solhv
-    end subroutine tecplot_export
-  end interface
 
   integer         :: i, ii, j, p, kk, ss, ie, iel, nt, n_MC, i_MC, af_input
   integer         :: nsbloc, nreste, tot
@@ -245,69 +91,6 @@ program general
   cotemin_arr_d = cotemin_arr
   call cuda_glerror('ierr <-- cotemin_arr_d = cotemin_arr',1)
 
-  !! Lecture des tables de correspondances locales globales dans le
-  !! cas de l'ecriture en mode merge
-  call MPI_BARRIER(MPI_COMM_WORLD,mpi_ierr)
-  if(merged_solution==1)then
-    if(mpi_process_id/=0) then
-      call MPI_SEND(nelt, 1, MPI_INTEGER, 0, mpi_process_id, MPI_COMM_WORLD, mpi_ierr)
-    else
-      allocate(mpi_nelts(num_mpi_process))
-      mpi_nelts(1) = nelt
-      do j=2,num_mpi_process
-        call MPI_RECV(mpi_nelts(j), 1, MPI_INTEGER, j-1, j-1, MPI_COMM_WORLD, stat, mpi_ierr)
-      end do
-    end if
-    call MPI_BARRIER(MPI_COMM_WORLD,mpi_ierr)
-
-    if(mpi_process_id/=0) then
-      call MPI_SEND(nelt-nelt_fant_recep, 1, MPI_INTEGER, 0, mpi_process_id, MPI_COMM_WORLD, mpi_ierr)
-    else
-    allocate(mpi_nelts_non_fant(num_mpi_process))
-      mpi_nelts_non_fant(1) = nelt-nelt_fant_recep
-      do j=2,num_mpi_process
-        call MPI_RECV(mpi_nelts_non_fant(j), 1, MPI_INTEGER, j-1, j-1, MPI_COMM_WORLD, stat, mpi_ierr)
-      end do
-    end if
-    call MPI_BARRIER(MPI_COMM_WORLD,mpi_ierr)
-
-    if(mpi_process_id/=0) then
-      call MPI_SEND(nnt, 1, MPI_INTEGER, 0, mpi_process_id, MPI_COMM_WORLD, mpi_ierr)
-    else
-      allocate(mpi_nnts(num_mpi_process))
-      mpi_nnts(1) = nnt
-      do j=2,num_mpi_process
-        call MPI_RECV(mpi_nnts(j), 1, MPI_INTEGER, j-1, j-1, MPI_COMM_WORLD, stat, mpi_ierr)
-      end do
-    end if
-    call MPI_BARRIER(MPI_COMM_WORLD,mpi_ierr)
-
-    if(mpi_process_id==0) then
-      nelt_global = 0
-      nnt_global = 0
-      nelt_global_non_fant = 0
-      do j=1,num_mpi_process
-        nelt_global = nelt_global + mpi_nelts(j)
-        nnt_global = nnt_global + mpi_nnts(j)
-        nelt_global_non_fant = nelt_global_non_fant + mpi_nelts_non_fant(j)
-      end do
-      print*,"NOMBRE NOEUDS GLOBAUX ", nnt_global
-
-      allocate(vdlg1_global(3,nelt_global_non_fant))
-      allocate(vdlg_global(3,nelt_global_non_fant))
-      allocate(sol_nodes_global(4,nnt_global))
-      allocate(liens_nodes(num_mpi_process,maxval(mpi_nnts)))
-      allocate(liens_elems(num_mpi_process,maxval(mpi_nelts)))
-      allocate(vdlg1_vect(3,maxval(mpi_nelts),num_mpi_process))
-      allocate(vdlg_vect(3,maxval(mpi_nelts),num_mpi_process))
-      allocate(sol_nodes_vect(maxval(mpi_nnts),4,num_mpi_process))
-      call lect_liens
-    end if
-  end if
-  print*,mpi_process_id,"before req alloc"
-  call MPI_BARRIER(MPI_COMM_WORLD,mpi_ierr)
-  
-
   !!Alocation req send recv pour echange mpi non bloquant
   if(is_cgns) then
     allocate(reqsend(nelt_fant_envoi_bloc), sendstat(MPI_STATUS_SIZE,nelt_fant_envoi_bloc))
@@ -330,30 +113,26 @@ program general
     allocate(reqrecv(tot), recvstat(MPI_STATUS_SIZE,tot))
   end if
 
-  print*,mpi_process_id,"after req alloc"
   call MPI_BARRIER(MPI_COMM_WORLD,mpi_ierr)
 
   !! Allocation des matrices et vecteurs
-  allocate( surf(nelt), zm(nelt), gradz(ndim,nelt), gradz2(ndim,nelt) )
-  allocate( surf_d(nelt), zm_d(nelt), gradz_d(ndim,nelt), gradz2_d(ndim,nelt) )
+  allocate( surf(nelt), zm(nelt) )
+  allocate( surf_d(nelt), zm_d(nelt) )
 
-  allocate( vdlg(ndln,nelt), vdlg0(ndln,nelt), vdlg1(ndln,nelt), vdlg01(ndln,nelt))
-  allocate(tempvdlg(ndln,nelt))
+  allocate( vdlg(ndln,nelt), vdlg0(ndln,nelt))
 
   !!Allocation des variables sur GPU avec leur pointeurs
-  allocate( vdlg_d(ndln,nelt), vdlg0_d(ndln,nelt), vdlg1_d(ndln,nelt), vdlg01_d(ndln,nelt))
+  allocate( vdlg_d(ndln,nelt), vdlg0_d(ndln,nelt))
+
+  if(diffusion) allocate(vdlg_nodes_d(ndln,nnt))
 
   allocate( she0(nnt), sh0(nnt), shu0(nnt), shv0(nnt), su0(nnt), sv0(nnt) )
 
   allocate( tsoljauge(200000), tsolrestart(200000), tsolvtk(200000), tsolsimple(200000))
-  call cuda_glerror('ierr <- device memory allocation <-- general_cudaf.cuf',1)
 
   !! Ouverture/creation des fichiers (opening / creating files)
-  call ouv_fichiers(vdlg, vdlg1, zm)
+  call ouv_fichiers
   vdlg_d = vdlg
-  vdlg1_d = vdlg1
-
-  call cuda_glerror('errf <- (H->D) data transfer to vdlg, vdlg1_d after call ouv_fichiers <-- general_cudaf.cuf',1)
 
   !! Construction of visualization vectors in post-processing
   if (solvtk == 1) then
@@ -377,16 +156,11 @@ program general
   !! Calculation of the area and the gradient term z of each element
   tblock = dim3(64, 1, 1)
   grid   = dim3(ceiling(real(nelt)/real(tblock%x)), 1, 1)
-  call check_gridlim(tblock, grid, 'err <- inside if (multi_simul ==0) then <-- general_cudaf.cuf (1)')
 
-  call surfzmgradz_cudaf<<<grid, tblock>>>(surf_d,zm_d,gradz_d,gradz2_d)
-  call cuda_glerror('ierr <- surfzmgradz_cudaf <-- general_cudaf.cuf',1)
+  call surfzm_cudaf<<<grid, tblock>>>(surf_d,zm_d)
 
   zm      = zm_d
   surf    = surf_d
-  gradz   = gradz_d
-  gradz2  = gradz2_d
-  call cuda_glerror('ierr <- (D->H) mem transfer surf, zm, etc <-- general_cudaf.cuf',1)
 
   write(*,*) '======================================================================'
   write(*,*) ' Parameters'
@@ -412,8 +186,6 @@ program general
   write(*,*) 'tolaffiche          =', tolaffiche
   if(mpi_process_id==0) write(*,*) "nombre d'elements totaux = ",nelt_global_non_fant
   write(*,*) 'freqaffich          =', freqaffich
-  write(*,*) 'dry_as_wall         =', is_dry_as_wall
-  write(*,*) 'local time step     =', local_time_step
   write(*,*) 'nombre entree       =', nombre_entrees
   do af_input=1,nombre_entrees
     write(*,*) 'debitglob       ', af_input, " =", debitglob(af_input)
@@ -428,51 +200,27 @@ program general
 
   !! Initialisation a zero des differents vecteurs
   vdlg0              = zero
-  vdlg01             = zero
   vdlg               = zero
-  vdlg1              = zero
 
   vdlg0_d  = vdlg0
-  vdlg01_d = vdlg01
   vdlg_d   = vdlg
-  vdlg1_d  = vdlg1
-  call cuda_glerror('ierr <- data transfer to (vdlg0_d  and vdlg01_d) <-- general_cudaf.cuf',1)
 
   !! Application des conditions initiales
   if (solinit==1) then
-    !! Start the calculations from an initial solution (ex steady state)
-    call cond_initial2(vdlg0,vdlg01) 
-    call set_unset_as_wall<<<grid, tblock>>>()
+    call read_cond_initial(vdlg0) 
     vdlg0_d = vdlg0
-    vdlg01_d = vdlg01
-    call cuda_glerror('ierr <- data transfer to (vdlg0_d  and vdlg01_d) (H->D) {if(solinit == 1)} <-- general_cudaf.cuf',1)
   else
-    call cond_initial_cudaf<<<grid, tblock>>>(zm_d, vdlg0_d, vdlg01_d)
-    if(is_dry_as_wall==1) then
-      call assign_dry_as_wall<<<grid, tblock>>>(vdlg0_d)
-    end if
-    !!Fix non walls
-    call set_unset_as_wall<<<grid, tblock>>>()
-    call cuda_glerror('ierr <- cond_initial_cudaf <-- general_cudaf.cuf',1)
+    call cond_initial_cudaf<<<grid, tblock>>>(zm_d, vdlg0_d)
   endif               
 
-  ! if(iflux==1) then
-    call mise_a_jr_zone_seche_cudaf<<<grid, tblock>>>(zm_d,vdlg0_d, vdlg01_d)
-    call cuda_glerror('ierr <- mise_a_jr_zone_seche_cudaf <-- general_cudaf.cuf',1)
-  ! end if
+  !!Fix non walls
+  call set_unset_as_wall<<<grid, tblock>>>()
 
   !! Calcul de la solution initiale sur les noeuds
   valtemps = '0.0'
 
   vdlg0 = vdlg0_d
-  vdlg01 = vdlg01_d
-  call cuda_glerror('ierr <- data_tansfer(D-->H) to vdlg0 <-- general_cudaf.cuf',1)
   call sol_nodes(vdlg0,surf,zm,sh0,she0,shu0,shv0,su0,sv0)
-
-  !!Reconstruction de la solution sur le domain global s besoin
-  if(merged_solution==1 .and. num_mpi_process>1) then
-    call reconstruction(vdlg0, vdlg01, she0, sh0, shu0, shv0)
-  end if
 
   !!  Storage for postraitement with possibility of animation (Tecplot)
   if(solvtk) then             
@@ -483,7 +231,7 @@ program general
 
   if(solsimple/=0) then
     start=1
-    call simple_export(vdlg0, vdlg01, she0, sh0, shu0, shv0, cptsolsimple)
+    call simple_export(vdlg0, zm, she0, sh0, shu0, shv0, cptsolsimple)
     cptsolsimple = cptsolsimple + 1
   end if
 
@@ -491,11 +239,7 @@ program general
   tc = 0.00
   tc_d = tc
 
-  !! Preparation du nombre d'iterations concernant la discretisation en temps
-  nt = 0 !! Time step iteration counter
-
   !! FULL FINITE VOLUME
-  write(*,*) '***** FULL_FV *****'
   call Full_FV 
 
   close(ec_solj_h)
@@ -516,57 +260,7 @@ program general
     close(ec_sol_nd_t)
   endif
 
-  if(merged_solution==1) then
-    close(ec_sol_elt_t_recons)
-    close(ec_sol_nd_t_recons)
-  endif
-
-  deallocate(manning_nelt, manning_nd)
-  deallocate(manning_nelt_d, manning_nd_d)
-  deallocate(cotemin_arr, cotemin_arr_d)
-  deallocate(surf, zm, gradz, gradz2)
-  deallocate(surf_d, zm_d, gradz_d, gradz2_d)
-
-  deallocate(vdlg, vdlg0, vdlg1, vdlg01)
-  deallocate(vdlg_d, vdlg0_d, vdlg1_d, vdlg01_d)
-  deallocate(tempvdlg)
-
-  deallocate(she0, sh0, shu0, shv0, su0, sv0)
-
-  deallocate(tsoljauge, tsolrestart, tsolvtk, tsolsimple)
-
-  deallocate(boundary, boundary_d)
-  deallocate(coo_table_elemwise, coo_table_elemwise_d)
-  deallocate(x_centroid, y_centroid,x_centroid_d, y_centroid_d)
-  deallocate(coordonnees)
-  deallocate(connectivite)
-  deallocate(long_entree)
-  deallocate(long_entree_d)
-
-  if(ndi>0) then
-    deallocate(ndinput)
-    deallocate(numero_ndinput)
-    deallocate(ndinput_d)
-    deallocate(numero_ndinput_d)
-  end if
-  if(ndo>0) then
-    deallocate(ndoutput)
-    deallocate(ndoutput_d)
-    deallocate(numero_ndoutput)
-    deallocate(numero_ndoutput_d)
-  end if
-  if(ndw>0) then
-    deallocate(ndwall)
-    deallocate(ndwall_d)
-  end if
-  deallocate(coordonnees_d)
-  deallocate(connectivite_d)
-  if(debit_var==1) then
-    deallocate(debit_t)
-  end if
-  deallocate(reqsend, reqrecv, sendstat, recvstat)
-
-  d=tf-ti
+  d=temps_final-temps_initial
 
   print*, '==========================================================================='
   print*, '=========================   FIN DE LA SIMULATION   ========================'

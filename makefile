@@ -3,8 +3,8 @@ SRC = ../src
 BIN = ../bin
 
 CC = 60
-CUTEFLAGS = -Mcuda=cc${CC} -O3 -I/cvmfs/soft.computecanada.ca/easybuild/software/2020/avx2/MPI/nvhpc20/cuda11.0/openmpi4/cgns/4.1.2/include/
-#CUTEFLAGS = -Mcuda=cc60 -O0 -g -Mfptrap=zero,overflow,underflow -Mbounds -Mdclchk -Mchkptr -Mchkstk -Meh_frame, -Minform,inform
+# CUTEFLAGS = -Mcuda=cc${CC} -O3 -I/cvmfs/soft.computecanada.ca/easybuild/software/2020/avx2/MPI/nvhpc20/cuda11.0/openmpi4/cgns/4.1.2/include/
+CUTEFLAGS = -Mcuda=cc60 -O0 -g -Mfptrap=zero,overflow,underflow -Mbounds -Mdclchk -Mchkptr -Mchkstk -Meh_frame, -Minform,inform -I/cvmfs/soft.computecanada.ca/easybuild/software/2020/avx2/MPI/nvhpc20/cuda11.0/openmpi4/cgns/4.1.2/include/
 CUTECOMPILER = mpif90 
 
 CUTEFILES = mpiDeviceUtil.cuf precision.cuf global_data.cuf global_data_constant_device.cuf data_transfer.cuf  m_param.cuf main_prog_variables.cuf \
@@ -21,7 +21,6 @@ all: ${BINFILESPREF}
 
 ${BIN}/cuteflow : ${CUTEFILESPREF}
 	module load StdEnv/2020 nvhpc/20.7 cuda/11.0 openmpi/4 cgns/4.1.2;\
-	${CUTECOMPILER} ${CUTEFLAGS} ${CUTEFILESPREF} -c ;\
 	${CUTECOMPILER} ${CUTEFLAGS} ${CUTEFILESPREF} -o $@ -lcgns
 
 # ${BIN}/conversion_maillage_JM : ${SRC}/conversion_maillage_JM/conversion_maillage_JM.f90

@@ -1,544 +1,198 @@
-subroutine Full_FV 
-  !=====================================FULL FV=============================================   
-  !     Auteur : Jean-Marie Zokagoa, 2010
-  !     Modifications multi-GPU : Vincent Delmas, 2019
-  ! ======================================================================
-
-  use precision_m
-  use global
-  use global_device
-  use main_prog_variables
-  use m_param
-  use cudafor
-  use mpi
-
+module Full_FV_module
   implicit none
+contains
+  subroutine Full_FV 
+    !=====================================FULL FV=============================================   
+    !     Auteur : Jean-Marie Zokagoa, 2010
+    !     Modifications multi-GPU : Vincent Delmas, 2019
+    ! ======================================================================
 
-  interface
+    use precision_m
+    use global
+    use global_device
+    use m_param
+    use cudafor
+    use mpi
 
-    subroutine get_io_index
-      use precision_m
-      use global
-      use global_device
-      implicit none
-    end subroutine get_io_index
+    use pre_post_traitement
 
-    subroutine volume_total(vdlg,total_volume)
-      use precision_m
-      use global
-      use m_param
-      implicit none
-      real(fp_kind), intent(in) :: vdlg(:,:)
-      real(fp_kind), intent(out) :: total_volume
-    end subroutine volume_total
+    implicit none
 
-    attributes(global) subroutine cflcond_cudaf(solut_d, deltatmin_d)
-      use precision_m
-      use global_device 
-      real(fp_kind), dimension(ndln_d,nelt_d), intent(in)     :: solut_d
-      real(fp_kind), intent(inout)                  :: deltatmin_d(nelt_d-nelt_fant_recep_d)
-    end subroutine cflcond_cudaf
+    !*** Variables locales ***
+    integer                     :: stat(MPI_STATUS_SIZE)
+    character (10) :: aaa, bbb, no_coupe
+    integer :: i, ii, j, p, kk, ss, iel, nd, dl, niter, iter, n, c, nt, n0, som, som1, som2, som3, n_it, nitf, ifant
+    integer :: evoisin, status, k, l, icor, iter_entree, iter_nodes
+    integer :: nodjauge, is_solnode, is_recons
 
-    attributes(global) subroutine cflcond_sec_cudaf(solut_d, deltatmin_d, dt_d)
-      use precision_m
-      use global_device 
-      real(fp_kind), dimension(ndln_d,nelt_d), intent(in)     :: solut_d
-      real(fp_kind), intent(inout)                  :: deltatmin_d(nelt_d-nelt_fant_recep_d)
-      real(fp_kind), intent(in)                     :: dt_d
-    end subroutine cflcond_sec_cudaf
+    real(fp_kind) :: v, r, uinf, flux, s, xyc, xiel, yiel, coupe_y, distjaugm1, distjaug, dt1, sizecheck
+    real(fp_kind) :: x, d, t, dtime, tcm, xc, yc, hauteur, newhaut, xnorm, zero, delta_debit0,delta_debit,deb_entre,deb_sorti,delta_eta
+    real(fp_kind) :: volume_entre,volume_sorti, delta_volume, total_volume, volume0, volume1, volume2,vol_tot_init, delta_volume_tot, delta_sol_tot, som_dtres_tot
+    real(fp_kind) :: h_output0, h_output, tc_arret, h_max, t_h_max, t_h_moy, scal, scal1, scal2, scal3, som_Q_coupe
 
+    real(fp_kind), dimension(2)  :: greta, grhaut
 
-    attributes(global) subroutine mise_a_jr_zone_seche_cudaf(zm_d,vdlg_d, vdlg1_d)
-      use precision_m
-      use global_device
+    type(dim3 )                             :: grid, tblock, grid_nodes, tblock_nodes, grid11, tblock11, grids, tblocks,block_copy, grid_copy , grid_halved, grid_reduc, tblock_reduc
+    real(fp_kind)                           :: time_start, time_stop, tb1, tb2, te1, te2
+    real(fp_kind)                           :: errf, errf1, errf2, errf3, errf4, errf5
+    integer                                 :: ierr, cond_reg_perm 
+    real                                    :: time_cuda
+    type(cudaEvent)                         :: startEvent , stopEvent
 
-      real(fp_kind), dimension(nelt_d), intent(in)         :: zm_d
-      real(fp_kind), dimension(ndln_d,nelt_d), intent(inout)    :: vdlg_d, vdlg1_d
-    end subroutine mise_a_jr_zone_seche_cudaf
+    integer, device                         :: niter_d
+    real(fp_kind), device, allocatable      :: deltatmin_d(:)
 
-    attributes(global) subroutine init_vdlg(vdlg_d, vdlg1_d,  zm_d)
-      use precision_m
-      use global_device
-      implicit none
+    zero        = 0.d0
+    tc          = 0.d0
+    t_reg_perm  = 0.d0
 
-      real(fp_kind), intent(in)    :: vdlg1_d(ndln_d,nelt_d), zm_d(nelt_d)
-      real(fp_kind), intent(inout) :: vdlg_d(ndln_d,nelt_d)
+    nt          = 0 
+    comptvisu   = 0
+    cond_reg_perm  = 0
+    cptviscoupe = 1
+    cptsoljauge = 1
+    tc_d        = tc
+    kk          = 1
+    is_solnode  = 0
 
-    end subroutine init_vdlg
+    print*, ''
+    print*, 'FULL-ORDER : VOLUMES FINIS'
+    print*, ''
 
-    attributes(global) subroutine copy_2d(a,b)
-      use precision_m
-      use global_device
-      real(fp_kind), intent(inout) :: a(ndln_d,nelt_d), b(ndln_d,nelt_d)
-    end subroutine copy_2d
-
-    attributes(global) subroutine copy_2d_1(vdlg1_d, vdlg01_d, resj_d, niter, iter, dt_d, nelt_d, deltatmin_d)
-      use precision_m
-      use global_device
-      real(fp_kind), intent(inout) :: vdlg1_d(ndln_d,nelt_d), vdlg01_d(ndln_d,nelt_d)
-      real(fp_kind), intent(in) :: resj_d(ndln_d,nelt_d), dt_d
-      real(fp_kind), intent(inout)                  :: deltatmin_d(nelt_d)
-      integer, intent(in) :: nelt_d
-      integer, value :: niter, iter
-    end subroutine copy_2d_1
-
-    attributes(global) subroutine copy_2d_1_local_time_step(vdlg1_d, vdlg01_d, resj_d, niter, iter, dt_d, nelt_d, deltatmin_d)
-      use precision_m
-      use global_device
-      real(fp_kind), intent(inout) :: vdlg1_d(ndln_d,nelt_d), vdlg01_d(ndln_d,nelt_d)
-      real(fp_kind), intent(in) :: resj_d(ndln_d,nelt_d), dt_d
-      real(fp_kind), intent(inout)                  :: deltatmin_d(nelt_d)
-      integer, intent(in) :: nelt_d
-      integer, value :: niter, iter
-    end subroutine copy_2d_1_local_time_step
-
-    attributes(global) subroutine copy_into_res_d(niter_d,nelt_d)
-      use precision_m
-      use main_prog_variables
-      integer, intent(in) :: niter_d, nelt_d
-
-    end subroutine copy_into_res_d
-
-    attributes(global) subroutine copy_1d(a,b,n)
-      use precision_m
-      real(fp_kind), intent(inout) :: a(:), b(:)
-      integer, intent(in) :: n
-    end subroutine copy_1d
-
-    attributes(global) subroutine update_un_voisin_sec()
-      use precision_m
-      use global_device
-      implicit none
-    end subroutine update_un_voisin_sec
-
-    attributes(global) subroutine cotes_cudaf3(surf_d,zm_d,vdlg_d)
-      use precision_m
-      use global_device
-      implicit none
-      real(fp_kind), dimension(nelt_d), intent(in)      :: surf_d, zm_d
-      real(fp_kind), dimension(ndln_d,nelt_d), intent(in)    :: vdlg_d
-    end subroutine cotes_cudaf3
-
-    subroutine gradeta(kvol,sh,greta)
-      use precision_m
-      use global
-      use m_param
-      integer , intent(in)                  :: kvol
-      real(fp_kind), dimension(:), intent(in)     :: sh
-      real(fp_kind), dimension(2), intent(inout)  :: greta
-    end subroutine gradeta
-
-    subroutine sol_nodes(vdlg,surf,zm,soleta,solh,solhu,solhv,solu,solv)
-      use precision_m
-      use global
-      use m_param
-      real(fp_kind), dimension(:,:), intent(in)   :: vdlg
-      real(fp_kind), dimension(:), intent(in)     :: surf, zm
-      real(fp_kind), dimension(:), intent(inout)  :: soleta,solh,solhu,solhv,solu,solv
-    end subroutine sol_nodes
+    allocate(resc_d(ndln,nelt), res_d(ndln,nelt))
+    resc_d = 0.d0
+    res_d = 0.d0
 
 
-    attributes(global) subroutine source_cudaf(vdlg_d,surf_d,zm_d,gradz_d,deltatmin_d)
-      use precision_m
-      use global_device
-      implicit none
+    allocate(sourcfric_d(ndln,nelt))
+    allocate(sourcbath_d(ndln,nelt))
+    allocate(io_identifier(nelt), io_identifier_d(nelt))
 
-      real(fp_kind), dimension(ndln_d,nelt_d), intent(in)    :: vdlg_d
-      real(fp_kind), dimension(nelt_d), intent(in)      :: surf_d, zm_d, deltatmin_d
-      real(fp_kind), dimension(ndim_d,nelt_d), intent(in)    :: gradz_d
-    end subroutine source_cudaf
+    allocate(un_voisin_sec1_d(nelt))
+    allocate(afm1_d(nelt, 9))
 
-    subroutine stock_coupe2D(solh, soleta, solhu, solu)
-      use precision_m
-      use global
-      use m_param
-      real(fp_kind), dimension(:), intent(inout)  :: solh, soleta, solhu, solu
-    end subroutine stock_coupe2D
+    allocate(deltatmin_d(nelt-nelt_fant_recep))
 
-    subroutine bluekenue_export(solh, soleta, solhu, solhv)
-      use precision_m
-      use global
-      use m_param
-      real(fp_kind), dimension(:), intent(inout)  :: soleta, solh, solhu, solhv
-    end subroutine bluekenue_export
-
-    subroutine cgns_export(solh, solhu, solhv, t, it)
-      use precision_m
-      use global
-      use m_param
-      use cgns
-      integer, intent(in) :: it
-      real(fp_kind), intent(in) :: t
-      real(fp_kind), dimension(:), intent(in)  :: solh, solhu, solhv
-    end subroutine cgns_export
-
-    subroutine paraview_export(vdlg, zm, solh, soleta, solhu, solhv, iaff)
-      use precision_m
-      use global
-      use m_param
-      integer, intent(in) :: iaff
-      real(fp_kind), dimension(:,:), intent(in)  :: vdlg
-      real(fp_kind), dimension(:), intent(in)  :: soleta, solh, solhu, solhv, zm
-    end subroutine paraview_export
-
-    subroutine simple_export(vdlg, vdlg1, solh, soleta, solhu, solhv, ci)
-
-      use precision_m
-      use global
-      use m_param
-
-      implicit none
-
-      integer, intent(in) :: ci
-      real(fp_kind), dimension(:), intent(in)  :: soleta, solh, solhu, solhv
-      real(fp_kind), dimension(:,:), intent(in)  :: vdlg1, vdlg
-    end subroutine simple_export
-
-    subroutine reconstruction(vdlg, vdlg1, solh, soleta, solhu, solhv)
-
-      use precision_m
-      use global
-      use m_param
-
-      implicit none
-
-      real(fp_kind), dimension(:), intent(in)  :: soleta, solh, solhu, solhv
-      real(fp_kind), dimension(:,:), intent(in)  :: vdlg1, vdlg
-    end subroutine reconstruction
-
-    subroutine tecplot_export(solh, soleta, solhu, solhv)
-      use precision_m
-      use global
-      use m_param
-      real(fp_kind), dimension(:), intent(inout)  :: solh, soleta, solhu, solhv
-    end subroutine tecplot_export
-
-    attributes(global) subroutine calcul_residue_ele_cudaf(surf_d, resj_d)
-      use precision_m
-      use global_device
-      implicit none
-
-      real(fp_kind), intent(in) :: surf_d(nelt_d)
-      real(fp_kind), intent(inout) :: resj_d(ndln_d,nelt_d)
-    end subroutine calcul_residue_ele_cudaf
-  end interface
-
-  !*** Variables locales ***
-  integer                     :: stat(MPI_STATUS_SIZE)
-  character (10) :: aaa, bbb, no_coupe
-  integer :: i, ii, j, p, kk, ss, iel, nd, dl, niter, iter, n, c, nt, n0, som, som1, som2, som3, n_it, nitf, ifant, iaff
-  integer :: evoisin, status, k, l, icor, iter_entree, iter_nodes
-  integer :: nodjauge, is_solnode, is_recons
-
-  real(fp_kind) :: v, r, uinf, flux, s, xyc, xiel, yiel, coupe_y, distjaugm1, distjaug, dt1, sizecheck
-  real(fp_kind) :: x, d, t, dtime, tcm, xc, yc, hauteur, newhaut, xnorm, zero, delta_debit0,delta_debit,deb_entre,deb_sorti,delta_eta
-  real(fp_kind) :: volume_entre,volume_sorti, delta_volume, total_volume, volume0, volume1, volume2,vol_tot_init, delta_volume_tot, delta_sol_tot, som_dtres_tot
-  real(fp_kind) :: h_output0, h_output, tc_arret, h_max, t_h_max, t_h_moy, scal, scal1, scal2, scal3, som_Q_coupe
-
-  real(fp_kind), dimension(2)  :: greta, grhaut
-  real(fp_kind) :: d2, t2, dtime2, tcm2
-  real(fp_kind) :: et1, et2, det1
-
-  type(dim3 )                             :: grid, tblock, grid_nodes, tblock_nodes, grid11, tblock11, grids, tblocks,block_copy, grid_copy , grid_halved, grid_reduc, tblock_reduc
-  real(fp_kind)                           :: time_start, time_stop, tb1, tb2, te1, te2
-  real(fp_kind)                           :: errf, errf1, errf2, errf3, errf4, errf5
-  integer                                 :: ierr, cond_reg_perm 
-  real                                    :: time_cuda
-  type(cudaEvent)                         :: startEvent , stopEvent
-
-  integer, device                         :: niter_d
-  real(fp_kind), allocatable, pinned      :: dt_arr(:)
-  real(fp_kind), device, allocatable      :: deltatmin_d(:)
-
-  zero        = 0.d0
-  tc          = 0.d0
-  t_reg_perm  = 0.d0
-
-  nt          = 0 
-  comptvisu   = 0
-  cond_reg_perm  = 0
-  cptviscoupe = 1
-  cptsoljauge = 1
-  tc_d        = tc
-  kk          = 1
-  is_solnode  = 0
-
-  det1 = 0.
-
-  print*, ''
-  print*, 'FULL-ORDER : VOLUMES FINIS'
-  print*, ''
-
-  allocate(resc_d( ndln,nelt),res_d( ndln,nelt), res1_d( ndln,nelt))
-  resc_d = 0.d0
-  res_d = 0.d0
-  res1_d = 0.d0
-
-
-  allocate(sourcfric_d(ndln,nelt))
-  allocate(sourcbath_d(ndln,nelt))
-  allocate(io_identifier(nelt), io_identifier_d(nelt))
-
-  allocate(un_voisin_sec1_d(nelt))
-  allocate(afm1_d(nelt, 9))
-
-  !!allocate(dt_arr(nelt), deltatmin_d(nelt))
-  allocate(dt_arr(nelt-nelt_fant_recep), deltatmin_d(nelt-nelt_fant_recep))
-
-  !!Allocation des vecteur débits entree/sortie seulement si
-  !! le sous domaine contient des noeuds d'entree/sortie
-  if (ndi>0) then
-    allocate(debit_entree_arr(ndi-1,2), debit_entree_arr_d(ndi-1,2))
-  end if
-  if (ndo>0) then
-    allocate(debit_sortie_arr(ndo-1),debit_sortie_arr_d(ndo-1))
-  endif
-
-  call cuda_glerror('ierr <- cuda device mem allocation <-- Full_FV_cudaf_shared.cuf',1)
-
-  call get_io_index()
-
-  ! *** preparation of the number of iterations concerning time discretization ***
-  if ( timedisc == 'euler' ) then         ! *** Euler ***
-    niter = 1
-    niter_d = niter
-  elseif ( timedisc == 'second' ) then    ! *** Second ordre ***
-    niter = 2
-    niter_d = niter
-    allocate(res2_d( ndln,nelt))
-  elseif ( timedisc == 'runge' ) then ! *** Runge-kutta ***
-    niter = 4
-    niter_d = niter
-    allocate(res2_d( ndln,nelt), res3_d( ndln,nelt), res4_d( ndln,nelt) )
-  else
-    write(*,*) 'choix de timedisc non valide'
-  endif
-  call cuda_glerror('ierr <- (H->D) data transfer into niter_d <-- Full_FV_cudaf_shared.cuf',1)
-
-  ! *** beginning of the loop on the temporal scheme iterations ***
-  tblock = dim3(32, 1, 1)
-  grid   = dim3(ceiling(real(nelt)/real(tblock%x)), 1, 1)
-  grid_halved   = dim3(ceiling(real(nelt)/real(2*tblock%x)), 1, 1)
-  call check_gridlim(tblock, grid, 'err <- Full_FV_cudaf_shared.cuf (1)')
-
-  tblock_reduc = dim3(1024, 1, 1)
-  grid_reduc   = dim3(ceiling(real(nelt)/real(tblock_reduc%x)), 1, 1)
-  call check_gridlim(tblock_reduc, grid_reduc, 'err <- Full_FV_cudaf_shared.cuf (1)')
-
-  block_copy = dim3(32,1,1) 
-  grid_copy = dim3(ceiling(real(nelt)/real(block_copy%x)),1,1)
-  call check_gridlim(block_copy, grid_copy, 'err <- Full_FV_cudaf_shared.cuf (2)')
-
-  tblock11 = dim3(32, 1, 1)
-  grid11   = dim3(ceiling(real(nelt)/real(tblock11%x)), 1, 1)
-  call check_gridlim(tblock11, grid11, 'err <- Full_FV_cudaf_shared.cuf (3)')
-
-  tblocks = dim3(8, ns, 1)
-  grids   = dim3(ceiling(real(nelt)/real(tblocks%x)), 1, 1)
-  call check_gridlim(tblocks, grids, 'err <- Full_FV_cudaf_shared.cuf (3)')
-
-  if (solinit==1) then
-    if (tc_init < TS) then
-      tc = tc_init
-      tc_d = tc
-    else
-      print*,'TEMPS TOTAL DE SIMULATION INFERIEUR AU TEMPS DE LA SOLUTION INITIALE'
-      tc = 0.
-      tc_d = tc
+    !!Allocation des vecteur débits entree/sortie seulement si
+    !! le sous domaine contient des noeuds d'entree/sortie
+    if (ndi>0) then
+      allocate(debit_entree_arr(ndi-1,2), debit_entree_arr_d(ndi-1,2))
+    end if
+    if (ndo>0) then
+      allocate(debit_sortie_arr(ndo-1),debit_sortie_arr_d(ndo-1))
     endif
-  endif    
 
-  !!Initial dt exchange
-  call cflcond_cudaf<<<grid, tblock>>>(vdlg0_d,deltatmin_d)
-  dt_arr = deltatmin_d
-  dt = minval(dt_arr)
-  if(dt<1e-14) then
-    dt = 1e-10
-  endif
-  call MPI_ALLREDUCE(MPI_IN_PLACE,dt,1,fp_kind_mpi,MPI_MIN,MPI_COMM_WORLD, mpi_ierr)
-  dt_d = dt
-  if(dt>100000) then
-    print*," dt > 100000 probable erreur, diminuer le nombre cfl ou augmenter la tolérence sec/mouillé" 
-  end if
+    call cuda_glerror('ierr <- cuda device mem allocation <-- Full_FV_cudaf_shared.cuf',1)
 
-  !!Setting local time step in dry cells according to dt_d
-  if(local_time_step==1) then
-    call cflcond_sec_cudaf<<<grid, tblock>>>(vdlg_d, deltatmin_d, dt_d)
-  end if
-  call cuda_glerror('ierr<-cflcond_cudaf (1) <-- Full_FV_cudaf_shared.cuf',1)
+    call get_io_index()
 
-  call cpu_time(ti)
+    ! *** beginning of the loop on the temporal scheme iterations ***
+    tblock = dim3(32, 1, 1)
+    grid   = dim3(ceiling(real(nelt)/real(tblock%x)), 1, 1)
+    grid_halved   = dim3(ceiling(real(nelt)/real(2*tblock%x)), 1, 1)
+    call check_gridlim(tblock, grid, 'err <- Full_FV_cudaf_shared.cuf (1)')
 
-  debit_sortie0 = 0.d0
-  tc = 0.d0
-  tc_d = tc
-  call cuda_glerror('ierr <- tc_d = tc <-- Full_FV_cudaf_shared.cuf',1)
+    tblock_reduc = dim3(1024, 1, 1)
+    grid_reduc   = dim3(ceiling(real(nelt)/real(tblock_reduc%x)), 1, 1)
+    call check_gridlim(tblock_reduc, grid_reduc, 'err <- Full_FV_cudaf_shared.cuf (1)')
 
-  nt = 0
-  kk = 1
-  ierr = cudaEventCreate(startEvent)
-  ierr = cudaEventCreate(stopEvent)
-  ierr = cudaEventRecord(startEvent,0)
+    block_copy = dim3(32,1,1) 
+    grid_copy = dim3(ceiling(real(nelt)/real(block_copy%x)),1,1)
+    call check_gridlim(block_copy, grid_copy, 'err <- Full_FV_cudaf_shared.cuf (2)')
 
-  write(*,*) 'Loop over time starts' 
-  iaff = 0
-  do while ( (tc - ts + 2*tol ) < tol )
-    if(debug_mode==1) then
-      if(nt >= max_iter-1) then
-        tc = ts+1
-      end if
-    end if
+    tblock11 = dim3(32, 1, 1)
+    grid11   = dim3(ceiling(real(nelt)/real(tblock11%x)), 1, 1)
+    call check_gridlim(tblock11, grid11, 'err <- Full_FV_cudaf_shared.cuf (3)')
 
-    ierr = cudaDeviceSynchronize()
-    if(dt>100000) then
-      print*," !!! ATTENTION !!! : dt > 100000 probable erreur, diminuer le nombre cfl ou augmenter la tolérence sec/mouillé" 
-    end if
+    tblocks = dim3(8, ns, 1)
+    grids   = dim3(ceiling(real(nelt)/real(tblocks%x)), 1, 1)
+    call check_gridlim(tblocks, grids, 'err <- Full_FV_cudaf_shared.cuf (3)')
 
-    call cpu_time(tb1)
-
-    debit_entree  = 0.d0
-    debit_sortie  = 0.d0
-
-    is_solnode = 0
-    is_recons = 0
-
-    nt = nt + 1
-
-    tcm = tc / 60   ! *** temps en minutes ***
-
-    !Initialisation pour la sommation sur le debit dans la routine cote 
-    if ( debit_var==1 .and. abs(debit_t(cptdebit,1) - tc) < tolaffiche ) then
-      cptdebit = cptdebit + 1
-      debitglob(1) = debit_t(cptdebit-1,2)
-      debitglob_d = debitglob
-      debitglob_sum = sum(debitglob)
-      call cuda_glerror('ierr <- (H->D) data transfer into debitglob_d <-- Full_FV_cudaf_shared.cuf',1)
-    endif 
-
-    !Début de la boucle sur les iterations du schema temporel
-    do iter=1,niter
-      if ( niter == 1 ) then          ! *** Euler ***
-        call copy_2d<<<grid_copy, block_copy>>>(vdlg1_d, vdlg01_d)
-        call cuda_glerror('ierr<-copy_2d{if(niter == 1)} <-- Full_FV_cudaf_shared.cuf',1)
-
-        call mise_a_jr_zone_seche_cudaf<<<grid, tblock>>>(zm_d, vdlg_d, vdlg1_d)
-        call cuda_glerror('ierr<-mise_a_jr_zone_seche_cudaf{if(niter == 1)} <-- Full_FV_cudaf_shared.cuf',1)
-
-      elseif ( niter == 2 ) then      ! *** Second ordre ***
-        if ( iter == 1 ) then
-          call copy_2d<<<grid_copy, block_copy>>>(vdlg1_d, vdlg01_d)
-          call cuda_glerror('ierr<-copy_2d{if(niter == 2, iter == 1)} <-- Full_FV_cudaf_shared.cuf',1)
-
-          call mise_a_jr_zone_seche_cudaf<<<grid, tblock>>>(zm_d, vdlg_d, vdlg1_d)
-          call cuda_glerror('ierr<-mise_a_jr_zone_seche_cudaf{if(niter == 2, iter == 1)} <-- Full_FV_cudaf_shared.cuf',1)
-
-        else
-          if(local_time_step) then
-            call copy_2d_1_local_time_step<<<grid_copy, block_copy>>>(vdlg1_d, vdlg01_d, res1_d, niter, iter, dt_d, nelt_d,deltatmin_d)
-          else
-            call copy_2d_1<<<grid_copy, block_copy>>>(vdlg1_d, vdlg01_d, res1_d, niter, iter, dt_d, nelt_d,deltatmin_d)
-          end if
-          call cuda_glerror('ierr<-copy_2d_1{if(niter == 2 iter == 2)} <-- Full_FV_cudaf_shared.cuf',1)
-
-          call mise_a_jr_zone_seche_cudaf<<<grid, tblock>>>(zm_d, vdlg_d, vdlg1_d)
-          call cuda_glerror('ierr<-mise_a_jr_zone_seche_cudaf{if(niter == 2,  iter == 2)} <-- Full_FV_cudaf_shared.cuf',1)
-        endif
-
-      elseif ( niter == 4 ) then      ! *** Runge-kutta ***
-        if ( iter == 1 ) then                   
-          call copy_2d<<<grid_copy, block_copy>>>(vdlg1_d, vdlg01_d)
-          call cuda_glerror('ierr<-copy_2d{if(niter == 4, iter == 1)} <-- Full_FV_cudaf_shared.cuf',1)
-
-          call mise_a_jr_zone_seche_cudaf<<<grid, tblock>>>(zm_d, vdlg_d, vdlg1_d)
-          call cuda_glerror('ierr<-mise_a_jr_zone_seche_cudaf{if(niter == 4, iter == 1)} <-- Full_FV_cudaf_shared.cuf',1)
-
-        elseif ( iter == 2 ) then
-          if(local_time_step) then
-            call copy_2d_1_local_time_step<<<grid_copy, block_copy>>>(vdlg1_d, vdlg01_d, res1_d, niter, iter, dt_d, nelt_d, deltatmin_d)
-          else
-            call copy_2d_1<<<grid_copy, block_copy>>>(vdlg1_d, vdlg01_d, res1_d, niter, iter, dt_d, nelt_d, deltatmin_d)
-          end if
-          call cuda_glerror('ierr<-copy_2d_1{if(niter == 4, iter == 2)} <-- Full_FV_cudaf_shared.cuf',1)
-
-          call mise_a_jr_zone_seche_cudaf<<<grid, tblock>>>(zm_d, vdlg_d, vdlg1_d)
-          call cuda_glerror('ierr<-mise_a_jr_zone_seche_cudaf{if(niter == 4, iter == 2)} <-- Full_FV_cudaf_shared.cuf',1)
-
-        elseif ( iter == 3 ) then
-          if(local_time_step) then
-            call copy_2d_1_local_time_step<<<grid_copy, block_copy>>>(vdlg1_d, vdlg01_d, res2_d, niter, iter, dt_d, nelt_d,deltatmin_d)
-          else
-            call copy_2d_1<<<grid_copy, block_copy>>>(vdlg1_d, vdlg01_d, res2_d, niter, iter, dt_d, nelt_d,deltatmin_d)
-          end if
-          call cuda_glerror('ierr<-copy_2d_1{if(niter == 4, iter== 3)} <-- Full_FV_cudaf_shared.cuf',1)
-
-          call mise_a_jr_zone_seche_cudaf<<<grid, tblock>>>(zm_d, vdlg_d, vdlg1_d)
-          call cuda_glerror('ierr<-mise_a_jr_zone_seche_cudaf{if(niter == 4, iter == 3)} <-- Full_FV_cudaf_shared.cuf',1)
-
-        else
-          if(local_time_step) then
-            call copy_2d_1_local_time_step<<<grid_copy, block_copy>>>(vdlg1_d, vdlg01_d, res3_d, niter, iter, dt_d, nelt_d,deltatmin_d)
-          else
-            call copy_2d_1<<<grid_copy, block_copy>>>(vdlg1_d, vdlg01_d, res3_d, niter, iter, dt_d, nelt_d,deltatmin_d)
-          end if
-          call cuda_glerror('ierr<-copy_2d_1{if(niter == 4, iter== 4)} <-- Full_FV_cudaf_shared.cuf',1)
-
-          call mise_a_jr_zone_seche_cudaf<<<grid, tblock>>>(zm_d, vdlg_d, vdlg1_d)
-          call cuda_glerror('ierr<-mise_a_jr_zone_seche_cudaf{if(niter == 4, iter == 4)} <-- Full_FV_cudaf_shared.cuf',1)
-        endif
+    if (solinit==1) then
+      if (tc_init < TS) then
+        tc = tc_init
+        tc_d = tc
+      else
+        print*,'TEMPS TOTAL DE SIMULATION INFERIEUR AU TEMPS DE LA SOLUTION INITIALE'
+        tc = 0.
+        tc_d = tc
       endif
+    endif    
 
-      call init_vdlg<<<grid, tblock>>>(vdlg_d, vdlg1_d, zm_d)
-      call cuda_glerror('ierr<-init_vdlg <-- Full_FV_cudaf_shared.cuf',1)
+    !!Initial dt exchange
+    call cflcond_cudaf<<<grid, tblock>>>(vdlg0_d,deltatmin_d)
+    call reduction<<<grid_reduc, tblock_reduc, tblock_reduc%x*sizeof(deltatmin_d(1))>>>(deltatmin_d)
+    ierr = cudaMemcpyAsync(dt,dt_d,1,stream1)
+    if(dt<1e-14) then
+      dt = 1e-10
+    endif
+    call MPI_ALLREDUCE(MPI_IN_PLACE,dt,1,fp_kind_mpi,MPI_MIN,MPI_COMM_WORLD, mpi_ierr)
+    dt_d = dt
+    if(dt>100000) then
+      print*," dt > 100000 probable erreur, diminuer le nombre cfl ou augmenter la tolérence sec/mouillé" 
+    end if
 
+    debit_sortie0 = 0.d0
+    tc = 0.d0
+    tc_d = tc
+    call cuda_glerror('ierr <- tc_d = tc <-- Full_FV_cudaf_shared.cuf',1)
 
-      !! ****** Calculation of Flux starts ******
+    nt = 0
+    kk = 1
+    ierr = cudaEventCreate(startEvent)
+    ierr = cudaEventCreate(stopEvent)
+    ierr = cudaEventRecord(startEvent,0)
 
-
-      call cotes_cudaf3<<<grids, tblocks, ns*tblocks%x*sizeof(1.0d0), stream1>>>(surf_d,zm_d,vdlg_d)
-      call cuda_glerror('ierr<-cotes_cudaf <-- Full_FV_cudaf_shared.cuf',1)
-
-      !! ***** Calculation of source terms
-      call source_cudaf<<<grid, tblock, 0, stream2>>>(vdlg_d,surf_d,zm_d,gradz_d,deltatmin_d)
-      call cuda_glerror('ierr<-source_cuda <-- Full_FV_cudaf_shared.cuff',1)
+    write(*,*) 'Loop over time starts' 
+    call cpu_time(temps_initial)
+    do while ( (tc - ts + 2*tol ) < tol )
+      if(debug_mode==1) then
+        if(nt >= max_iter-1) then
+          tc = ts+1
+        end if
+      end if
 
       ierr = cudaDeviceSynchronize()
+      if(dt>100000) then
+        print*," !!! ATTENTION !!! : dt > 100000 probable erreur, diminuer le nombre cfl ou augmenter la tolérence sec/mouillé" 
+      end if
 
+      debit_entree  = 0.d0
+      debit_sortie  = 0.d0
 
-      if ( niter == 1 ) then          ! *** Euler ***
-        call calcul_residue_ele_cudaf<<<grid, tblock, 0, stream2>>>(surf_d, res1_d)
-      elseif ( niter == 2 ) then      ! *** Second ordre ***
-        if ( iter.eq.1 ) then
-          call calcul_residue_ele_cudaf<<<grid, tblock, 0, stream2>>>(surf_d, res1_d)
-        else
-          call calcul_residue_ele_cudaf<<<grid, tblock, 0, stream2>>>(surf_d, res2_d)
-        endif
-      elseif ( niter == 4 ) then      ! *** Runge-kutta ***
-        if ( iter.eq.1 ) then
-          call calcul_residue_ele_cudaf<<<grid, tblock, 0, stream2>>>(surf_d, res1_d)
-        else if ( iter.eq.2 ) then
-          call calcul_residue_ele_cudaf<<<grid, tblock, 0, stream2>>>(surf_d, res2_d)
-        else if ( iter.eq.3 ) then
-          call calcul_residue_ele_cudaf<<<grid, tblock, 0, stream2>>>(surf_d, res3_d)
-        else
-          call calcul_residue_ele_cudaf<<<grid, tblock, 0, stream2>>>(surf_d, res4_d)
-        endif
-      endif
-      call cuda_glerror('ierr<-calcul_residue_ele_cudaf <-- Full_FV_cudaf_shared.cuf',1)
+      is_solnode = 0
+      is_recons = 0
 
-      if(ndo>0) then
+      nt = nt + 1
+
+      tcm = tc / 60   ! *** temps en minutes ***
+
+      !Début de la boucle sur les iterations du schema temporel
+      call copy_2d<<<grid_copy, block_copy>>>(vdlg_d, vdlg0_d)
+
+      !! ****** Calculation of Flux starts ******
+      call cotes_cudaf3<<<grids, tblocks, ns*tblocks%x*sizeof(1.0d0), stream1>>>(surf_d,zm_d,vdlg_d)
+
+      !! ***** Calculation of source terms
+      call source_cudaf<<<grid, tblock, 0, stream2>>>(vdlg_d,surf_d,zm_d,deltatmin_d)
+      ierr = cudaDeviceSynchronize()
+
+      call calcul_residue_ele_cudaf<<<grid, tblock, 0, stream2>>>(surf_d, res_d)
+
+      if(ndo>1) then
         ierr = cudaMemcpyAsync(debit_sortie_arr,debit_sortie_arr_d,size(debit_sortie_arr),stream1)
       end if
+
       if(ndi>1) then
         ierr = cudaMemcpyAsync(debit_entree_arr,debit_entree_arr_d,size(debit_entree_arr),stream1)
       end if
-
-      call cuda_glerror('ierr<-(D->H) mem transfer debit_sortie_arr or debit_entree_arr <-- Full_FV_cudaf_shared.cuf',1)
 
       ierr = cudaDeviceSynchronize()
 
       if(ndo>1) then
         debit_sortie  =  debit_sortie + sum(debit_sortie_arr)
       end if
+
       if(ndi>1) then
         !En fait on parcours les arretes numérote dans get_io_index
         do iter_nodes=1,ndi-1
@@ -548,757 +202,510 @@ subroutine Full_FV
         end do
       end if
 
-    enddo  !!End of loop over time step iterations
+      call copy_into_res_d<<<grid_copy, block_copy>>>(vdlg_d,vdlg0_d,res_d)
+
+      !!Reduce sum of all debits
+      if(num_mpi_process>1) then
+        call MPI_ALLREDUCE(MPI_IN_PLACE,debit_entree,nombre_entrees,fp_kind_mpi,MPI_SUM,MPI_COMM_WORLD, mpi_ierr)
+        call MPI_ALLREDUCE(MPI_IN_PLACE,debit_sortie,1,fp_kind_mpi,MPI_SUM,MPI_COMM_WORLD, mpi_ierr)
+      end if
 
 
+      ! print*, "Avant échange mémoire"
 
-    if(ndo>1) then
-      debit_sortie = debit_sortie/niter
-    endif
-
-    if(ndi>1) then
-      do iter_entree=1,nombre_entrees
-        debit_entree(iter_entree) = debit_entree(iter_entree)/niter
-      end do
-    endif
-
-
-    call copy_into_res_d<<<grid_copy, block_copy>>>(niter_d, nelt_d)
-    call cuda_glerror('ierr<-copy_into_res_d  <-- Full_FV_cudaf_shared.cuf',1)
-
-    ! *** solution à la fin du pas avec traitement de la zone seche ***
-    if(local_time_step) then
-      call copy_2d_1_local_time_step<<<grid_copy, block_copy>>>(vdlg1_d, vdlg01_d, res_d, 2, 2, dt_d, nelt_d, deltatmin_d)
-    else
-      call copy_2d_1<<<grid_copy, block_copy>>>(vdlg1_d, vdlg01_d, res_d, 2, 2, dt_d, nelt_d, deltatmin_d)
-    end if
-    call cuda_glerror('ierr<-copy_2d_1 <-- Full_FV_cudaf_shared.cuf',1)
-
-    !!Reduce sum of all debits
-    if(num_mpi_process>1) then
-      call MPI_ALLREDUCE(MPI_IN_PLACE,debit_entree,nombre_entrees,fp_kind_mpi,MPI_SUM,MPI_COMM_WORLD, mpi_ierr)
-      ! call MPI_BARRIER(MPI_COMM_WORLD,mpi_ierr)
-      call MPI_ALLREDUCE(MPI_IN_PLACE,debit_sortie,1,fp_kind_mpi,MPI_SUM,MPI_COMM_WORLD, mpi_ierr)
-      ! call MPI_BARRIER(MPI_COMM_WORLD,mpi_ierr)
-    end if
-
-
-    ! print*, "Avant échange mémoire"
-
-    !!  Echange sur GPU directement bloc
-    if(num_mpi_process>1) then
-      if(cuda_aware==1) then
-        ! print*, "cuda aware"
-        call cpu_time(et1)
-        if(is_cgns) then
-          call gpu_echange_cgns(vdlg1_d, ndln)
+      !!  Echange sur GPU directement bloc
+      if(num_mpi_process>1) then
+        if(cuda_aware==1) then
+          if(is_cgns) then
+            call gpu_echange_cgns(vdlg_d, ndln)
+          else
+            call gpu_echange_fant_bloc_async(vdlg_d, ndln)
+          end if
         else
-          call gpu_echange_fant_bloc_async(vdlg1_d, ndln)
+          !!Not Cuda Aware version
+          !! First copy from the GPU to CPU, then from CPU to CPU, ten from CPU to GPU
+          ierr = cudaMemcpy(vdlg_d, vdlg, nelt, cudamemcpyDeviceToHost)
+          ierr = cudadevicesynchronize()
+          call gpu_echange_fant_bloc_async_not_cuda_aware(vdlg, ndln)
         end if
-        call cpu_time(et2)
-        det1 = det1 + et2-et1
+      end if
+
+      ! Calcul du pas de temps via la CFL
+      call cflcond_cudaf<<<grid, tblock,0,stream1>>>(vdlg_d,deltatmin_d)
+      !!Reset du pas de temps sur le gpu
+      ierr = cudaMemcpyAsync(dt_d,dt_max,1,stream2) 
+      ierr = cudaStreamSynchronize(stream2) !! On peut commenter cette ligne pour faire le pari que la race condition sera ok
+      call reduction<<<grid_reduc, tblock_reduc, tblock_reduc%x*sizeof(deltatmin_d(1)),stream1>>>(deltatmin_d)
+      ierr = cudaMemcpyAsync(dt,dt_d,1,stream1)
+
+      !!Attendre fin de l'échange mémoire de vdlg
+      !! et mise a jour vdlg avec vdlg
+      if(num_mpi_process>1) then
+        call MPI_WAITALL(size(reqsend),reqsend,sendstat,mpi_ierr)
+        call MPI_WAITALL(size(reqrecv),reqrecv,recvstat,mpi_ierr)
+        if(cuda_aware==0) then
+          ierr = cudaMemcpy(vdlg, vdlg_d, nelt, cudamemcpyDeviceToHost)
+          ierr = cudadevicesynchronize()
+        end if
+      end if
+
+      call copy_2d<<<grid_copy, block_copy, 0, stream2>>>(vdlg0_d, vdlg_d)
+
+      !!Take the smallest dt across all GPUs
+      if(num_mpi_process>1) then
+        ierr = cudaStreamSynchronize(stream1)
+        call MPI_ALLREDUCE(MPI_IN_PLACE,dt,1,fp_kind_mpi,MPI_MIN,MPI_COMM_WORLD, mpi_ierr)
+      end if
+
+      if(dt>9999 .or. dt < 1e-15) then
+        print*, "Erreur sur le pas de temps dt=", dt
+        exit
+      end if
+
+      ierr = cudaMemcpyAsync(dt_d,dt,1,stream1)
+
+      tc = tc + dt
+      tc_d = tc
+
+      ! *** Affichage de l'avancement ***
+      if ( mod(nt,freqaffich)==0 ) then
+        print*,'-----------------------------------------------'
+        write(*,*) 'nt = ', nt
+        print*,' prochain tsolvtk = ', tsolvtk(cptsolvtk), cptsolvtk
+        if (tc < 3600)   print*, 'tc = ', tc, ' Secondes   =>', tc/60,    ' Minutes' 
+        if (tc >= 3600)  print*, 'tc = ', tc, ' Secondes   =>', tc/3600,  ' Heures'
+        if (tc >= 86400) print*, 'tc = ', tc, ' Secondes   =>', tc/86400, ' Jours'
+        print*,''
+
+        do iter_entree=1,nombre_entrees
+          print*, 'debit_entree ', iter_entree, " = " ,debit_entree(iter_entree)
+        end do
+        print*, 'debit_sortie =', debit_sortie, 'M3/S'  
+        print*,'-----------------------------------------------'
+      endif
+
+      ! *** Stockage de la solution pour postraitement et animation 
+      if( (solvtk == 1 .and. abs( tc - tsolvtk(cptsolvtk) ) <= tolaffiche) .or. (debug_mode == 1) )then
+        if(is_solnode == 0) then 
+          vdlg = vdlg_d
+          call cuda_glerror('ierr<- (D->H) data_transfer into vdlg(3) <-- Full_FV_cudaf_shared.cuf',1)
+          call sol_nodes(vdlg,surf,zm,sh0,she0,shu0,shv0,su0,sv0)
+          is_solnode = 1
+        endif
+
+        start=0
+        call paraview_export (vdlg, zm, she0, sh0, shu0, shv0, cptsolvtk)
+        cptsolvtk = cptsolvtk + 1
+
+        !CGNS EXPORT
+        ! if(is_cgns==1) then
+        !   call cgns_export(she0, shu0, shv0, tsolvtk(cptsolvtk), cptsolvtk)
+        ! end if
+      endif
+
+      if ((solsimple /= 0 .and. abs( tc - tsolsimple(cptsolsimple) ) <= tolaffiche) .or. (debug_mode == 1) )then
+        if(is_solnode == 0) then 
+          vdlg = vdlg_d
+          call cuda_glerror('ierr<- (D->H) data_transfer into vdlg(3) <-- Full_FV_cudaf_shared.cuf',1)
+          call sol_nodes(vdlg,surf,zm,sh0,she0,shu0,shv0,su0,sv0)
+          is_solnode = 1
+        endif
+
+        start=0
+        call simple_export (vdlg, zm, she0, sh0, shu0, shv0, cptsolsimple)
+        cptsolsimple = cptsolsimple + 1
+      endif
+
+
+      !STOCKAGE DE SOLUTIONS INTERMEDIAIRES  (Pour redemarrage)
+      if(solrestart==1 .and. abs( tc - tsolrestart(cptsolrestart) ) <= tolaffiche) then
+        if(is_solnode == 0) then 
+          vdlg = vdlg_d
+          call cuda_glerror('ierr<- (D->H) data_transfer into vdlg(3)',1)
+          call sol_nodes(vdlg,surf,zm,sh0,she0,shu0,shv0,su0,sv0)
+          is_solnode = 1
+        endif
+
+        write(ec_sol_elt_t,*) tc                        
+        do iel=1,nelt
+          write(ec_sol_elt_t,'(4f16.6)') vdlg(1,iel), vdlg(2,iel), vdlg(3,iel)
+        enddo
+
+        write(ec_sol_nd_t,*) tc
+        do nd=1,nnt
+          !write(ec_sol_nd_t,'(7f16.6)')  coordonnees(nd,1),coordonnees(nd,2),sh0(nd)-she0(nd),she0(nd),sh0(nd),shu0(nd),shv0(nd)
+          write(ec_sol_nd_t,'(4f16.6)')  she0(nd),sh0(nd),shu0(nd),shv0(nd)
+        enddo
+
+        cptsolrestart = cptsolrestart + 1
+        rewind (ec_sol_elt_t)
+        rewind (ec_sol_nd_t)
+      endif
+
+
+      debitglob_sum = sum(debitglob)
+      debit_entree_sum = sum(debit_entree)
+
+      if ( debit_entree_sum > 1e-8 .and. abs(debit_entree_sum - debit_sortie)/debit_entree_sum < tol_reg_perm ) then
+        cond_reg_perm = cond_reg_perm + 1
+        if( cond_reg_perm > 100000) then
+
+          if ((60   <= tc) .and. (tc < 3600))   print*, 'tc = ', tc, ' Secondes   =>', tc/60,    ' Minutes' 
+          if ((3600 <= tc) .and. (tc< 86400))  print*, 'tc = ', tc, ' Secondes   =>', tc/3600,  ' Heures'
+          if (tc  >= 86400)        print*, 'tc = ', tc, ' Secondes   =>', tc/86400, ' Jours'
+          print*,('')
+          do iter_entree=1,nombre_entrees
+            print*, 'debit_entree ', iter_entree, " = " ,debit_entree(iter_entree)
+          end do
+          print*, 'debit_sortie = ', debit_sortie
+          print*, '' 
+          print*, 'LE REGIME PERMANENT EST ATTEINT'
+          print*,('================================================================================')
+
+          t_reg_perm = tc
+          tc   = tc + ts  ! pour sortir de la boucle while !to exit the while loop
+          tc_d = tc
+          call cuda_glerror('ierr <- tc_d = tc (2) <-- Full_FV_cudaf_shared.cuf',1)
+        end if
       else
-        !!Not Cuda Aware version
-        !! First copy from the GPU to CPU, then from CPU to CPU, ten from CPU to GPU
-        ! print*, "not cuda aware"
-        call cpu_time(et1)
-        ierr = cudaMemcpy(vdlg1_d, vdlg1, nelt, cudamemcpyDeviceToHost)
-        ierr = cudadevicesynchronize()
-        call gpu_echange_fant_bloc_async_not_cuda_aware(vdlg1, ndln)
-        ! ierr = cudaMemcpy(vdlg1, vdlg1_d, nelt, cudamemcpyDeviceToHost)
-        ! call MPI_BARRIER(MPI_COMM_WORLD, mpi_ierr)
-        call cpu_time(et2)
-        det1 = det1 + et2-et1
-      end if
-    end if
-
-    ! Mise a jour de la zone seche requis uniquement pour iflux==1 (zoka)
-    ! if(iflux==1) then
-    call mise_a_jr_zone_seche_cudaf<<<grid, tblock>>>(zm_d, vdlg_d, vdlg1_d)
-    call cuda_glerror('mise_a_jr_zone_seche_cudaf(2) <-- Full_FV_cudaf_shared.cuf',1)
-    ! endif
-
-
-    ! Calcul du pas de temps via la CFL
-    call cflcond_cudaf<<<grid, tblock,0,stream1>>>(vdlg_d,deltatmin_d)
-    !!Reset du pas de temps sur le gpu
-    ierr = cudaMemcpyAsync(dt_d,dt_max,1,stream2) 
-    ierr = cudaStreamSynchronize(stream2) !! On peut commenter cette ligne pour faire le pari que la race condition sera ok
-    call reduction<<<grid_reduc, tblock_reduc, tblock_reduc%x*sizeof(deltatmin_d(1)),stream1>>>(deltatmin_d)
-    ierr = cudaMemcpyAsync(dt,dt_d,1,stream1)
-
-    !!Attendre fin de l'échange mémoire de vdlg1
-    !! et mise a jour vdlg avec vdlg1
-    if(num_mpi_process>1) then
-      call MPI_WAITALL(size(reqsend),reqsend,sendstat,mpi_ierr)
-      call MPI_WAITALL(size(reqrecv),reqrecv,recvstat,mpi_ierr)
-      if(cuda_aware==0) then
-        ierr = cudaMemcpy(vdlg1, vdlg1_d, nelt, cudamemcpyDeviceToHost)
-        ierr = cudadevicesynchronize()
-      end if
-      ! call MPI_BARRIER(MPI_COMM_WORLD,mpi_ierr)
-      call init_vdlg<<<grid, tblock, 0, stream2>>>(vdlg_d, vdlg1_d, zm_d)
-      call cuda_glerror('ierr<-init_vdlg <-- Full_FV_cudaf_shared.cuf',1)
-    end if
-
-    call copy_2d<<<grid_copy, block_copy, 0, stream3>>>(vdlg01_d, vdlg1_d)
-    call cuda_glerror('ierr<-copy_2d(1) <-- Full_FV_cudaf_shared.cuf',1)
-    call copy_2d<<<grid_copy, block_copy, 0, stream2>>>(vdlg0_d, vdlg_d)
-    call cuda_glerror('ierr<-copy_2d(2) <-- Full_FV_cudaf_shared.cuf',1)
-
-    if(num_mpi_process>1) then
-      ierr = cudaStreamSynchronize(stream1)
-      call MPI_ALLREDUCE(MPI_IN_PLACE,dt,1,fp_kind_mpi,MPI_MIN,MPI_COMM_WORLD, mpi_ierr)
-      ! call MPI_BARRIER(MPI_COMM_WORLD,mpi_ierr)
-    end if
-
-    ! dt=1e-5
-
-    if(dt>9999 .or. dt < 1e-15) then
-      print*, "Erreur sur le pas de temps dt=", dt
-    end if
-
-
-    ierr = cudaMemcpyAsync(dt_d,dt,1,stream1)
-    if(local_time_step==1) then
-      call cflcond_sec_cudaf<<<grid, tblock, 0, stream1>>>(vdlg_d, deltatmin_d, dt_d)
-      call cuda_glerror('ierr<-cflcond_cudaf (2) <-- Full_FV_cudaf_shared.cuf',1)
-    end if
-
-    !! mise à jour du temps et de la solution initiale
-    tc = tc + dt
-    tc_d = tc
-
-
-    ! *** Affichage de l'avancement ***
-    if ( mod(nt,freqaffich)==0 ) then
-      print*,'-----------------------------------------------'
-      write(*,*) 'nt = ', nt
-      print*,' prochain tsolvtk = ', tsolvtk(cptsolvtk), cptsolvtk
-      if (tc < 3600)   print*, 'tc = ', tc, ' Secondes   =>', tc/60,    ' Minutes' 
-      if (tc >= 3600)  print*, 'tc = ', tc, ' Secondes   =>', tc/3600,  ' Heures'
-      if (tc >= 86400) print*, 'tc = ', tc, ' Secondes   =>', tc/86400, ' Jours'
-      print*,''
-      !!if (debit_var==1) print*, 'debitglob=',debitglob
-
-      do iter_entree=1,nombre_entrees
-        print*, 'debit_entree ', iter_entree, " = " ,debit_entree(iter_entree)
-      end do
-      print*, 'debit_sortie =', debit_sortie, 'M3/S'  
-      print*,'-----------------------------------------------'
-      iaff = iaff + 1
-
-      !Sauvegarde de la solution a enlever
-      ! vdlg = vdlg_d
-      ! call volume_total(vdlg, total_volume)
-      ! call MPI_ALLREDUCE(MPI_IN_PLACE,total_volume,1,fp_kind_mpi,MPI_SUM,MPI_COMM_WORLD, mpi_ierr)
-      !call MPI_BARRIER(MPI_COMM_WORLD,mpi_ierr)
-      ! print*,"VOLUME TOTAL ", total_volume, " M3"
-    endif
-
-    ! *** Stockage de la solution pour postraitement et animation 
-    if( (solvtk == 1 .and. abs( tc - tsolvtk(cptsolvtk) ) <= tolaffiche) .or. (debug_mode == 1) )then
-      if(is_solnode == 0) then 
-        vdlg = vdlg_d
-        call cuda_glerror('ierr<- (D->H) data_transfer into vdlg(3) <-- Full_FV_cudaf_shared.cuf',1)
-        call sol_nodes(vdlg,surf,zm,sh0,she0,shu0,shv0,su0,sv0)
-        is_solnode = 1
+        cond_reg_perm = 0
       endif
+      !endif
 
-      start=0
-      call paraview_export (vdlg, zm, she0, sh0, shu0, shv0, cptsolvtk)
-      cptsolvtk = cptsolvtk + 1
+      debit_sortie0 = debit_sortie
+    enddo 
 
-      ! if(is_cgns==1) then
-      !   call cgns_export(she0, shu0, shv0, tsolvtk(cptsolvtk), cptsolvtk)
-      ! end if
-    endif
+    call cpu_time(temps_final)
 
-    if ((solsimple /= 0 .and. abs( tc - tsolsimple(cptsolsimple) ) <= tolaffiche) .or. (debug_mode == 1) )then
-      if(is_solnode == 0) then 
-        vdlg = vdlg_d
-        call cuda_glerror('ierr<- (D->H) data_transfer into vdlg(3) <-- Full_FV_cudaf_shared.cuf',1)
-        call sol_nodes(vdlg,surf,zm,sh0,she0,shu0,shv0,su0,sv0)
-        is_solnode = 1
-      endif
-      vdlg1 = vdlg1_d
+    !! ***** LOOP ON TIME ENDS HERE *****
+    write(*,*) 'nt (end of loop on time) = ', nt
 
-      call mise_a_jr_zone_seche_cudaf<<<grid, tblock>>>(zm_d, vdlg_d, vdlg1_d)
+    ierr = cudaEventRecord (stopEvent,0)
+    ierr = cudaEventSynchronize(stopEvent)
+    ierr = cudaEventElapsedTime(time_cuda, startEvent, stopEvent)
+    write(*,*) 'Time taken by time loop (parallel) = ',time_cuda,'ms'
 
-      if(merged_solution==1 .and. num_mpi_process>1 .and. is_recons==0) then
-        call reconstruction(vdlg, vdlg1, she0, sh0, shu0, shv0)
-        is_recons = 1
-      end if
+    vdlg   = vdlg_d
+    vdlg0  = vdlg0_d
 
-      start=0
-      call simple_export (vdlg, vdlg1, she0, sh0, shu0, shv0, cptsolsimple)
-      cptsolsimple = cptsolsimple + 1
-    endif
+    !*********     DEBUT DU POSTRAITEMENT   *********
+    if ( t_reg_perm > 0.0) tc  = t_reg_perm 
 
+    vdlg = vdlg_d
 
-    !STOCKAGE DE SOLUTIONS INTERMEDIAIRES  (Pour redemarrage)
-    if(solrestart==1 .and. abs( tc - tsolrestart(cptsolrestart) ) <= tolaffiche) then
-      if(is_solnode == 0) then 
-        vdlg = vdlg_d
-        call cuda_glerror('ierr<- (D->H) data_transfer into vdlg(3)',1)
-        call sol_nodes(vdlg,surf,zm,sh0,she0,shu0,shv0,su0,sv0)
-        is_solnode = 1
-      endif
+    call sol_nodes(vdlg,surf,zm,sh0,she0,shu0,shv0,su0,sv0)
 
-      vdlg1 = vdlg1_d
-      call cuda_glerror('ierr<- (D->H) data_transfer into vdlg1{if(solrestart == 1 ... )} <-- Full_FV_cudaf_shared.cuf',1)
+    !!Enregistrement de la solution finale pour post-traitement avec Bluekenue/Paraview
 
+    if(sortie_finale_bluekenue) then
+      call bluekenue_export(she0, sh0, shu0, shv0)
+    end if
 
+    !STORAGE OF FINAL SOLUTIONS IN ALL ELEMENTS OF THE DOMAIN (For restarting)
+    if((solrestart==1 .and. abs( tc - tsolrestart(cptsolrestart) ) <= tolaffiche) .or. (debug_mode==1))then
       write(ec_sol_elt_t,*) tc                        
       do iel=1,nelt
-        write(ec_sol_elt_t,'(4f16.6)') vdlg(1,iel), vdlg1(1,iel), vdlg1(2,iel), vdlg1(3,iel)
+        write(ec_sol_elt_t,'(4f16.6)') vdlg(1,iel), vdlg(2,iel), vdlg(3,iel)
       enddo
 
       write(ec_sol_nd_t,*) tc
       do nd=1,nnt
-        !write(ec_sol_nd_t,'(7f16.6)')  coordonnees(nd,1),coordonnees(nd,2),sh0(nd)-she0(nd),she0(nd),sh0(nd),shu0(nd),shv0(nd)
-        write(ec_sol_nd_t,'(4f16.6)')  she0(nd),sh0(nd),shu0(nd),shv0(nd)
+        write(ec_sol_nd_t,'(7f16.6)')  coordonnees(nd,1),coordonnees(nd,2),sh0(nd)-she0(nd),she0(nd),sh0(nd),shu0(nd),shv0(nd)
       enddo
 
-      if(num_mpi_process>1 .and. mpi_process_id==0 .and. merged_solution==1) then
-        if(is_recons==0) then
-          call reconstruction(vdlg, vdlg1,she0, sh0, shu0, shv0)
-          is_recons = 1
-        end if
-        write(ec_sol_elt_t_recons,*) tc                        
-        do iel=1,nelt_global_non_fant
-          write(ec_sol_elt_t_recons,'(4f16.6)') vdlg_global(1,iel), vdlg1_global(1,iel), vdlg1_global(2,iel), vdlg1_global(3,iel)
-        enddo
-
-        write(ec_sol_nd_t_recons,*) tc
-        nd=1
-        do while(sol_nodes_global(1,nd)>-1 .and. nd<=nnt_global)
-          !write(ec_sol_nd_t,'(7f16.6)')  coordonnees(nd,1),coordonnees(nd,2),sh0(nd)-she0(nd),she0(nd),sh0(nd),shu0(nd),shv0(nd)
-          !write(ec_sol_nd_t_recons,'(4f16.6)')  she0(nd),sh0(nd),shu0(nd),shv0(nd)
-          write(ec_sol_nd_t_recons,'(4f16.6)') sol_nodes_global(1,nd), sol_nodes_global(2,nd), sol_nodes_global(3,nd),sol_nodes_global(4,nd)
-          nd=nd+1
-        enddo
-
-        rewind (ec_sol_elt_t_recons)
-        rewind (ec_sol_nd_t_recons)
-      end if
-
       cptsolrestart = cptsolrestart + 1
-      rewind (ec_sol_elt_t)
-      rewind (ec_sol_nd_t)
     endif
 
-
-    debitglob_sum = sum(debitglob)
-    debit_entree_sum = sum(debit_entree)
-
-    if ( abs(debit_entree_sum - debit_sortie)/debit_entree_sum < tol_reg_perm ) then
-      cond_reg_perm = cond_reg_perm + 1
-      if( cond_reg_perm > 100000) then
-
-        if ((60   <= tc) .and. (tc < 3600))   print*, 'tc = ', tc, ' Secondes   =>', tc/60,    ' Minutes' 
-        if ((3600 <= tc) .and. (tc< 86400))  print*, 'tc = ', tc, ' Secondes   =>', tc/3600,  ' Heures'
-        if (tc  >= 86400)        print*, 'tc = ', tc, ' Secondes   =>', tc/86400, ' Jours'
-        print*,('')
-        do iter_entree=1,nombre_entrees
-          print*, 'debit_entree ', iter_entree, " = " ,debit_entree(iter_entree)
-        end do
-        print*, 'debit_sortie = ', debit_sortie
-        print*, '' 
-        print*, 'LE REGIME PERMANENT EST ATTEINT'
-        print*,('================================================================================')
-
-        t_reg_perm = tc
-        tc   = tc + ts  ! pour sortir de la boucle while !to exit the while loop
-        tc_d = tc
-        call cuda_glerror('ierr <- tc_d = tc (2) <-- Full_FV_cudaf_shared.cuf',1)
-      end if
-    else
-      cond_reg_perm = 0
+    if(solsimple/=0 .and. abs( tc - tsolsimple(cptsolsimple) ) <= tolaffiche) then
+      call simple_export (vdlg, zm, she0, sh0, shu0, shv0, cptsolsimple)
+      cptsolsimple = cptsolsimple + 1
     endif
-    !endif
 
-    debit_sortie0 = debit_sortie
-  enddo 
+  end subroutine Full_FV
 
-  !! ***** LOOP ON TIME ENDS HERE *****
-  write(*,*) 'nt (end of loop on time) = ', nt
+  attributes(global) subroutine copy_2d(a,b)
+    use precision_m
+    use global_device
+    real(fp_kind), intent(inout) :: a(ndln_d,nelt_d), b(ndln_d,nelt_d)
 
-  write(*,*) 'Time by message exchange : ', det1
+    integer :: ti,gi
 
-  ierr = cudaEventRecord (stopEvent,0)
-  ierr = cudaEventSynchronize(stopEvent)
-  ierr = cudaEventElapsedTime(time_cuda, startEvent, stopEvent)
-  write(*,*) 'Time taken by time loop (parallel) = ',time_cuda,'ms'
+    ti = threadIdx%x
+    gi = (blockIdx%x - 1)*blockDim%x + ti
 
-  vdlg   = vdlg_d
-  vdlg1  = vdlg1_d
-  vdlg0  = vdlg0_d
-  vdlg01 = vdlg01_d 
-
-  call cuda_glerror('ierr<- (D->H) data_transfer into vdlg(DEBUT DU POSTRAITEMENT) <-- Full_FV_cudaf_shared.cuf',1)
-
-
-  !*********     DEBUT DU POSTRAITEMENT   *********
-  if ( t_reg_perm > 0.0) tc  = t_reg_perm 
-
-  vdlg = vdlg_d
-  vdlg1 = vdlg1_d
-
-  call sol_nodes(vdlg,surf,zm,sh0,she0,shu0,shv0,su0,sv0)
-
-  !!Enregistrement de la solution finale pour post-traitement avec Bluekenue/Paraview
-
-  if(sortie_finale_bluekenue) then
-    call bluekenue_export(she0, sh0, shu0, shv0)
-  end if
-
-  !STORAGE OF FINAL SOLUTIONS IN ALL ELEMENTS OF THE DOMAIN (For restarting)
-  if((solrestart==1 .and. abs( tc - tsolrestart(cptsolrestart) ) <= tolaffiche) .or. (debug_mode==1))then
-    write(ec_sol_elt_t,*) tc                        
-    do iel=1,nelt
-      write(ec_sol_elt_t,'(4f16.6)') vdlg(1,iel), vdlg1(1,iel), vdlg1(2,iel), vdlg1(3,iel)
-    enddo
-
-    write(ec_sol_nd_t,*) tc
-    do nd=1,nnt
-      write(ec_sol_nd_t,'(7f16.6)')  coordonnees(nd,1),coordonnees(nd,2),sh0(nd)-she0(nd),she0(nd),sh0(nd),shu0(nd),shv0(nd)
-    enddo
-
-    cptsolrestart = cptsolrestart + 1
-  endif
-
-  if(solsimple/=0 .and. abs( tc - tsolsimple(cptsolsimple) ) <= tolaffiche) then
-    call simple_export (vdlg, vdlg1, she0, sh0, shu0, shv0, cptsolsimple)
-    cptsolsimple = cptsolsimple + 1
-  endif
-
-  call cpu_time(tf)
-
-  deallocate(resc_d,res_d, res1_d)
-  deallocate(sourcfric_d)
-  deallocate(sourcbath_d)
-  deallocate(un_voisin_sec1_d)
-  deallocate(afm1_d)
-  deallocate(io_identifier, io_identifier_d)
-  deallocate(dt_arr, deltatmin_d)
-
-  if ( timedisc == 'second' ) then
-    deallocate(res2_d)
-  elseif ( timedisc == 'runge' ) then
-    deallocate(res2_d, res3_d, res4_d)
-  end if
-
-  if(ndi>0) then
-    deallocate(debit_entree_arr, debit_entree_arr_d)
-  endif
-  if(ndo>0) then
-    deallocate(debit_sortie_arr,debit_sortie_arr_d)
-  endif
-end subroutine Full_FV
-
-attributes(global) subroutine copy_2d(a,b)
-  use precision_m
-  use global_device
-  real(fp_kind), intent(inout) :: a(ndln_d,nelt_d), b(ndln_d,nelt_d)
-
-  integer :: ti,gi
-
-  ti = threadIdx%x
-  gi = (blockIdx%x - 1)*blockDim%x + ti
-
-  if(gi <= nelt_d) then
-    a(:,gi) = b(:,gi)
-  endif
-
-end subroutine copy_2d
-
-attributes(global) subroutine copy_2d_1_local_time_step(vdlg1_d, vdlg01_d, resj_d, niter, iter, dt_d, nelt_d,deltatmin_d)
-  use precision_m
-  use global
-  use global_device
-
-  real(fp_kind), intent(inout) :: vdlg1_d(ndln_d,nelt_d), vdlg01_d(ndln_d,nelt_d)
-  real(fp_kind), intent(in) :: resj_d(ndln_d,nelt_d), dt_d
-  real(fp_kind), intent(inout)                  :: deltatmin_d(nelt_d)
-  integer, intent(in) :: nelt_d
-  integer, value :: niter, iter
-
-  integer :: ti,gi
-
-
-  ti = threadIdx%x
-  gi = (blockIdx%x - 1)*blockDim%x + ti
-
-  if(gi <= nelt_d-nelt_fant_recep_d) then
-    if(niter == 2 .and. iter == 2) then 
-      vdlg1_d(:,gi) = vdlg01_d(:,gi) + deltatmin_d(gi) * resj_d(:,gi)
-    elseif(niter == 4 .and. (iter == 2 .or. iter == 3)) then 
-      vdlg1_d(:,gi) = vdlg01_d(:,gi) + deltatmin_d(gi) * resj_d(:,gi)/2
-    elseif(niter == 4 .and. iter == 4) then 
-      vdlg1_d(:,gi) = vdlg01_d(:,gi) + deltatmin_d(gi) * resj_d(:,gi)
+    if(gi <= nelt_d) then
+      a(:,gi) = b(:,gi)
     endif
-  endif
 
-end subroutine copy_2d_1_local_time_step
+  end subroutine copy_2d
 
-attributes(global) subroutine copy_2d_1(vdlg1_d, vdlg01_d, resj_d, niter, iter, dt_d, nelt_d,deltatmin_d)
-  use precision_m
-  use global
-  use global_device
+  attributes(global) subroutine copy_into_res_d(vdlg_d,vdlg0_d,res_d)
+    use precision_m
+    use global_device
 
-  real(fp_kind), intent(inout) :: vdlg1_d(ndln_d,nelt_d), vdlg01_d(ndln_d,nelt_d)
-  real(fp_kind), intent(in) :: resj_d(ndln_d,nelt_d), dt_d
-  real(fp_kind), intent(inout)                  :: deltatmin_d(nelt_d)
-  integer, intent(in) :: nelt_d
-  integer, value :: niter, iter
+    real(fp_kind), intent(inout) :: vdlg_d(ndln_d,nelt_d), vdlg0_d(ndln_d,nelt_d), res_d(ndln_d,nelt_d)
 
-  integer :: ti,gi
+    integer :: ti, gi
 
-  ti = threadIdx%x
-  gi = (blockIdx%x - 1)*blockDim%x + ti
+    ti = threadIdx%x
+    gi = (blockIdx%x - 1)*blockDim%x + ti
 
-  if(gi <= nelt_d-nelt_fant_recep_d) then
-    if(niter == 2 .and. iter == 2) then 
-      vdlg1_d(:,gi) = vdlg01_d(:,gi) + dt_d * resj_d(:,gi)
-    elseif(niter == 4 .and. (iter == 2 .or. iter == 3)) then 
-      vdlg1_d(:,gi) = vdlg01_d(:,gi) + dt_d * resj_d(:,gi)/2
-    elseif(niter == 4 .and. iter == 4) then 
-      vdlg1_d(:,gi) = vdlg01_d(:,gi) + dt_d * resj_d(:,gi)
+    if (gi <= nelt_d-nelt_fant_recep_d) then
+      vdlg_d(:,gi) = vdlg0_d(:,gi) + dt_d * res_d(:,gi)
     endif
-  endif
 
-end subroutine copy_2d_1
+  end subroutine copy_into_res_d
 
-attributes(global) subroutine copy_into_res_d(niter_d,nelt_d)
-  use precision_m
-  use main_prog_variables
-  integer, intent(in) :: niter_d, nelt_d
 
-  integer :: thi,gi
+  attributes(global) subroutine copy_1d(a,b,n)
+    use precision_m
+    real(fp_kind), intent(inout) :: a(:), b(:)
+    integer, intent(in) :: n
 
-  thi = threadIdx%x
-  gi = (blockIdx%x - 1)*blockDim%x + thi
+    integer :: ti,gi
 
-  if (gi <= nelt_d) then
-    if ( niter_d == 1 ) then          ! *** Euler ***
-      res_d(:,gi) = res1_d(:,gi)
-    elseif ( niter_d == 2 ) then      ! *** Second order ***
-      res_d(:,gi) = (res1_d(:,gi) + res2_d(:,gi) ) / 2
-    elseif ( niter_d == 4 ) then      ! *** Runge-kutta ***
-      res_d(:,gi) = (res1_d(:,gi) + 2 * res2_d(:,gi) + 2 * res3_d(:,gi) + res4_d(:,gi)) / 6
+
+    ti = threadIdx%x
+    gi = (blockIdx%x - 1)*blockDim%x + ti
+
+    if(gi <= n) then
+      a(gi) = b(gi)
     endif
-  endif
 
-end subroutine copy_into_res_d
+  end subroutine copy_1d
 
+  subroutine gpu_echange_fant_bloc_async_not_cuda_aware(a, nd)
+    use precision_m
+    use global
+    use global_device
+    use mpi
 
-attributes(global) subroutine copy_1d(a,b,n)
-  use precision_m
-  real(fp_kind), intent(inout) :: a(:), b(:)
-  integer, intent(in) :: n
+    integer, intent(in) :: nd
+    real(fp_kind), intent(inout) :: a(nd,nelt)
+    integer                     :: stat(MPI_STATUS_SIZE)
+    integer :: j
+    integer :: jloc
+    integer :: id
+    integer :: p, k
+    integer :: nsbloc, nreste
 
-  integer :: ti,gi
-
-
-  ti = threadIdx%x
-  gi = (blockIdx%x - 1)*blockDim%x + ti
-
-  if(gi <= n) then
-    a(gi) = b(gi)
-  endif
-
-end subroutine copy_1d
-
-subroutine gpu_echange_fant_bloc_async_not_cuda_aware(a, nd)
-  use precision_m
-  use global
-  use global_device
-  use mpi
-
-  integer, intent(in) :: nd
-  real(fp_kind), intent(inout) :: a(nd,nelt)
-  integer                     :: stat(MPI_STATUS_SIZE)
-  integer :: j
-  integer :: jloc
-  integer :: id
-  integer :: p, k
-  integer :: nsbloc, nreste
-
-  k=1
-  do j=1,nelt_fant_envoi_bloc
-    nsbloc = ndln*elt_fant_envoi_bloc(j,2)/768 + 1
-    nreste = ndln*elt_fant_envoi_bloc(j,2)-(nsbloc-1)*768
-    do p=0,nsbloc-2
-      call MPI_ISEND(a(1,elt_fant_envoi_bloc(j,1)+p*768/nd),768,fp_kind_mpi,elt_fant_envoi_bloc(j,3),p,MPI_COMM_WORLD,reqsend(k),mpi_ierr)
-      k=k+1
-    end do
-    call MPI_ISEND(a(1,elt_fant_envoi_bloc(j,1)+(nsbloc-1)*768/nd),nreste,fp_kind_mpi,elt_fant_envoi_bloc(j,3),nsbloc-1,MPI_COMM_WORLD,reqsend(k),mpi_ierr)
-    k=k+1
-  end do
-
-  k=1
-  do j=1,nelt_fant_recep_bloc
-    nsbloc = ndln*elt_fant_recep_bloc(j,2)/768 + 1
-    nreste = ndln*elt_fant_recep_bloc(j,2)-(nsbloc-1)*768
-    do p=0,nsbloc-2
-      call MPI_IRECV(a(1,elt_fant_recep_bloc(j,1)+p*768/nd),768,fp_kind_mpi,elt_fant_recep_bloc(j,3),p,MPI_COMM_WORLD,reqrecv(k),mpi_ierr)
-      k=k+1
-    end do
-    call MPI_IRECV(a(1,elt_fant_recep_bloc(j,1)+(nsbloc-1)*768/nd),nreste,fp_kind_mpi,elt_fant_recep_bloc(j,3),nsbloc-1,MPI_COMM_WORLD,reqrecv(k),mpi_ierr)
-    k=k+1
-  end do
-
-end subroutine gpu_echange_fant_bloc_async_not_cuda_aware
-
-subroutine gpu_echange_fant_bloc_async(a, nd)
-  use precision_m
-  use global
-  use global_device
-  use mpi
-
-  integer, intent(in) :: nd
-  real(fp_kind), device, intent(inout) :: a(nd,nelt)
-  integer                     :: stat(MPI_STATUS_SIZE)
-  integer :: j
-  integer :: jloc
-  integer :: id
-  integer :: p, k
-  integer :: nsbloc, nreste
-
-  k=1
-  do j=1,nelt_fant_envoi_bloc
-    nsbloc = ndln*elt_fant_envoi_bloc(j,2)/768 + 1
-    nreste = ndln*elt_fant_envoi_bloc(j,2)-(nsbloc-1)*768
-    do p=0,nsbloc-2
-      call MPI_ISEND(a(1,elt_fant_envoi_bloc(j,1)+p*768/nd),768,fp_kind_mpi,elt_fant_envoi_bloc(j,3),p,MPI_COMM_WORLD,reqsend(k),mpi_ierr)
-      k=k+1
-    end do
-    call MPI_ISEND(a(1,elt_fant_envoi_bloc(j,1)+(nsbloc-1)*768/nd),nreste,fp_kind_mpi,elt_fant_envoi_bloc(j,3),nsbloc-1,MPI_COMM_WORLD,reqsend(k),mpi_ierr)
-    k=k+1
-  end do
-
-  k=1
-  do j=1,nelt_fant_recep_bloc
-    nsbloc = ndln*elt_fant_recep_bloc(j,2)/768 + 1
-    nreste = ndln*elt_fant_recep_bloc(j,2)-(nsbloc-1)*768
-    do p=0,nsbloc-2
-      call MPI_IRECV(a(1,elt_fant_recep_bloc(j,1)+p*768/nd),768,fp_kind_mpi,elt_fant_recep_bloc(j,3),p,MPI_COMM_WORLD,reqrecv(k),mpi_ierr)
-      k=k+1
-    end do
-    call MPI_IRECV(a(1,elt_fant_recep_bloc(j,1)+(nsbloc-1)*768/nd),nreste,fp_kind_mpi,elt_fant_recep_bloc(j,3),nsbloc-1,MPI_COMM_WORLD,reqrecv(k),mpi_ierr)
-    k=k+1
-  end do
-
-end subroutine gpu_echange_fant_bloc_async
-
-subroutine gpu_echange_fant_bloc(a, nd)
-  use precision_m
-  use global
-  use global_device
-  use mpi
-
-  integer, intent(in) :: nd
-  real(fp_kind), device, intent(inout) :: a(nd,nelt)
-  integer                     :: stat(MPI_STATUS_SIZE)
-  integer :: j
-  integer :: jloc
-  integer :: id
-  integer :: p
-  integer :: nsbloc, nreste
-
-  call MPI_BARRIER(MPI_COMM_WORLD,mpi_ierr)
-  do id=0,num_mpi_process-1
-    if(mpi_process_id==id) then
-      do j=1,nelt_fant_envoi_bloc
-        nsbloc = nd*elt_fant_envoi_bloc(j,2)/768 + 1
-        nreste = nd*elt_fant_envoi_bloc(j,2)-(nsbloc-1)*768
-        do p=0,nsbloc-2
-          call MPI_SEND(a(1,elt_fant_envoi_bloc(j,1)+p*768/nd),768,fp_kind_mpi,elt_fant_envoi_bloc(j,3),p,MPI_COMM_WORLD,mpi_ierr)
-        end do
-        call MPI_SEND(a(1,elt_fant_envoi_bloc(j,1)+(nsbloc-1)*768/nd),nreste,fp_kind_mpi,elt_fant_envoi_bloc(j,3),nsbloc-1,MPI_COMM_WORLD,mpi_ierr)
+    k=1
+    do j=1,nelt_fant_envoi_bloc
+      nsbloc = ndln*elt_fant_envoi_bloc(j,2)/768 + 1
+      nreste = ndln*elt_fant_envoi_bloc(j,2)-(nsbloc-1)*768
+      do p=0,nsbloc-2
+        call MPI_ISEND(a(1,elt_fant_envoi_bloc(j,1)+p*768/nd),768,fp_kind_mpi,elt_fant_envoi_bloc(j,3),p,MPI_COMM_WORLD,reqsend(k),mpi_ierr)
+        k=k+1
       end do
-    else
-      do j=1,nelt_fant_recep_bloc
-        if(elt_fant_recep_bloc(j,3)==id) then
-          nsbloc = nd*elt_fant_recep_bloc(j,2)/768 + 1
-          nreste = nd*elt_fant_recep_bloc(j,2)-(nsbloc-1)*768
-          do p=0,nsbloc-2
-            call MPI_RECV(a(1,elt_fant_recep_bloc(j,1)+p*768/nd),768,fp_kind_mpi,elt_fant_recep_bloc(j,3),p,MPI_COMM_WORLD,stat,mpi_ierr)
-          end do
-          call MPI_RECV(a(1,elt_fant_recep_bloc(j,1)+(nsbloc-1)*768/nd),nreste,fp_kind_mpi,elt_fant_recep_bloc(j,3),nsbloc-1,MPI_COMM_WORLD,stat,mpi_ierr)
-        end if
+      call MPI_ISEND(a(1,elt_fant_envoi_bloc(j,1)+(nsbloc-1)*768/nd),nreste,fp_kind_mpi,elt_fant_envoi_bloc(j,3),nsbloc-1,MPI_COMM_WORLD,reqsend(k),mpi_ierr)
+      k=k+1
+    end do
+
+    k=1
+    do j=1,nelt_fant_recep_bloc
+      nsbloc = ndln*elt_fant_recep_bloc(j,2)/768 + 1
+      nreste = ndln*elt_fant_recep_bloc(j,2)-(nsbloc-1)*768
+      do p=0,nsbloc-2
+        call MPI_IRECV(a(1,elt_fant_recep_bloc(j,1)+p*768/nd),768,fp_kind_mpi,elt_fant_recep_bloc(j,3),p,MPI_COMM_WORLD,reqrecv(k),mpi_ierr)
+        k=k+1
       end do
-    end if
+      call MPI_IRECV(a(1,elt_fant_recep_bloc(j,1)+(nsbloc-1)*768/nd),nreste,fp_kind_mpi,elt_fant_recep_bloc(j,3),nsbloc-1,MPI_COMM_WORLD,reqrecv(k),mpi_ierr)
+      k=k+1
+    end do
+
+  end subroutine gpu_echange_fant_bloc_async_not_cuda_aware
+
+  subroutine gpu_echange_fant_bloc_async(a, nd)
+    use precision_m
+    use global
+    use global_device
+    use mpi
+
+    integer, intent(in) :: nd
+    real(fp_kind), device, intent(inout) :: a(nd,nelt)
+    integer                     :: stat(MPI_STATUS_SIZE)
+    integer :: j
+    integer :: jloc
+    integer :: id
+    integer :: p, k
+    integer :: nsbloc, nreste
+
+    k=1
+    do j=1,nelt_fant_envoi_bloc
+      nsbloc = ndln*elt_fant_envoi_bloc(j,2)/768 + 1
+      nreste = ndln*elt_fant_envoi_bloc(j,2)-(nsbloc-1)*768
+      do p=0,nsbloc-2
+        call MPI_ISEND(a(1,elt_fant_envoi_bloc(j,1)+p*768/nd),768,fp_kind_mpi,elt_fant_envoi_bloc(j,3),p,MPI_COMM_WORLD,reqsend(k),mpi_ierr)
+        k=k+1
+      end do
+      call MPI_ISEND(a(1,elt_fant_envoi_bloc(j,1)+(nsbloc-1)*768/nd),nreste,fp_kind_mpi,elt_fant_envoi_bloc(j,3),nsbloc-1,MPI_COMM_WORLD,reqsend(k),mpi_ierr)
+      k=k+1
+    end do
+
+    k=1
+    do j=1,nelt_fant_recep_bloc
+      nsbloc = ndln*elt_fant_recep_bloc(j,2)/768 + 1
+      nreste = ndln*elt_fant_recep_bloc(j,2)-(nsbloc-1)*768
+      do p=0,nsbloc-2
+        call MPI_IRECV(a(1,elt_fant_recep_bloc(j,1)+p*768/nd),768,fp_kind_mpi,elt_fant_recep_bloc(j,3),p,MPI_COMM_WORLD,reqrecv(k),mpi_ierr)
+        k=k+1
+      end do
+      call MPI_IRECV(a(1,elt_fant_recep_bloc(j,1)+(nsbloc-1)*768/nd),nreste,fp_kind_mpi,elt_fant_recep_bloc(j,3),nsbloc-1,MPI_COMM_WORLD,reqrecv(k),mpi_ierr)
+      k=k+1
+    end do
+
+  end subroutine gpu_echange_fant_bloc_async
+
+  subroutine gpu_echange_fant_bloc(a, nd)
+    use precision_m
+    use global
+    use global_device
+    use mpi
+
+    integer, intent(in) :: nd
+    real(fp_kind), device, intent(inout) :: a(nd,nelt)
+    integer                     :: stat(MPI_STATUS_SIZE)
+    integer :: j
+    integer :: jloc
+    integer :: id
+    integer :: p
+    integer :: nsbloc, nreste
+
     call MPI_BARRIER(MPI_COMM_WORLD,mpi_ierr)
-  end do
-
-end subroutine gpu_echange_fant_bloc
-
-subroutine gpu_echange_cgns(a,nd)
-  use mpi
-  use precision_m 
-  use global
-  use global_device
-
-  implicit none
-  integer, intent(in) :: nd
-  real(fp_kind), device, intent(inout) :: a(nd,nelt)
-  integer :: i, j, tag
-  integer :: nsbloc, nsreste, k
-
-  k=1
-  do i=1,nelt_fant_recep_bloc
-
-    do j=1,elt_fant_envoi_list(i)%length
-      elt_fant_envoi_list(i)%elem_sol(:,j) = a(:,elt_fant_envoi_list(i)%elem_id(j))
+    do id=0,num_mpi_process-1
+      if(mpi_process_id==id) then
+        do j=1,nelt_fant_envoi_bloc
+          nsbloc = nd*elt_fant_envoi_bloc(j,2)/768 + 1
+          nreste = nd*elt_fant_envoi_bloc(j,2)-(nsbloc-1)*768
+          do p=0,nsbloc-2
+            call MPI_SEND(a(1,elt_fant_envoi_bloc(j,1)+p*768/nd),768,fp_kind_mpi,elt_fant_envoi_bloc(j,3),p,MPI_COMM_WORLD,mpi_ierr)
+          end do
+          call MPI_SEND(a(1,elt_fant_envoi_bloc(j,1)+(nsbloc-1)*768/nd),nreste,fp_kind_mpi,elt_fant_envoi_bloc(j,3),nsbloc-1,MPI_COMM_WORLD,mpi_ierr)
+        end do
+      else
+        do j=1,nelt_fant_recep_bloc
+          if(elt_fant_recep_bloc(j,3)==id) then
+            nsbloc = nd*elt_fant_recep_bloc(j,2)/768 + 1
+            nreste = nd*elt_fant_recep_bloc(j,2)-(nsbloc-1)*768
+            do p=0,nsbloc-2
+              call MPI_RECV(a(1,elt_fant_recep_bloc(j,1)+p*768/nd),768,fp_kind_mpi,elt_fant_recep_bloc(j,3),p,MPI_COMM_WORLD,stat,mpi_ierr)
+            end do
+            call MPI_RECV(a(1,elt_fant_recep_bloc(j,1)+(nsbloc-1)*768/nd),nreste,fp_kind_mpi,elt_fant_recep_bloc(j,3),nsbloc-1,MPI_COMM_WORLD,stat,mpi_ierr)
+          end if
+        end do
+      end if
+      call MPI_BARRIER(MPI_COMM_WORLD,mpi_ierr)
     end do
 
-    ! nsbloc = nd*elt_fant_envoi_list(i)%length/768 + 1
-    ! nreste = nd*elt_fant_envoi_bloc(i)%length-(nsbloc-1)*768
+  end subroutine gpu_echange_fant_bloc
 
-    tag = mpi_process_id
-    call MPI_ISend(elt_fant_envoi_list(i)%elem_sol(1,1), nd*elt_fant_envoi_list(i)%length, fp_kind_mpi, &
-      &elt_fant_envoi_list(i)%proc, tag, MPI_COMM_WORLD, reqsend(i), mpi_ierr)
-  end do
+  subroutine gpu_echange_cgns(a,nd)
+    use mpi
+    use precision_m 
+    use global
+    use global_device
 
-  do i=1,nelt_fant_recep_bloc
-    call MPI_IRecv(a(1,elt_fant_recep_range(i)%start), nd*elt_fant_recep_range(i)%length, fp_kind_mpi, &
-      &elt_fant_recep_range(i)%proc, elt_fant_recep_range(i)%proc, MPI_COMM_WORLD, reqrecv(i), mpi_ierr)
-  end do
+    implicit none
+    integer, intent(in) :: nd
+    real(fp_kind), device, intent(inout) :: a(nd,nelt)
+    integer :: i, j, tag
+    integer :: nsbloc, nsreste, k
 
-  ! call MPI_WAITALL(n_elt_fant_recep_range,req_envoi,stat_envoi,mpi_ierr)
-  ! call MPI_WAITALL(n_elt_fant_recep_range,req_recep,stat_recep,mpi_ierr)
-end subroutine gpu_echange_cgns
+    k=1
+    do i=1,nelt_fant_recep_bloc
 
-attributes(global) subroutine calcul_residue_ele_cudaf(surf_d, resj_d)
-  use precision_m
+      do j=1,elt_fant_envoi_list(i)%length
+        elt_fant_envoi_list(i)%elem_sol(:,j) = a(:,elt_fant_envoi_list(i)%elem_id(j))
+      end do
 
-  use global_device
-  implicit none
+      ! nsbloc = nd*elt_fant_envoi_list(i)%length/768 + 1
+      ! nreste = nd*elt_fant_envoi_bloc(i)%length-(nsbloc-1)*768
 
-  real(fp_kind), intent(in) :: surf_d(nelt_d)
-  real(fp_kind), intent(inout) :: resj_d(ndln_d,nelt_d)
+      tag = mpi_process_id
+      call MPI_ISend(elt_fant_envoi_list(i)%elem_sol(1,1), nd*elt_fant_envoi_list(i)%length, fp_kind_mpi, &
+        &elt_fant_envoi_list(i)%proc, tag, MPI_COMM_WORLD, reqsend(i), mpi_ierr)
+    end do
 
-  integer :: ti,gi, fric
-  real(fp_kind) :: resini(3)
+    do i=1,nelt_fant_recep_bloc
+      call MPI_IRecv(a(1,elt_fant_recep_range(i)%start), nd*elt_fant_recep_range(i)%length, fp_kind_mpi, &
+        &elt_fant_recep_range(i)%proc, elt_fant_recep_range(i)%proc, MPI_COMM_WORLD, reqrecv(i), mpi_ierr)
+    end do
 
-  fric = fricimplic_d
+    ! call MPI_WAITALL(n_elt_fant_recep_range,req_envoi,stat_envoi,mpi_ierr)
+    ! call MPI_WAITALL(n_elt_fant_recep_range,req_recep,stat_recep,mpi_ierr)
+  end subroutine gpu_echange_cgns
 
-  ti = threadIdx%x
-  gi = (blockIdx%x - 1)*blockDim%x + ti
+  attributes(global) subroutine calcul_residue_ele_cudaf(surf_d, resj_d)
+    use precision_m
 
-  if(gi <= nelt_d-nelt_fant_recep_d) then
-    if ( friction_d == 1) then
-      if ( fric == 1 .or. fric == 2 ) then
-        resini = ( sourcbath_d(:,gi) + sourcfric_d(:,gi) - resc_d(:,gi) ) / surf_d(gi)
-        resj_d(1,gi) = sum(afm1_d(gi,1:3)*resini)
-        resj_d(2,gi) = sum(afm1_d(gi,4:6)*resini)
-        resj_d(3,gi) = sum(afm1_d(gi,7:9)*resini)
-      else
-        resj_d(:,gi) = (sourcbath_d(:,gi)+ sourcfric_d(:,gi) - resc_d(:,gi)) / surf_d(gi)
+    use global_device
+    implicit none
+
+    real(fp_kind), intent(in) :: surf_d(nelt_d)
+    real(fp_kind), intent(inout) :: resj_d(ndln_d,nelt_d)
+
+    integer :: ti,gi, fric
+    real(fp_kind) :: resini(ndln_d)
+
+    fric = fricimplic_d
+
+    ti = threadIdx%x
+    gi = (blockIdx%x - 1)*blockDim%x + ti
+
+    if(gi <= nelt_d-nelt_fant_recep_d) then
+      if ( friction_d == 1) then
+        if ( fric == 1 .or. fric == 2 ) then
+          resini = ( sourcbath_d(:,gi) + sourcfric_d(:,gi) - resc_d(:,gi) ) / surf_d(gi)
+          resj_d(1,gi) = sum(afm1_d(gi,1:3)*resini)
+          resj_d(2,gi) = sum(afm1_d(gi,4:6)*resini)
+          resj_d(3,gi) = sum(afm1_d(gi,7:9)*resini)
+        else
+          resj_d(:,gi) = (sourcbath_d(:,gi)+ sourcfric_d(:,gi) - resc_d(:,gi)) / surf_d(gi)
+        endif
+      else 
+        resj_d(:,gi) = (sourcbath_d(:,gi) - resc_d(:,gi)) / surf_d(gi)
       endif
-    else 
-      resj_d(:,gi) = (sourcbath_d(:,gi) - resc_d(:,gi)) / surf_d(gi)
     endif
-  endif
 
-end subroutine calcul_residue_ele_cudaf
+  end subroutine calcul_residue_ele_cudaf
 
-subroutine volume_total(vdlg,total_volume)
-  use precision_m
-  use global
-  use m_param
-
-  implicit none
-
-  real(fp_kind), intent(in) :: vdlg(:,:)
-  real(fp_kind), intent(out) :: total_volume
-
-  integer :: kvol
-  real(fp_kind) :: aire, x1, x2, y1, y2, x3, y3
-
-
-  total_volume = 0.
-  do kvol=1,nelt-nelt_fant_recep
-    x1 = coo_table_elemwise(kvol,1)
-    y1 = coo_table_elemwise(kvol,2)
-    x2 = coo_table_elemwise(kvol,4)
-    y2 = coo_table_elemwise(kvol,5)
-    x3 = coo_table_elemwise(kvol,7)
-    y3 = coo_table_elemwise(kvol,8)
-    aire = abs((x2-x1)*(y3-y1)-(y2-y1)*(x3-x1))/2.
-    total_volume = total_volume + vdlg(1,kvol)*aire
-  end do
-
-end subroutine volume_total
-
-attributes(global) subroutine init_vdlg(vdlg_d, vdlg1_d,  zm_d)
-  use precision_m
-
-  use global_device
-  implicit none
-
-  real(fp_kind), intent(in)    :: vdlg1_d(ndln_d,nelt_d), zm_d(nelt_d)
-  real(fp_kind), intent(inout) :: vdlg_d(ndln_d,nelt_d)
-
-  integer :: ti,gi
-  real(fp_kind) :: vdlgtmp
-
-  ti = threadIdx%x
-  gi = (blockIdx%x - 1)*blockDim%x + ti
-
-  if(gi <= nelt_d) then
-    vdlgtmp = vdlg1_d(1,gi) - zm_d(gi)
-    if ( vdlgtmp <= tolisec_d ) then
-      vdlg_d(1,gi) = tolisec_d
-      vdlg_d(2,gi) = 0.
-      vdlg_d(3,gi) = 0.
-    else
-      vdlg_d(1,gi) = vdlgtmp
-      vdlg_d(2,gi) = vdlg1_d(2,gi)
-      vdlg_d(3,gi) = vdlg1_d(3,gi)
-    end if
-  endif
-
-end subroutine init_vdlg
-
-subroutine get_io_index
-  use precision_m
-  use global
-  use global_device
-  implicit none
-  integer :: i, j, k, counter
-  if(ndi>0) then
-    debit_entree_arr = 0.d0
-    debit_entree_arr_d = debit_entree_arr
-  endif
-  if(ndo>0) then
-    debit_sortie_arr = 0.d0
-    debit_sortie_arr_d = debit_sortie_arr
-  endif
-
-  call cuda_glerror('ierr <- (H->D) data transfer (1) <-- get_io_index <--- Full_FV_cudaf_shared.cuf ',1)
-
-  io_identifier = 0
-
-  counter = 1
-  do i = 1, nelt
-    if(boundary(i,1,1) == -1 .or. boundary(i,2,1) == -1 .or. boundary(i,3,1) == -1) then 
-      io_identifier(i) =  counter
-      counter = counter + 1
+  subroutine get_io_index
+    use precision_m
+    use global
+    use global_device
+    implicit none
+    integer :: i, j, k, counter
+    if(ndi>0) then
+      debit_entree_arr = 0.d0
+      debit_entree_arr_d = debit_entree_arr
     endif
-  enddo
-
-  counter = 1
-  do i = 1, nelt
-    if(boundary(i,1,1) == -2 .or. boundary(i,2,1) == -2 .or. boundary(i,3,1) == -2) then 
-      io_identifier(i) =  counter
-      counter = counter + 1
+    if(ndo>0) then
+      debit_sortie_arr = 0.d0
+      debit_sortie_arr_d = debit_sortie_arr
     endif
-  enddo
+
+    call cuda_glerror('ierr <- (H->D) data transfer (1) <-- get_io_index <--- Full_FV_cudaf_shared.cuf ',1)
+
+    io_identifier = 0
+
+    counter = 1
+    do i = 1, nelt
+      if(boundary(i,1,1) == -1 .or. boundary(i,2,1) == -1 .or. boundary(i,3,1) == -1) then 
+        io_identifier(i) =  counter
+        counter = counter + 1
+      endif
+    enddo
+
+    counter = 1
+    do i = 1, nelt
+      if(boundary(i,1,1) == -2 .or. boundary(i,2,1) == -2 .or. boundary(i,3,1) == -2) then 
+        io_identifier(i) =  counter
+        counter = counter + 1
+      endif
+    enddo
 
 
-  io_identifier_d = io_identifier
-  call cuda_glerror('ierr <- (H->D) data transfer (2) <-- get_io_index <--- Full_FV_cudaf_shared.cuf ',1)
-end subroutine get_io_index
+    io_identifier_d = io_identifier
+    call cuda_glerror('ierr <- (H->D) data transfer (2) <-- get_io_index <--- Full_FV_cudaf_shared.cuf ',1)
+  end subroutine get_io_index
+end module Full_FV_module

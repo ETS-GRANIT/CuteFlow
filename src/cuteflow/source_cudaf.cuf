@@ -1,4 +1,4 @@
-attributes(global) subroutine source_cudaf(vdlg_d,surf_d,zm_d,gradz_d,deltatmin_d)
+attributes(global) subroutine source_cudaf(vdlg_d,surf_d,zm_d,deltatmin_d)
   !
   ! ======================================================================
   !
@@ -17,7 +17,6 @@ attributes(global) subroutine source_cudaf(vdlg_d,surf_d,zm_d,gradz_d,deltatmin_
 
   real(fp_kind), dimension(ndln_d,nelt_d), intent(in)    :: vdlg_d
   real(fp_kind), dimension(nelt_d), intent(in)      :: surf_d, zm_d, deltatmin_d
-  real(fp_kind), dimension(ndim_d,nelt_d), intent(in)    :: gradz_d
 
   real(fp_kind)                         :: chezy2, vitu, vitv, normvit, area
   real(fp_kind)                         :: x1, y1, x2, y2, x3, y3, ln, orient
@@ -134,11 +133,7 @@ attributes(global) subroutine source_cudaf(vdlg_d,surf_d,zm_d,gradz_d,deltatmin_
           ! dtgn2h = dt_d / 2.d0 * gp_d * manning*manning*tempa
           !
 
-          if(local_time_step_d) then
-            dtgn2h = deltatmin_d(gi) / 2.d0 * gp_d * manning*manning*q1**(-4.d0/3.d0)
-          else
-            dtgn2h = dt_d / 2.d0 * gp_d * manning*manning*q1**(-4.d0/3.d0)
-          end if
+          dtgn2h = dt_d / 2.d0 * gp_d * manning*manning*q1**(-4.d0/3.d0)
 
           !! Matrice Id-dt/2 * J avec J la matrice jacobienne du terme de friction
           af(1,1) = 1.d0
@@ -188,11 +183,7 @@ attributes(global) subroutine source_cudaf(vdlg_d,surf_d,zm_d,gradz_d,deltatmin_
           ! tempa  = real(q1**(-4.d0/3.d0))
           ! beta = - dt_d* gp_d * manning*manning * normvit * tempa
 
-          if(local_time_step_d) then
-            beta = - deltatmin_d(gi) * gp_d * manning*manning * normvit * q1**(-4.d0/3.d0)
-          else
-            beta = - dt_d* gp_d * manning*manning * normvit * q1**(-4.d0/3.d0)
-          end if
+          beta = - dt_d* gp_d * manning*manning * normvit * q1**(-4.d0/3.d0)
 
           !! Matrice Id-dt * B
           af(1,1) = 1.d0

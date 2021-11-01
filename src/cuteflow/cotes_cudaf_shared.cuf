@@ -479,7 +479,6 @@ attributes(device) subroutine solver_Riemann_waf(kvol,kvoisin,surf,norm,vdlg,hl,
 
   use precision_m
   use global_device
-  use main_prog_variables
   implicit none
 
 
@@ -672,7 +671,6 @@ attributes(device) subroutine solver_Riemann_hllc(kvol,kvoisin,surf,norm,vdlg,hl
 
   use precision_m
   use global_device
-  use main_prog_variables
   implicit none
 
   integer, intent(in)                         :: kvol, kvoisin
