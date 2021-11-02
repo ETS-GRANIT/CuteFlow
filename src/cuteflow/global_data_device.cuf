@@ -1,5 +1,5 @@
-module global_device
-  use precision_m
+module global_data_device
+  use precision_kind
   use cudafor
   ! ======================================================================
   !     global = module de stockage des variables(variable storage module)
@@ -70,4 +70,4 @@ module global_device
 
   real(fp_kind), device, dimension(:,:), allocatable :: vdlg_d, vdlg0_d, vdlg_nodes_d
   real(fp_kind), device, dimension(:,:), allocatable :: resc_d, res_d
-end module global_device
+end module global_data_device

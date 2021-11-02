@@ -1,11 +1,11 @@
-module global
+module global_data
   ! ======================================================================
   !     global = module de stockage des variables
   !     auteur  : Youssef Loukili  GRANIT ETSMTL
   !     version : 1.0  ;  May 12 2003
   ! ======================================================================
 
-  use precision_m
+  use precision_kind
   use cudafor
 
   !!Type pour message MPI
@@ -57,12 +57,12 @@ module global
   integer :: freqaffich, solrestart, restart_snapshots, simple_snapshots
   real(fp_kind) :: sol_z_offset=0.
   integer :: comptvisu, cptsolvtk, cptsoljauge, cptsolrestart, cptdebit, cptviscoupe, cptsolsimple
-  real(fp_kind) :: long, critere_arret, debitglob_sum!, dt
+  real(fp_kind) :: long, critere_arret, debitglob_sum
   real(fp_kind), dimension(20) :: debitglob, h_sortie
   character(len=100) :: inlet_name(20), outlet_name(20)
   real(fp_kind) :: ts, tsstab, cfl, tolisec, tol_reg_perm
   real(fp_kind) :: constant_dt=0.
-  real(fp_kind), allocatable, pinned :: dt, dt_max
+  real(fp_kind), allocatable, pinned :: dt, dt_max !!pinned ofr better CPU-GPU exchange
   real(fp_kind) :: tol=1e-6, tolaffiche=1e-1
   real(fp_kind), dimension(10) :: coupe_a, coupe_b
 
@@ -117,8 +117,7 @@ module global
   character (2)  :: njaug
   character (200):: SOLFILE2D, SOLFILE3D, SOLFILE2D_MC, SOLFILE3D_MC, TECPLOT, SOLFILEMC, fichsolfile3d_MC_FV 
   character (200):: SOLFILEJ_ETA, SOLFILEJ_H, SOLFILEJ_U, SOLFILEJ_V, fich_debit_coupe, file_BC, file_Q_coupes
-  character (200):: sol_elt_ts, sol_elt_final, sol_nd_ts, sol_nd_final 
-  character (200):: sol_elt_ts_recons, sol_nd_ts_recons
+  character (200):: sol_elt_ts, sol_elt_final, sol_nd_final 
   character (200):: solfile_eta_T3S, solfile_h_T3S, solfile_u_T3S, solfile_v_T3S
   character (200):: solfile_para, solfile_simple
 
@@ -176,9 +175,10 @@ module global
   real(fp_kind), allocatable :: vol_tot_entre_arr(:)
   real(fp_kind), allocatable :: vol_tot_sorti_arr(:)
   integer, allocatable :: io_identifier(:)
-  integer :: gridxlim, gridylim
+
+  integer, parameter :: gridxlim=65535, gridylim=2147483647
 
   real(fp_kind), dimension(:)  , allocatable :: surf, sh0, shu0, shv0, su0,she0, sv0, zm
   real(fp_kind), pinned, dimension(:,:), allocatable :: vdlg, vdlg0, vdlg_nodes
   real(fp_kind) :: temps_initial, temps_final
-end module global
+end module global_data

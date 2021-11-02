@@ -2,7 +2,7 @@ module pre_post_traitement
   implicit none
 contains
 
-  subroutine sol_nodes(vdlg,surf,zm,soleta,solh,solhu,solhv,solu,solv)
+  subroutine sol_nodes(soleta,solh,solhu,solhv,solu,solv)
     ! ======================================================================
     !     sol_nodes = calcul de la solution aux noeuds du maillage par
     !                 moyennes ponderees sur les volumes entourants
@@ -10,14 +10,13 @@ contains
     !     version : 1.0  ;  May 12 2003
     ! ======================================================================
 
-    use precision_m
-    use global
-    use m_param
+    use precision_kind
+    use global_data
+    use global_data_device
+    use file_id
 
     implicit none
 
-    real(fp_kind), dimension(:,:), intent(in)   :: vdlg
-    real(fp_kind), dimension(:), intent(in)     :: surf, zm
     real(fp_kind), dimension(:), intent(inout)  :: soleta, solh, solhu, solhv, solu, solv
 
     real(fp_kind), dimension(:), allocatable :: surfno, zzz
@@ -73,24 +72,21 @@ contains
   end subroutine sol_nodes
 
   subroutine ouv_fichiers
-    use precision_m
-    use global
-    use m_param
+    use precision_kind
+    use global_data
+    use file_id
     implicit none
 
     open(unit=ec_bilan_sim,file='RAPPORT_SIMULATION.txt',status="unknown")
 
     if(num_mpi_process>1) then
       sol_elt_ts = trim(adjustl(mpi_process_id_string))//trim(adjustl('_solution_elements_restart.txt'))
-      sol_nd_ts = trim(adjustl(mpi_process_id_string))//trim(adjustl('_solution_noeuds.txt'))
     else
       sol_elt_ts = trim(adjustl('solution_elements_restart.txt'))
-      sol_nd_ts = trim(adjustl('solution_noeuds.txt'))
     end if
 
     if(solrestart==1) then
       open(ec_sol_elt_t, file=sol_elt_ts, status="unknown")
-      open(ec_sol_nd_t,  file=sol_nd_ts,  status="unknown")
     endif
   end subroutine ouv_fichiers
 
@@ -101,9 +97,9 @@ contains
     !     version : 2.0  ;  mai 31 2010
     ! =================================================================================
 
-    use precision_m
-    use global
-    use m_param
+    use precision_kind
+    use global_data
+    use file_id
 
     implicit none
 
@@ -179,9 +175,9 @@ contains
 
   subroutine simple_export(vdlg, zm, solh, soleta, solhu, solhv, ci)
 
-    use precision_m
-    use global
-    use m_param
+    use precision_kind
+    use global_data
+    use file_id
 
     implicit none
 
@@ -230,9 +226,9 @@ contains
   end subroutine simple_export
 
   subroutine cgns_export(solh, solhu, solhv, t, it)
-    use global
-    use precision_m
-    use m_param
+    use global_data
+    use precision_kind
+    use file_id
     use cgns
 
     implicit none 
@@ -310,9 +306,9 @@ contains
     !     version : 2.0  ;  july 31 2019
     ! ==============================================================================
 
-    use precision_m
-    use global
-    use m_param
+    use precision_kind
+    use global_data
+    use file_id
 
     implicit none
 
@@ -404,9 +400,9 @@ contains
     !     version : 2.0  ;  mai 13 2018
     ! ============================================================================
 
-    use precision_m
-    use global
-    use m_param
+    use precision_kind
+    use global_data
+    use file_id
 
     implicit none
 

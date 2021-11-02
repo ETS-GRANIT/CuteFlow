@@ -1,12 +1,12 @@
 module maillage
   implicit none
 contains
-  subroutine lect_const_mail
+  subroutine lecture_maillage
 
-    use precision_m
-    use global
-    use global_device
-    use m_param
+    use precision_kind
+    use global_data
+    use global_data_device
+    use file_id
     use cudafor
     use mpi
 
@@ -46,7 +46,7 @@ contains
     end if
 
     if (elt_bound==0) then
-      call tab_bound_tri_cudaf
+      call tab_bound_tri
       print*,mpi_process_id,"tab_bound_tri ok", nelt, nnt
       call MPI_BARRIER(MPI_COMM_WORLD,mpi_ierr)
     endif
@@ -61,7 +61,7 @@ contains
     if (elt_bound==0) then
       !! On construit puis sauvegarde la table des éléments voisins
       open(unit=1100,file=file_bc,status="unknown")
-      call boundary_kind_cudaf
+      call boundary_kind
       print*,mpi_process_id,"boundary kind ok"
       call MPI_BARRIER(MPI_COMM_WORLD,mpi_ierr)
 
@@ -88,7 +88,7 @@ contains
     if(iflux==3) then
       block_set = dim3(32,1,1)
       grid_set  = dim3(ceiling(real(nelt)/real(block_set%x)),1,1)
-      call check_gridlim(block_set, grid_set, 'err <- tab_bound_tri_cudaf <-- maillage.cuf (1)')
+      call check_gridlim(block_set, grid_set, 'err <- tab_bound_tri <-- maillage.cuf (1)')
 
       allocate(upwind_cells_d(2,3,nelt)) !!Pas dealocate pour l'instant
       call find_upwind_cells<<<grid_set, block_set>>>()
@@ -170,15 +170,14 @@ contains
     call MPI_BARRIER(MPI_COMM_WORLD,mpi_ierr)
     print*,mpi_process_id,"apres all reduce"
     cotemin_d = cotemin
-    call cuda_glerror('ierr <- (h->d) data transfer to cotemin_d <-- maillage.cuf',1)
-    call cuda_glerror('ierr <- lect_const_mail (towards_end_of_function) <-- maillage.cuf',1)
-  end subroutine lect_const_mail
+    cotemin_arr_d = cotemin_arr
+  end subroutine lecture_maillage
 
   subroutine lec_donnees
 
-    use precision_m
-    use global
-    use m_param
+    use precision_kind
+    use global_data
+    use file_id
 
     implicit none
 
@@ -204,11 +203,11 @@ contains
     !     version : 1.0  ;  may 28 2019
     ! ======================================================================
 
-    use precision_m
-    use global
-    use global_device
+    use precision_kind
+    use global_data
+    use global_data_device
     use cudafor
-    use m_param
+    use file_id
 
     implicit none
 
@@ -400,9 +399,9 @@ contains
   end subroutine lec_mail_tri
 
   subroutine lec_mail_cgns
-    use global
-    use global_device
-    use precision_m
+    use global_data
+    use global_data_device
+    use precision_kind
     use cgns
 
     implicit none
@@ -415,9 +414,7 @@ contains
     integer :: ierr, cellDim, physDim
     integer :: fn, n_bases, base, n_zones, zone, zoneType, n_sections, section, ord
     integer :: n_bocos, boco, bocoType, normListFlag, normDataType, nDataSet, n_bcnodes 
-    integer :: normalIndex
-    ! integer, dimension(:), allocatable :: normalIndex
-    ! integer, dimension(3) :: normalIndex
+    integer, dimension(3) :: normalIndex
     integer :: ptSetType, n_userdata, n_ptSet, n_userdata2
     integer :: sizes(3*3), sectionType, nBeg, nEnd, eBeg, eEnd, nBdry, flag
     character(200) :: filename, basename, command, zonename, sectionname, boconame
@@ -745,7 +742,7 @@ contains
   end subroutine lec_mail_cgns
 
 
-  subroutine tab_bound_tri_cudaf
+  subroutine tab_bound_tri
     ! ======================================================================
     !
     !     tab_bound_tri = construction table des elements frontiers (cas triangulaire)
@@ -756,10 +753,10 @@ contains
     !     version : 1.0  ;  may 12 2003
     ! ======================================================================
 
-    use precision_m
-    use global
-    use global_device
-    use m_param
+    use precision_kind
+    use global_data
+    use global_data_device
+    use file_id
     use cudafor
 
     implicit none
@@ -769,7 +766,7 @@ contains
 
     block_set = dim3(32,1,1)
     grid_set  = dim3(ceiling(real(nelt)/real(block_set%x)),1,1)
-    call check_gridlim(block_set, grid_set, 'err <- tab_bound_tri_cudaf <-- maillage.cuf (1)')
+    call check_gridlim(block_set, grid_set, 'err <- tab_bound_tri <-- maillage.cuf (1)')
 
     tblock_loc = dim3(16,16,1)
     grid_loc  =  dim3(ceiling(real(nelt)/real(tblock_loc%x)), ceiling(real(nelt)/real(tblock_loc%y)),1) 
@@ -790,7 +787,7 @@ contains
 
     write(*,*) 'gridx, gridy (for set_boundary) = ', grid_loc%x, grid_loc%y
     call set_boundary<<<grid_set, block_set>>>()
-    call cuda_glerror('ierr <- tab_bound_tri_cudaf <- set_boundary <- maillage.cuf',1)
+    call cuda_glerror('ierr <- tab_bound_tri <- set_boundary <- maillage.cuf',1)
 
     if(grid_loc%y > gridylim) then
 
@@ -807,26 +804,26 @@ contains
 
         do i = 1,nity
           call find_neighbour_big<<<grid_loc, tblock_loc>>>((i-1)*gridylim*tblock_loc%y + 1, i*gridylim*tblock_loc%y)
-          call cuda_glerror('ierr <- tab_bound_tri_cudaf <--find_neighbour_big <-- maillage.cuf',1)
+          call cuda_glerror('ierr <- tab_bound_tri <--find_neighbour_big <-- maillage.cuf',1)
         enddo
 
       else
         call find_neighbour<<<grid_loc, tblock_loc>>>()
-        call cuda_glerror('ierr <- tab_bound_tri_cudaf <-- find_neighbour (1) <-- maillage.cuf',1)
+        call cuda_glerror('ierr <- tab_bound_tri <-- find_neighbour (1) <-- maillage.cuf',1)
       endif
 
     else
 
       call find_neighbour<<<grid_loc, tblock_loc>>>()
-      call cuda_glerror('ierr <- tab_bound_tri_cudaf <-- find_neighbour (2) <-- maillage.cuf',1)
+      call cuda_glerror('ierr <- tab_bound_tri <-- find_neighbour (2) <-- maillage.cuf',1)
 
     endif
-  end subroutine tab_bound_tri_cudaf
+  end subroutine tab_bound_tri
 
 
   attributes(global) subroutine set_boundary()
-    use precision_m
-    use global_device
+    use precision_kind
+    use global_data_device
     implicit none
 
     integer :: ti,gi
@@ -857,8 +854,8 @@ contains
 
   attributes(global) subroutine find_neighbour()
     use cudafor
-    use precision_m
-    use global_device
+    use precision_kind
+    use global_data_device
     implicit none
 
     integer :: ti,tj,gi,gj,m1,m2,m3,n1,n2,n3,k
@@ -922,8 +919,8 @@ contains
   end subroutine find_neighbour
 
   attributes(global) subroutine find_neighbour_big(nmin, nmax)
-    use precision_m
-    use global_device
+    use precision_kind
+    use global_data_device
     implicit none
 
     integer, value :: nmin, nmax
@@ -991,8 +988,8 @@ contains
   end subroutine find_neighbour_big
 
   attributes(global) subroutine find_upwind_cells()
-    use precision_m
-    use global_device
+    use precision_kind
+    use global_data_device
     implicit none
 
     integer :: ti, gi, kv, c
@@ -1017,14 +1014,14 @@ contains
   end subroutine find_upwind_cells
 
 
-  subroutine boundary_kind_cudaf
+  subroutine boundary_kind
     !boundary_kind = affectation du genre des frontieres (assignment of the kind of borders)
     !( entree : -1 ; sortie : -2 : imperm : -3 )
 
-    use precision_m
-    use global
-    use global_device
-    use m_param
+    use precision_kind
+    use global_data
+    use global_data_device
+    use file_id
     use cudafor
 
     implicit none
@@ -1041,32 +1038,32 @@ contains
     if(ndi > 0) then 
       tblock_i = dim3(16, 16, 1)
       grid_i   = dim3(ceiling(real(ndi)/real(tblock_i%x)), ceiling(real(ndi)/real(tblock_i%y)), 1)
-      call check_gridlim(tblock_i, grid_i, 'err <- boundary_kind_cudaf (1) <-- maillage.cuf ')
+      call check_gridlim(tblock_i, grid_i, 'err <- boundary_kind (1) <-- maillage.cuf ')
 
     endif
 
     if(ndo > 0) then 
       tblock_o = dim3(16, 16, 1)
       grid_o = dim3(ceiling(real(ndo)/real(tblock_o%x)), ceiling(real(ndo)/real(tblock_o%y)), 1)
-      call check_gridlim(tblock_o, grid_o,  'err <- boundary_kind_cudaf (2) <-- maillage.cuf ')
+      call check_gridlim(tblock_o, grid_o,  'err <- boundary_kind (2) <-- maillage.cuf ')
     endif
 
     if(ndw > 0) then 
       tblock_w = dim3(16, 16, 1)
       grid_w = dim3(ceiling(real(ndw)/real(tblock_w%x)), ceiling(real(ndw)/real(tblock_w%y)), 1)
-      call check_gridlim(tblock_w, grid_w, 'err <- boundary_kind_cudaf (3) <-- maillage.cuf ')
+      call check_gridlim(tblock_w, grid_w, 'err <- boundary_kind (3) <-- maillage.cuf ')
     endif
 
     if(ndi >0 .and. ndw > 0) then 
       tblock_wi = dim3(16, 16, 1)
       grid_wi = dim3(ceiling(real(ndw)/real(tblock_wi%x)), ceiling(real(ndi)/real(tblock_wi%y)), 1)
-      call check_gridlim(tblock_wi, grid_wi,'err <- boundary_kind_cudaf (4) <-- maillage.cuf ')
+      call check_gridlim(tblock_wi, grid_wi,'err <- boundary_kind (4) <-- maillage.cuf ')
     endif
 
     if(ndo >0 .and. ndw > 0) then 
       tblock_wo = dim3(16, 16, 1)
       grid_wo = dim3(ceiling(real(ndw)/real(tblock_wo%x)), ceiling(real(ndo)/real(tblock_wo%y)), 1)
-      call check_gridlim(tblock_wo, grid_wo,'err <- boundary_kind_cudaf (4) <-- maillage.cuf ')
+      call check_gridlim(tblock_wo, grid_wo,'err <- boundary_kind (4) <-- maillage.cuf ')
 
     endif
 
@@ -1088,10 +1085,10 @@ contains
 
             call assign_type_1<<<grid_i, tblock_i>>>(ndinput_d,boundary_d,kvol,kfac, ndi, n1, n2, -1)
             call assign_type_1_numero<<<grid_i, tblock_i>>>(ndinput_d, numero_ndinput_d, boundary_d,kvol,kfac, ndi, n1, n2, -1)
-            call cuda_glerror('ierr <- boundary_kind_cudaf <-- assign_type_1 (1) <-- maillage.cuf',1)
+            call cuda_glerror('ierr <- boundary_kind <-- assign_type_1 (1) <-- maillage.cuf',1)
 
             call check_assign<<<1,1>>>(check, kvol, kfac)
-            call cuda_glerror('ierr <- boundary_kind_cudaf <-- check_assign (1) <-- maillage.cuf',1)
+            call cuda_glerror('ierr <- boundary_kind <-- check_assign (1) <-- maillage.cuf',1)
 
             check1 = check
             if ( check1 < 0 ) goto 190
@@ -1102,10 +1099,10 @@ contains
 
             call assign_type_1<<<grid_o, tblock_o>>>(ndoutput_d,boundary_d,kvol,kfac, ndo, n1, n2, -2)
             call assign_type_1_numero<<<grid_o, tblock_o>>>(ndoutput_d,numero_ndoutput_d,boundary_d,kvol,kfac, ndo, n1, n2, -2)
-            call cuda_glerror('ierr <- boundary_kind_cudaf <-- assign_type_1 (2) <-- maillage.cuf',1)
+            call cuda_glerror('ierr <- boundary_kind <-- assign_type_1 (2) <-- maillage.cuf',1)
 
             call check_assign<<<1,1>>>(check, kvol, kfac)
-            call cuda_glerror('ierr <- boundary_kind_cudaf <-- check_assign (2) <-- maillage.cuf',1)
+            call cuda_glerror('ierr <- boundary_kind <-- check_assign (2) <-- maillage.cuf',1)
 
             check1 = check
             if ( check1 < 0 ) goto 190
@@ -1115,10 +1112,10 @@ contains
           if(ndw > 0) then 
 
             call assign_type_1<<<grid_w, tblock_w>>>(ndwall_d,boundary_d,kvol,kfac, ndw, n1, n2, -3)
-            call cuda_glerror('ierr <- boundary_kind_cudaf <-- assign_type_1 (3) <--- maillage.cuf',1)
+            call cuda_glerror('ierr <- boundary_kind <-- assign_type_1 (3) <--- maillage.cuf',1)
 
             call check_assign<<<1,1>>>(check, kvol, kfac)
-            call cuda_glerror('ierr <- boundary_kind_cudaf <-- check_assign (3) <--- maillage.cuf',1)
+            call cuda_glerror('ierr <- boundary_kind <-- check_assign (3) <--- maillage.cuf',1)
 
             check1 = check
             if ( check1 < 0 ) goto 190
@@ -1128,13 +1125,13 @@ contains
           if(ndi > 0 .and. ndw > 0 ) then 
             !! Si à la fois noeud de mur et noeud input alors mur
             call assign_type_2<<<grid_wi, tblock_wi>>>(ndwall_d, ndinput_d,boundary_d,kvol,kfac,ndw, ndi, n1, n2, -3)
-            call cuda_glerror( 'ierr <- boundary_kind_cudaf <-- assign_type_2 (1) <--- maillage.cuf',1)
+            call cuda_glerror( 'ierr <- boundary_kind <-- assign_type_2 (1) <--- maillage.cuf',1)
           endif
 
           if(ndo > 0 .and. ndw > 0) then 
             !! Si à la fois noeud de mur et noeud sortie alors mur
             call assign_type_2<<<grid_wo, tblock_wo>>>(ndwall_d, ndoutput_d,boundary_d,kvol,kfac,ndw, ndo, n1, n2, -3)
-            call cuda_glerror('ierr <- boundary_kind_cudaf <-- assign_type_2 (2) <--- maillage.cuf',1)
+            call cuda_glerror('ierr <- boundary_kind <-- assign_type_2 (2) <--- maillage.cuf',1)
           endif
 
           190 continue
@@ -1145,12 +1142,12 @@ contains
 
     deallocate(boundary_temp)
 
-    call cuda_glerror('ierr <- boundary_kind_cudaf(towards_end_of_function) <-- maillage.cuf',1)
-  end subroutine boundary_kind_cudaf
+    call cuda_glerror('ierr <- boundary_kind(towards_end_of_function) <-- maillage.cuf',1)
+  end subroutine boundary_kind
 
   attributes(global) subroutine check_assign(check, kvol, kfac)
-    use precision_m
-    use global_device
+    use precision_kind
+    use global_data_device
     implicit none
     integer, intent(out) :: check
     integer, value :: kvol, kfac
@@ -1265,8 +1262,8 @@ contains
 
   attributes(global) subroutine assign_dry_as_wall(vdlg_d)
     !! Si maille voisine est sèche alors on le met en wall
-    use precision_m
-    use global_device
+    use precision_kind
+    use global_data_device
 
     implicit none
     real(fp_kind), intent(in) :: vdlg_d(:,:)
@@ -1293,9 +1290,9 @@ contains
   subroutine construct_coo_table_elemwise
 
     ! caluclates the elementwise coordinate table and the x and y coordinate of the centroid of each element
-    use precision_m
-    use global
-    use global_device
+    use precision_kind
+    use global_data
+    use global_data_device
     implicit none
 
     integer :: kvol, i, s1, s2, s3,s4, ierr1
@@ -1320,12 +1317,10 @@ contains
 
   end subroutine construct_coo_table_elemwise
 
-  attributes(global) subroutine surfzm_cudaf(surf_d,zm_d)
-    use precision_m
-    use global_device
+  attributes(global) subroutine compute_surface_and_bathy
+    use precision_kind
+    use global_data_device
     implicit none
-
-    real(fp_kind), dimension(:), intent(inout)    :: surf_d, zm_d
 
     real(fp_kind) :: x1, x2 ,x3, x4, y1, y2, y3, y4, z1, z2, z3, z4, gz1, gz2
     real(fp_kind) :: xg, yg, zg, d1, d2, d3, d4, aaa, bbb, ddd, dx, surf_area
@@ -1360,13 +1355,13 @@ contains
 
       zm_d(gi) = ( d1*z1 + d2*z2 + d3*z3 ) / ( d1 + d2 + d3 ) ! planimetrique
     endif
-  end subroutine surfzm_cudaf
+  end subroutine compute_surface_and_bathy
 
   subroutine calcul_long_entree
-    use precision_m
-    use global
-    use global_device
-    use m_param
+    use precision_kind
+    use global_data
+    use global_data_device
+    use file_id
     use cudafor
     implicit none
 
@@ -1394,10 +1389,10 @@ contains
     end do
   end subroutine calcul_long_entree
 
-  attributes(global) subroutine set_unset_as_wall()
+  attributes(global) subroutine set_undefined_boudaries_as_walls()
     !! Si le voisin n'as pas changé depuis l'initialisation alors on met un mur
-    use precision_m
-    use global_device
+    use precision_kind
+    use global_data_device
     implicit none
 
     integer :: ti,gi,ki
@@ -1406,14 +1401,13 @@ contains
     gi = (blockidx%x - 1)*blockdim%x + ti
 
     if(gi <= nelt_d-nelt_fant_recep_d) then
-      !! Il faudrait enlever la boucle et multiplier les threads par ns_d
       do ki=1,ns_d
         if(boundary_d(gi,ki,1) == gi) then
           boundary_d(gi,ki,1) = -3 !wall
         end if
       end do
     end if
-  end subroutine set_unset_as_wall
+  end subroutine set_undefined_boudaries_as_walls
 
   subroutine centroid(kvol,xg,yg)
     ! ======================================================================
@@ -1422,9 +1416,9 @@ contains
     !     version : 1.0  ;  May 12 2003
     ! ======================================================================
 
-    use precision_m
-    use global
-    use m_param
+    use precision_kind
+    use global_data
+    use file_id
 
     implicit none
 

@@ -1,24 +1,26 @@
-program general
+program main
   ! ======================================================================
   !   CUTEFLOW : programme de simulation par volumes finis / solveurs de Riemann
   !               des ecoulements de canalisations, bris de barrages et innondations.
   !               Equations de base : Shallow Water Equations
   ! ======================================================================
-  !     Auteur : Youssef Loukili  & Jean-Marie Zokagoa & Vincent Delmas GRANIT ETSMTL
+  !     Auteur : Azzeddine Soulaimani & Youssef Loukili  & Jean-Marie Zokagoa & 
+  !              Vincent Delmas GRANIT ETSMTL
   !     version : 4.0  ;  December 2019
   ! ======================================================================
 
-  use precision_m
-  use global
-  use m_param
-  use cudafor
-  use global_device
   use mpi
-  use mpiDeviceUtil
 
+  use precision_kind
+  use global_data
+  use file_id
+  use cudafor
+  use data_transfer
+  use global_data_device
+  use mpi_select_gpu
   use pre_post_traitement
-  use Full_FV_module
-  use condition_initial
+  use finite_volumes_method
+  use initial_condition
   use maillage
 
   implicit none
@@ -27,7 +29,7 @@ program general
   integer         :: nsbloc, nreste, tot
   character(4)    :: i_MC_char
   integer         :: status, l, ie_coupe_transv, ierr, dev
-  real(fp_kind)   :: d2, t2, dtime2, tcm2, d, t, zero, time_start, time_stop
+  real(fp_kind)   :: d2, t2, dtime2, tcm2, d, t, time_start, time_stop
   real(fp_kind)   :: errf, errf1, errf2, errf3, errf4, errf5
   real            :: time_cuda
   type(dim3 )     :: grid, tblock, grid_nodes, tblock_nodes, grid11, tblock11
@@ -35,42 +37,27 @@ program general
   integer                     :: stat(MPI_STATUS_SIZE)
 
   call MPI_INIT(mpi_ierr)
-  call MPI_COMM_RANK (MPI_COMM_WORLD, mpi_process_id, mpi_ierr)
   call MPI_COMM_SIZE (MPI_COMM_WORLD, num_mpi_process, mpi_ierr)
+  call MPI_COMM_RANK (MPI_COMM_WORLD, mpi_process_id, mpi_ierr)
+  write(mpi_process_id_string, "(I3)") mpi_process_id
 
-  !! Setting proper GPU device for each MPI process
-  !! ierr = cudaDeviceReset()
+  !! Setting proper GPU device for each MPI process (cf mpi_select_gpu.cuf)
   call assignDevice(dev)
   ierr = cudaSetDevice(dev)
   ierr = cudaGetDeviceProperties (prop , 0)
-  call cuda_glerror('ierr <- cudaGetDeviceProperties <-- general_cudaf.cuf)',1)
-
   write(*,"('Device name:',a, 'thread id : ', i1)") trim(prop%name), mpi_process_id
   write(*,"('Compute capability : ',i1,'.',i1)") prop%major, prop%minor
-
-  gridylim = 65535
-  gridxlim = 2147483647
-
-  zero      = 0.d0
-
 
   !!Création des cuda stream
   istat = cudaStreamCreate(stream1)
   istat = cudaStreamCreate(stream2)
   istat = cudaStreamCreate(stream3)
 
-  !! Ecriture du nom de process dans une chaine de caracteres
-  write(mpi_process_id_string, "(I3)") mpi_process_id
-
-  !! Lecture des données (terrain, maillage, initiales, simulation)
+  !! Lecture du fichier "donnees.f"
   call lec_donnees
 
-  allocate(dt)
-  allocate(dt_max)
+  allocate(dt,dt_max)
   dt_max=1000000.0D0
-
-  !! Data transfer from host to device
-  call global_data_transfer
 
   !! Initization of the iteration counters
   comptvisu        = 0
@@ -78,20 +65,27 @@ program general
   cptsolvtk        = 1
   cptsoljauge      = 1
   cptsolrestart    = 1
-  cptsolsimple      = 0
+  cptsolsimple     = 1
   ie_coupe_transv  = 0
   tc_init          = 0
-  tc_init_d        = tc_init
+
+  !! Data transfer from host to device
+  call cpu_to_gpu_initial_data_transfer
+
+  !! Ouverture/creation des fichiers (opening / creating files)
+  call ouv_fichiers
 
   !! Construction / lecture  et  stockage du maillage 
-  print*,mpi_process_id,"lect const mail debut"
-  call lect_const_mail
-  print*,mpi_process_id,"lect const mail fin"
+  call lecture_maillage
 
-  cotemin_arr_d = cotemin_arr
-  call cuda_glerror('ierr <-- cotemin_arr_d = cotemin_arr',1)
+  !! Creation du block et grille pour le calcul sur GPU
+  tblock = dim3(64, 1, 1)
+  grid   = dim3(ceiling(real(nelt)/real(tblock%x)), 1, 1)
 
-  !!Alocation req send recv pour echange mpi non bloquant
+  call set_undefined_boudaries_as_walls<<<grid, tblock>>>
+  call cuda_glerror('set_undefined_boundaries_as_walls',1)
+
+  !!Allocation des requettes send recv pour les echanges mpi non bloquant
   if(is_cgns) then
     allocate(reqsend(nelt_fant_envoi_bloc), sendstat(MPI_STATUS_SIZE,nelt_fant_envoi_bloc))
     allocate(reqrecv(nelt_fant_recep_bloc), recvstat(MPI_STATUS_SIZE,nelt_fant_recep_bloc))
@@ -113,26 +107,17 @@ program general
     allocate(reqrecv(tot), recvstat(MPI_STATUS_SIZE,tot))
   end if
 
-  call MPI_BARRIER(MPI_COMM_WORLD,mpi_ierr)
-
   !! Allocation des matrices et vecteurs
   allocate( surf(nelt), zm(nelt) )
   allocate( surf_d(nelt), zm_d(nelt) )
 
   allocate( vdlg(ndln,nelt), vdlg0(ndln,nelt))
-
-  !!Allocation des variables sur GPU avec leur pointeurs
   allocate( vdlg_d(ndln,nelt), vdlg0_d(ndln,nelt))
-
   if(diffusion) allocate(vdlg_nodes_d(ndln,nnt))
 
   allocate( she0(nnt), sh0(nnt), shu0(nnt), shv0(nnt), su0(nnt), sv0(nnt) )
 
   allocate( tsoljauge(200000), tsolrestart(200000), tsolvtk(200000), tsolsimple(200000))
-
-  !! Ouverture/creation des fichiers (opening / creating files)
-  call ouv_fichiers
-  vdlg_d = vdlg
 
   !! Construction of visualization vectors in post-processing
   if (solvtk == 1) then
@@ -153,11 +138,8 @@ program general
     enddo
   endif 
 
-  !! Calculation of the area and the gradient term z of each element
-  tblock = dim3(64, 1, 1)
-  grid   = dim3(ceiling(real(nelt)/real(tblock%x)), 1, 1)
-
-  call surfzm_cudaf<<<grid, tblock>>>(surf_d,zm_d)
+  call compute_surface_and_bathy<<<grid, tblock>>>
+  call cuda_glerror('compute_surface_and_bahty',1)
 
   zm      = zm_d
   surf    = surf_d
@@ -198,29 +180,17 @@ program general
   write(*,*) '======================================================================'
   write(*,*) '======================================================================'
 
-  !! Initialisation a zero des differents vecteurs
-  vdlg0              = zero
-  vdlg               = zero
-
-  vdlg0_d  = vdlg0
-  vdlg_d   = vdlg
-
   !! Application des conditions initiales
   if (solinit==1) then
-    call read_cond_initial(vdlg0) 
-    vdlg0_d = vdlg0
+    call read_initial_condition
   else
-    call cond_initial_cudaf<<<grid, tblock>>>(zm_d, vdlg0_d)
+    call set_initial_condition<<<grid, tblock>>>
+    call cuda_glerror('set_initial_condition',1)
   endif               
 
-  !!Fix non walls
-  call set_unset_as_wall<<<grid, tblock>>>()
-
   !! Calcul de la solution initiale sur les noeuds
-  valtemps = '0.0'
-
   vdlg0 = vdlg0_d
-  call sol_nodes(vdlg0,surf,zm,sh0,she0,shu0,shv0,su0,sv0)
+  call sol_nodes(sh0,she0,shu0,shv0,su0,sv0)
 
   !!  Storage for postraitement with possibility of animation (Tecplot)
   if(solvtk) then             
@@ -239,8 +209,8 @@ program general
   tc = 0.00
   tc_d = tc
 
-  !! FULL FINITE VOLUME
-  call Full_FV 
+  !! Résolution par méthode volumes finis
+  call solve_finite_volumes
 
   close(ec_solj_h)
   close(ec_solj_u)
@@ -308,4 +278,4 @@ program general
   close(3003)
 
   call MPI_FINALIZE(mpi_ierr)
-end program
+end program main

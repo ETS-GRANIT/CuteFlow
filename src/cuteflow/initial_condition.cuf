@@ -1,0 +1,103 @@
+module initial_condition
+  implicit none
+contains
+  attributes(global) subroutine set_initial_condition
+
+    use precision_kind
+    use global_data_device
+
+    implicit none
+
+    real(fp_kind) :: x1, x2 ,x3, x4, y1, y2, y3, y4, rayvol, vdlg0_dgi1, v1, v2, zmd
+    real(fp_kind) :: alpha, beta, X, Y, r_sup, omega, dist_min, x1coupe, x2coupe, y1coupe, y2coupe, dO_P1, dO_P2
+    integer :: ti,gi 
+
+    ti = threadIdx%x
+    gi = (blockIdx%x - 1)*blockDim%x + ti
+
+    if(gi <= nelt_d) then
+
+      zmd = zm_d(gi)
+
+      x1 = coo_table_elemwise_d(gi,1)
+      y1 = coo_table_elemwise_d(gi,2)
+
+      x2 = coo_table_elemwise_d(gi,4)
+      y2 = coo_table_elemwise_d(gi,5)
+
+      x3 = coo_table_elemwise_d(gi,7)
+      y3 = coo_table_elemwise_d(gi,8)
+
+      v1 = ( x1 + x2 + x3 ) / 3
+      v2 = ( y1 + y2 + y3 ) / 3
+
+      if (eqlin_barrage_d==1) then
+        alpha = (y1eqbar_d - y2eqbar_d)/(x1eqbar_d - x2eqbar_d)
+        beta = y1eqbar_d - alpha*x1eqbar_d
+
+        if ( alpha*v1 - v2 + beta >= 0.00) then        
+          vdlg0_dgi1    = h_amont_d - zmd
+          vdlg0_d(1,gi) = vdlg0_dgi1
+
+          if(vdlg0_dgi1 > tolisec_d) then
+            vdlg0_d(2,gi) = vdlg0_dgi1 * u_amont_d
+            vdlg0_d(3,gi) = vdlg0_dgi1 * v_amont_d   
+          else
+            vdlg0_d(1,gi) = tolisec_d
+            vdlg0_d(2,gi) = 0.
+            vdlg0_d(3,gi) = 0.
+          end if
+
+        else
+          vdlg0_dgi1 = h_aval_d - zmd
+          vdlg0_d(1,gi) = vdlg0_dgi1
+
+          if(vdlg0_dgi1 > tolisec_d) then
+            vdlg0_d(2,gi) = vdlg0_dgi1 * u_aval_d
+            vdlg0_d(3,gi) = vdlg0_dgi1 * v_aval_d
+          else
+            vdlg0_d(1,gi) = tolisec_d
+            vdlg0_d(2,gi) = 0.
+            vdlg0_d(3,gi) = 0.
+          end if
+        endif
+      endif
+
+      if (plan_d==1) then
+        vdlg0_dgi1 = (-xplan_d*(xpoint_d-v1)-yplan_d*(ypoint_d-v2))/zplan_d + zpoint_d - zmd
+        vdlg0_d(1,gi) = vdlg0_dgi1
+
+        if(vdlg0_dgi1 > tolisec_d) then
+          vdlg0_d(2,gi) = vdlg0_dgi1 * u_aval_d
+          vdlg0_d(3,gi) = vdlg0_dgi1 * v_aval_d
+        else
+          vdlg0_d(1,gi) = tolisec_d
+          vdlg0_d(2,gi) = 0.
+          vdlg0_d(3,gi) = 0.
+        end if
+      endif
+    endif
+  end subroutine set_initial_condition
+
+  subroutine read_initial_condition
+    use precision_kind
+    use global_data
+    use global_data_device
+    use file_id
+
+    implicit none
+
+    integer :: iel
+
+    open(390,file=fich_sol_init,status='old')
+    read (390,*) tc_init
+
+    do iel=1,nelt
+      read (390,*) vdlg0(1,iel), vdlg0(2,iel), vdlg0(3,iel)
+    enddo
+
+    close (390) 
+
+    vdlg0_d = vdlg0
+  end subroutine read_initial_condition
+end module initial_condition

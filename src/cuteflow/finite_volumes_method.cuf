@@ -1,20 +1,17 @@
-module Full_FV_module
+module finite_volumes_method
   implicit none
 contains
-  subroutine Full_FV 
-    !=====================================FULL FV=============================================   
-    !     Auteur : Jean-Marie Zokagoa, 2010
-    !     Modifications multi-GPU : Vincent Delmas, 2019
-    ! ======================================================================
-
-    use precision_m
-    use global
-    use global_device
-    use m_param
+  subroutine solve_finite_volumes
     use cudafor
     use mpi
-
+    use precision_kind
+    use global_data
+    use global_data_device
+    use file_id
     use pre_post_traitement
+    use flux_riemann
+    use cfl_condition
+    use source_terms
 
     implicit none
 
@@ -23,7 +20,7 @@ contains
     character (10) :: aaa, bbb, no_coupe
     integer :: i, ii, j, p, kk, ss, iel, nd, dl, niter, iter, n, c, nt, n0, som, som1, som2, som3, n_it, nitf, ifant
     integer :: evoisin, status, k, l, icor, iter_entree, iter_nodes
-    integer :: nodjauge, is_solnode, is_recons
+    integer :: nodjauge, is_solnode
 
     real(fp_kind) :: v, r, uinf, flux, s, xyc, xiel, yiel, coupe_y, distjaugm1, distjaug, dt1, sizecheck
     real(fp_kind) :: x, d, t, dtime, tcm, xc, yc, hauteur, newhaut, xnorm, zero, delta_debit0,delta_debit,deb_entre,deb_sorti,delta_eta
@@ -55,14 +52,10 @@ contains
     kk          = 1
     is_solnode  = 0
 
-    print*, ''
-    print*, 'FULL-ORDER : VOLUMES FINIS'
-    print*, ''
-
     allocate(resc_d(ndln,nelt), res_d(ndln,nelt))
+
     resc_d = 0.d0
     res_d = 0.d0
-
 
     allocate(sourcfric_d(ndln,nelt))
     allocate(sourcbath_d(ndln,nelt))
@@ -82,31 +75,24 @@ contains
       allocate(debit_sortie_arr(ndo-1),debit_sortie_arr_d(ndo-1))
     endif
 
-    call cuda_glerror('ierr <- cuda device mem allocation <-- Full_FV_cudaf_shared.cuf',1)
-
     call get_io_index()
 
     ! *** beginning of the loop on the temporal scheme iterations ***
     tblock = dim3(32, 1, 1)
     grid   = dim3(ceiling(real(nelt)/real(tblock%x)), 1, 1)
     grid_halved   = dim3(ceiling(real(nelt)/real(2*tblock%x)), 1, 1)
-    call check_gridlim(tblock, grid, 'err <- Full_FV_cudaf_shared.cuf (1)')
 
     tblock_reduc = dim3(1024, 1, 1)
     grid_reduc   = dim3(ceiling(real(nelt)/real(tblock_reduc%x)), 1, 1)
-    call check_gridlim(tblock_reduc, grid_reduc, 'err <- Full_FV_cudaf_shared.cuf (1)')
 
     block_copy = dim3(32,1,1) 
     grid_copy = dim3(ceiling(real(nelt)/real(block_copy%x)),1,1)
-    call check_gridlim(block_copy, grid_copy, 'err <- Full_FV_cudaf_shared.cuf (2)')
 
     tblock11 = dim3(32, 1, 1)
     grid11   = dim3(ceiling(real(nelt)/real(tblock11%x)), 1, 1)
-    call check_gridlim(tblock11, grid11, 'err <- Full_FV_cudaf_shared.cuf (3)')
 
     tblocks = dim3(8, ns, 1)
     grids   = dim3(ceiling(real(nelt)/real(tblocks%x)), 1, 1)
-    call check_gridlim(tblocks, grids, 'err <- Full_FV_cudaf_shared.cuf (3)')
 
     if (solinit==1) then
       if (tc_init < TS) then
@@ -120,7 +106,7 @@ contains
     endif    
 
     !!Initial dt exchange
-    call cflcond_cudaf<<<grid, tblock>>>(vdlg0_d,deltatmin_d)
+    call cflcond<<<grid, tblock>>>(vdlg0_d,deltatmin_d)
     call reduction<<<grid_reduc, tblock_reduc, tblock_reduc%x*sizeof(deltatmin_d(1))>>>(deltatmin_d)
     ierr = cudaMemcpyAsync(dt,dt_d,1,stream1)
     if(dt<1e-14) then
@@ -135,7 +121,6 @@ contains
     debit_sortie0 = 0.d0
     tc = 0.d0
     tc_d = tc
-    call cuda_glerror('ierr <- tc_d = tc <-- Full_FV_cudaf_shared.cuf',1)
 
     nt = 0
     kk = 1
@@ -161,7 +146,6 @@ contains
       debit_sortie  = 0.d0
 
       is_solnode = 0
-      is_recons = 0
 
       nt = nt + 1
 
@@ -171,13 +155,14 @@ contains
       call copy_2d<<<grid_copy, block_copy>>>(vdlg_d, vdlg0_d)
 
       !! ****** Calculation of Flux starts ******
-      call cotes_cudaf3<<<grids, tblocks, ns*tblocks%x*sizeof(1.0d0), stream1>>>(surf_d,zm_d,vdlg_d)
+      call cotes3<<<grids, tblocks, ns*tblocks%x*sizeof(1.0d0), stream1>>>(surf_d,zm_d,vdlg_d)
 
       !! ***** Calculation of source terms
-      call source_cudaf<<<grid, tblock, 0, stream2>>>(vdlg_d,surf_d,zm_d,deltatmin_d)
-      ierr = cudaDeviceSynchronize()
+      call source<<<grid, tblock, 0, stream2>>>(vdlg_d,surf_d,zm_d,deltatmin_d)
 
-      call calcul_residue_ele_cudaf<<<grid, tblock, 0, stream2>>>(surf_d, res_d)
+      ! ierr = cudaDeviceSynchronize()
+      ! call calcul_residue_ele<<<grid, tblock, 0, stream2>>>()
+      call calcul_residue_ele<<<grid, tblock, 0>>>()
 
       if(ndo>1) then
         ierr = cudaMemcpyAsync(debit_sortie_arr,debit_sortie_arr_d,size(debit_sortie_arr),stream1)
@@ -187,7 +172,7 @@ contains
         ierr = cudaMemcpyAsync(debit_entree_arr,debit_entree_arr_d,size(debit_entree_arr),stream1)
       end if
 
-      ierr = cudaDeviceSynchronize()
+      ! ierr = cudaDeviceSynchronize()
 
       if(ndo>1) then
         debit_sortie  =  debit_sortie + sum(debit_sortie_arr)
@@ -231,7 +216,7 @@ contains
       end if
 
       ! Calcul du pas de temps via la CFL
-      call cflcond_cudaf<<<grid, tblock,0,stream1>>>(vdlg_d,deltatmin_d)
+      call cflcond<<<grid, tblock,0,stream1>>>(vdlg_d,deltatmin_d)
       !!Reset du pas de temps sur le gpu
       ierr = cudaMemcpyAsync(dt_d,dt_max,1,stream2) 
       ierr = cudaStreamSynchronize(stream2) !! On peut commenter cette ligne pour faire le pari que la race condition sera ok
@@ -288,8 +273,7 @@ contains
       if( (solvtk == 1 .and. abs( tc - tsolvtk(cptsolvtk) ) <= tolaffiche) .or. (debug_mode == 1) )then
         if(is_solnode == 0) then 
           vdlg = vdlg_d
-          call cuda_glerror('ierr<- (D->H) data_transfer into vdlg(3) <-- Full_FV_cudaf_shared.cuf',1)
-          call sol_nodes(vdlg,surf,zm,sh0,she0,shu0,shv0,su0,sv0)
+          call sol_nodes(sh0,she0,shu0,shv0,su0,sv0)
           is_solnode = 1
         endif
 
@@ -306,8 +290,7 @@ contains
       if ((solsimple /= 0 .and. abs( tc - tsolsimple(cptsolsimple) ) <= tolaffiche) .or. (debug_mode == 1) )then
         if(is_solnode == 0) then 
           vdlg = vdlg_d
-          call cuda_glerror('ierr<- (D->H) data_transfer into vdlg(3) <-- Full_FV_cudaf_shared.cuf',1)
-          call sol_nodes(vdlg,surf,zm,sh0,she0,shu0,shv0,su0,sv0)
+          call sol_nodes(sh0,she0,shu0,shv0,su0,sv0)
           is_solnode = 1
         endif
 
@@ -322,7 +305,7 @@ contains
         if(is_solnode == 0) then 
           vdlg = vdlg_d
           call cuda_glerror('ierr<- (D->H) data_transfer into vdlg(3)',1)
-          call sol_nodes(vdlg,surf,zm,sh0,she0,shu0,shv0,su0,sv0)
+          call sol_nodes(sh0,she0,shu0,shv0,su0,sv0)
           is_solnode = 1
         endif
 
@@ -365,7 +348,6 @@ contains
           t_reg_perm = tc
           tc   = tc + ts  ! pour sortir de la boucle while !to exit the while loop
           tc_d = tc
-          call cuda_glerror('ierr <- tc_d = tc (2) <-- Full_FV_cudaf_shared.cuf',1)
         end if
       else
         cond_reg_perm = 0
@@ -393,7 +375,7 @@ contains
 
     vdlg = vdlg_d
 
-    call sol_nodes(vdlg,surf,zm,sh0,she0,shu0,shv0,su0,sv0)
+    call sol_nodes(sh0,she0,shu0,shv0,su0,sv0)
 
     !!Enregistrement de la solution finale pour post-traitement avec Bluekenue/Paraview
 
@@ -421,11 +403,11 @@ contains
       cptsolsimple = cptsolsimple + 1
     endif
 
-  end subroutine Full_FV
+  end subroutine solve_finite_volumes
 
   attributes(global) subroutine copy_2d(a,b)
-    use precision_m
-    use global_device
+    use precision_kind
+    use global_data_device
     real(fp_kind), intent(inout) :: a(ndln_d,nelt_d), b(ndln_d,nelt_d)
 
     integer :: ti,gi
@@ -440,8 +422,8 @@ contains
   end subroutine copy_2d
 
   attributes(global) subroutine copy_into_res_d(vdlg_d,vdlg0_d,res_d)
-    use precision_m
-    use global_device
+    use precision_kind
+    use global_data_device
 
     real(fp_kind), intent(inout) :: vdlg_d(ndln_d,nelt_d), vdlg0_d(ndln_d,nelt_d), res_d(ndln_d,nelt_d)
 
@@ -458,7 +440,7 @@ contains
 
 
   attributes(global) subroutine copy_1d(a,b,n)
-    use precision_m
+    use precision_kind
     real(fp_kind), intent(inout) :: a(:), b(:)
     integer, intent(in) :: n
 
@@ -475,9 +457,9 @@ contains
   end subroutine copy_1d
 
   subroutine gpu_echange_fant_bloc_async_not_cuda_aware(a, nd)
-    use precision_m
-    use global
-    use global_device
+    use precision_kind
+    use global_data
+    use global_data_device
     use mpi
 
     integer, intent(in) :: nd
@@ -516,9 +498,9 @@ contains
   end subroutine gpu_echange_fant_bloc_async_not_cuda_aware
 
   subroutine gpu_echange_fant_bloc_async(a, nd)
-    use precision_m
-    use global
-    use global_device
+    use precision_kind
+    use global_data
+    use global_data_device
     use mpi
 
     integer, intent(in) :: nd
@@ -557,9 +539,9 @@ contains
   end subroutine gpu_echange_fant_bloc_async
 
   subroutine gpu_echange_fant_bloc(a, nd)
-    use precision_m
-    use global
-    use global_device
+    use precision_kind
+    use global_data
+    use global_data_device
     use mpi
 
     integer, intent(in) :: nd
@@ -601,9 +583,9 @@ contains
 
   subroutine gpu_echange_cgns(a,nd)
     use mpi
-    use precision_m 
-    use global
-    use global_device
+    use precision_kind 
+    use global_data
+    use global_data_device
 
     implicit none
     integer, intent(in) :: nd
@@ -635,44 +617,39 @@ contains
     ! call MPI_WAITALL(n_elt_fant_recep_range,req_recep,stat_recep,mpi_ierr)
   end subroutine gpu_echange_cgns
 
-  attributes(global) subroutine calcul_residue_ele_cudaf(surf_d, resj_d)
-    use precision_m
+  attributes(global) subroutine calcul_residue_ele
+    use precision_kind
+    use global_data_device
 
-    use global_device
     implicit none
 
-    real(fp_kind), intent(in) :: surf_d(nelt_d)
-    real(fp_kind), intent(inout) :: resj_d(ndln_d,nelt_d)
-
-    integer :: ti,gi, fric
-    real(fp_kind) :: resini(ndln_d)
-
-    fric = fricimplic_d
+    integer :: ti, gi
+    real(fp_kind) :: resini(3)
 
     ti = threadIdx%x
     gi = (blockIdx%x - 1)*blockDim%x + ti
 
     if(gi <= nelt_d-nelt_fant_recep_d) then
       if ( friction_d == 1) then
-        if ( fric == 1 .or. fric == 2 ) then
+        if ( fricimplic_d == 1 .or. fricimplic_d == 2 ) then
           resini = ( sourcbath_d(:,gi) + sourcfric_d(:,gi) - resc_d(:,gi) ) / surf_d(gi)
-          resj_d(1,gi) = sum(afm1_d(gi,1:3)*resini)
-          resj_d(2,gi) = sum(afm1_d(gi,4:6)*resini)
-          resj_d(3,gi) = sum(afm1_d(gi,7:9)*resini)
+          res_d(1,gi) = sum(afm1_d(gi,1:3)*resini)
+          res_d(2,gi) = sum(afm1_d(gi,4:6)*resini)
+          res_d(3,gi) = sum(afm1_d(gi,7:9)*resini)
         else
-          resj_d(:,gi) = (sourcbath_d(:,gi)+ sourcfric_d(:,gi) - resc_d(:,gi)) / surf_d(gi)
+          res_d(:,gi) = (sourcbath_d(:,gi)+ sourcfric_d(:,gi) - resc_d(:,gi)) / surf_d(gi)
         endif
       else 
-        resj_d(:,gi) = (sourcbath_d(:,gi) - resc_d(:,gi)) / surf_d(gi)
+        res_d(:,gi) = (sourcbath_d(:,gi) - resc_d(:,gi)) / surf_d(gi)
       endif
     endif
 
-  end subroutine calcul_residue_ele_cudaf
+  end subroutine calcul_residue_ele
 
   subroutine get_io_index
-    use precision_m
-    use global
-    use global_device
+    use precision_kind
+    use global_data
+    use global_data_device
     implicit none
     integer :: i, j, k, counter
     if(ndi>0) then
@@ -684,7 +661,7 @@ contains
       debit_sortie_arr_d = debit_sortie_arr
     endif
 
-    call cuda_glerror('ierr <- (H->D) data transfer (1) <-- get_io_index <--- Full_FV_cudaf_shared.cuf ',1)
+    call cuda_glerror('ierr <- (H->D) data transfer (1) <-- get_io_index <--- Full_FV_shared.cuf ',1)
 
     io_identifier = 0
 
@@ -706,6 +683,6 @@ contains
 
 
     io_identifier_d = io_identifier
-    call cuda_glerror('ierr <- (H->D) data transfer (2) <-- get_io_index <--- Full_FV_cudaf_shared.cuf ',1)
+    call cuda_glerror('ierr <- (H->D) data transfer (2) <-- get_io_index <--- Full_FV_shared.cuf ',1)
   end subroutine get_io_index
-end module Full_FV_module
+end module finite_volumes_method

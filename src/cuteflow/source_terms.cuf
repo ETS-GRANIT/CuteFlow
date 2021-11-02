@@ -1,0 +1,234 @@
+module source_terms
+  implicit none
+contains
+  attributes(global) subroutine source(vdlg_d,surf_d,zm_d,deltatmin_d)
+    !
+    ! ======================================================================
+    !
+    !     source = calcul du terme source sur kvol    
+    !     source = calculation of the source term on kvol
+    !
+    !     auteur : Youssef Loukili  GRANIT ETSMTL
+    !
+    !     version : 1.0  ;  May 12 2003
+    ! ======================================================================
+    !
+
+    use precision_kind
+    use global_data_device
+    implicit none
+
+    real(fp_kind), dimension(ndln_d,nelt_d), intent(in)    :: vdlg_d
+    real(fp_kind), dimension(nelt_d), intent(in)      :: surf_d, zm_d, deltatmin_d
+
+    real(fp_kind)                         :: chezy2, vitu, vitv, normvit, area
+    real(fp_kind)                         :: x1, y1, x2, y2, x3, y3, ln, orient
+    real(fp_kind)                         :: manning, dtgn2, dtgn2h, detaf, q1, q2, q3, normQ, beta, zij, hijet
+    real(fp_kind), dimension(3,3)         :: af
+    real(fp_kind), dimension(2)           :: norm
+    integer                               :: nc1, nc2, nc3, kvol, kvoisin
+    integer :: cond
+    integer :: ti,gi
+
+    ti = threadIdx%x
+    gi = (blockIdx%x - 1)*blockDim%x + ti
+
+    if (gi <= nelt_d-nelt_fant_recep_d) then
+      sourcfric_d(:,gi) = 0.d0
+      q1 = vdlg_d(1,gi)
+      q2 = vdlg_d(2,gi)
+      q3 = vdlg_d(3,gi)
+      area = surf_d(gi)
+      normQ   = sqrt( q2**2 + q3**2 )
+
+      if(is_override_manning_d) then
+        manning = override_manning_d
+      else
+        manning = manning_nelt_d(gi)
+      end if
+
+      !       ++++++++++++++  SLOPE  +++++++++++++++
+      ! Eq 30 de A Weighted Average Flux (WAF) scheme applied to shallow waterequations for real-life applications (Riadh et al.)
+
+      sourcbath_d(1,gi) = 0.
+      sourcbath_d(2,gi) = 0.
+      sourcbath_d(3,gi) = 0.
+
+      do kvol=1,ns_d
+
+        kvoisin = boundary_d(gi,kvol,1)
+
+        ! Uniquement si pas limite
+        if(kvoisin > 0) then
+
+          ! Recuperation des indices des sommets et orientation de la normale comme dans cotes_shared.cuf
+          nc1 = kvol
+
+          cond = merge(1,0, nc1 == ns_d)
+          nc2 = int((nc1 - ns_d + 1)*cond + (nc1 + 1)*(1-cond))
+
+          cond = merge(1,0, nc2 == ns_d)
+          nc3 = int((nc2 - ns_d + 1)*cond + (nc2 + 1)*(1-cond))
+
+          x1 = coo_table_elemwise_d(gi, 3*nc1-2)
+          y1 = coo_table_elemwise_d(gi, 3*nc1-1)
+
+          x2 = coo_table_elemwise_d(gi, 3*nc2-2)
+          y2 = coo_table_elemwise_d(gi, 3*nc2-1) 
+
+          x3 = coo_table_elemwise_d(gi, 3*nc3-2)
+          y3 = coo_table_elemwise_d(gi, 3*nc3-1) 
+
+          ln = sqrt( (x2 - x1)**2 + (y2 - y1)**2 )
+
+          norm(1) = ( y2 - y1 ) / ln
+          norm(2) = ( x1 - x2 ) / ln
+
+          orient = norm(1)*((x1+x2)/2.-(x1+x2+x3)/3.) + norm(2)*((y1+y2)/2.-(y1+y2+y3)/3.)
+          if(orient < 0.) then
+            norm(1) = ( y1 - y2 ) / ln
+            norm(2) = ( x2 - x1 ) / ln
+          end if
+
+          zij = max(zm_d(gi),zm_d(kvoisin))
+
+          hijet = q1 + zm_d(gi) - zij
+
+          hijet = max(0.0D0,hijet)
+
+          sourcbath_d(2,gi) = sourcbath_d(2,gi) + gp_d/2.0D0 * (hijet**2 - q1**2) * ln * norm(1)
+          sourcbath_d(3,gi) = sourcbath_d(3,gi) + gp_d/2.0D0 * (hijet**2 - q1**2) * ln * norm(2)
+        end if
+
+      end do
+
+      !       ++++++++++++++  FRICTION  +++++++++++++++
+      if (friction_d == 1) then
+
+        if (  q1 <= tolisec_d) then
+          !		if (  q1 <= tol_d ) then              
+
+          sourcfric_d( 2,gi) = 0.d0
+          sourcfric_d( 3,gi) = 0.d0
+        else                                                
+          vitu = q2 / q1
+          vitv = q3 / q1
+
+          chezy2  = q1**(1.d0/3.d0) / manning**2
+          normvit = sqrt( vitu**2 + vitv**2 )
+
+          if ( normvit < tol_d ) then
+            normvit= tol_d
+          endif
+
+          sourcfric_d( 2,gi) = - gp_d * manning*manning * vitu * normvit * area*q1**(-1.d0/3.d0)
+          sourcfric_d( 3,gi) = - gp_d * manning*manning * vitv * normvit * area*q1**(-1.d0/3.d0)
+        endif
+
+        !       ++++++++++++++  IMPLICITATION  +++++++++++++++
+
+        if ( fricimplic_d == 1 ) then 
+
+          if ( normvit > tol_d .and. q1 > tolisec_d ) then
+            !			if ( normvit > tol_d .and. q1 > tol_d ) then
+            !
+            ! tempa  = real(q1**(-4.d0/3.d0))
+            ! dtgn2h = dt_d / 2.d0 * gp_d * manning*manning*tempa
+            !
+
+            dtgn2h = dt_d / 2.d0 * gp_d * manning*manning*q1**(-4.d0/3.d0)
+
+            !! Matrice Id-dt/2 * J avec J la matrice jacobienne du terme de friction
+            af(1,1) = 1.d0
+            af(1,2) = 0.d0
+            af(1,3) = 0.d0
+            af(2,1) = - 7.d0/3.d0*dtgn2h * vitu * normvit
+            ! af(2,2) = 1.d0 + (dtgn2h/q1) * ( 2*vitu**2 + vitv**2 ) / normvit
+            af(2,2) = 1.d0 + dtgn2h * ( 2*vitu**2 + vitv**2 ) / normvit
+            ! af(2,3) = (dtgn2h/q1) * vitu * vitv / normvit
+            af(2,3) = dtgn2h * vitu * vitv / normvit
+            af(3,1) = - 7.d0/3.d0*dtgn2h * vitv * normvit
+            af(3,2) = af(2,3)
+            ! af(3,3) = 1.d0 + (dtgn2h/q1) * ( vitu**2 + 2*vitv**2 ) / normvit
+            af(3,3) = 1.d0 + dtgn2h * ( vitu**2 + 2*vitv**2 ) / normvit
+
+            !! Determinant de Id-dt/2 * J
+            detaf = af(2,2)*af(3,3)-af(2,3)*af(3,2)
+
+            !! Matrice inverse de Id-dt/2 * J
+            afm1_d(gi,1) = 1
+            afm1_d(gi,2) = 0.d0
+            afm1_d(gi,3) = 0.d0
+            afm1_d(gi,4) = -(af(2,1)*af(3,3) - af(2,3)*af(3,1))/detaf 
+            afm1_d(gi,5) = af(3,3)/detaf
+            afm1_d(gi,6) = -af(2,3)/detaf 
+            afm1_d(gi,7) =  (af(2,1)*af(3,2) - af(2,2)*af(3,1))/detaf
+            afm1_d(gi,8) = -af(3,2)/detaf
+            afm1_d(gi,9) = af(2,2)/detaf
+
+          else
+            afm1_d(gi,1) = 1.d0
+            afm1_d(gi,2) = 0.d0
+            afm1_d(gi,3) = 0.d0
+            afm1_d(gi,4) = 0.d0
+            afm1_d(gi,5) = 1.d0
+            afm1_d(gi,6) = 0.d0
+            afm1_d(gi,7) = 0.d0
+            afm1_d(gi,8) = 0.d0
+            afm1_d(gi,9) = 1.d0
+          endif
+
+        elseif ( fricimplic_d == 2 ) then
+
+          if ( normvit > tol_d .and. q1 > tolisec_d ) then
+            !	if ( normvit > tol_d .and. q1 > tol_d ) then
+            !
+            ! tempa  = real(q1**(-4.d0/3.d0))
+            ! beta = - dt_d* gp_d * manning*manning * normvit * tempa
+
+            beta = - dt_d* gp_d * manning*manning * normvit * q1**(-4.d0/3.d0)
+
+            !! Matrice Id-dt * B
+            af(1,1) = 1.d0
+            af(1,2) = 0.d0
+            af(1,3) = 0.d0
+            af(2,1) = 0.d0
+            af(2,2) = 1.d0 - beta
+            af(2,3) = 0.d0
+            af(3,1) = 0.d0
+            af(3,2) = 0.d0
+            af(3,3) = 1.d0 - beta
+
+            !! Determinant de  Id-dt * B
+            detaf = (1-beta)**2
+
+            !! Matrice inverse Id-dt * B
+            afm1_d(gi,1) = 1.d0
+            afm1_d(gi,2) = 0.d0
+            afm1_d(gi,3) = 0.d0
+            afm1_d(gi,4) = 0.d0
+            afm1_d(gi,5) = (1-beta)/detaf
+            afm1_d(gi,6) = 0.d0
+            afm1_d(gi,7) = 0.d0
+            afm1_d(gi,8) = 0.d0
+            afm1_d(gi,9) = (1-beta)/detaf
+
+          else
+
+            afm1_d(gi,1) = 1.d0
+            afm1_d(gi,2) = 0.d0
+            afm1_d(gi,3) = 0.d0
+            afm1_d(gi,4) = 0.d0
+            afm1_d(gi,5) = 1.d0
+            afm1_d(gi,6) = 0.d0
+            afm1_d(gi,7) = 0.d0
+            afm1_d(gi,8) = 0.d0
+            afm1_d(gi,9) = 1.d0
+
+          endif
+        endif
+      endif
+    endif
+
+  end subroutine source
+end module source_terms

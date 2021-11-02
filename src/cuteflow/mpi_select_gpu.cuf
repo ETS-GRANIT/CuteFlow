@@ -1,4 +1,4 @@
-module mpiDeviceUtil
+module mpi_select_gpu
   interface
     subroutine quicksort(base, nmemb, elemsize, compar) &
         bind(C,name='qsort') 
@@ -75,4 +75,4 @@ contains
     logical :: res
     res = .not. leq(s1,s2)
   end function
-end module mpiDeviceUtil
+end module mpi_select_gpu

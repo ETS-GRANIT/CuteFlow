@@ -1,4 +1,4 @@
-module precision_m
+module precision_kind
   use mpi
   integer , parameter :: singlePrecision = kind(0.0)
   integer , parameter :: doublePrecision = kind(0.0d0)
@@ -75,7 +75,4 @@ contains
 
 
   end subroutine check_gridlim
-
-end module precision_m
-
-
+end module precision_kind
