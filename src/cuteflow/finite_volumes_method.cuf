@@ -48,7 +48,6 @@ contains
     cond_reg_perm  = 0
     cptviscoupe = 1
     cptsoljauge = 1
-    tc_d        = tc
     kk          = 1
     is_solnode  = 0
 
@@ -97,11 +96,9 @@ contains
     if (solinit==1) then
       if (tc_init < TS) then
         tc = tc_init
-        tc_d = tc
       else
         print*,'TEMPS TOTAL DE SIMULATION INFERIEUR AU TEMPS DE LA SOLUTION INITIALE'
         tc = 0.
-        tc_d = tc
       endif
     endif    
 
@@ -120,7 +117,6 @@ contains
 
     debit_sortie0 = 0.d0
     tc = 0.d0
-    tc_d = tc
 
     nt = 0
     kk = 1
@@ -135,11 +131,7 @@ contains
         if(nt >= max_iter-1) then
           tc = ts+1
         end if
-      end if
-
-      ierr = cudaDeviceSynchronize()
-      if(dt>100000) then
-        print*," !!! ATTENTION !!! : dt > 100000 probable erreur, diminuer le nombre cfl ou augmenter la tolérence sec/mouillé" 
+        print*,dt
       end if
 
       debit_entree  = 0.d0
@@ -151,8 +143,7 @@ contains
 
       tcm = tc / 60   ! *** temps en minutes ***
 
-      !Début de la boucle sur les iterations du schema temporel
-      call copy_2d<<<grid_copy, block_copy>>>(vdlg_d, vdlg0_d)
+      ierr = cudaDeviceSynchronize()
 
       !! ****** Calculation of Flux starts ******
       call cotes3<<<grids, tblocks, ns*tblocks%x*sizeof(1.0d0), stream1>>>(surf_d,zm_d,vdlg_d)
@@ -160,9 +151,12 @@ contains
       !! ***** Calculation of source terms
       call source<<<grid, tblock, 0, stream2>>>(vdlg_d,surf_d,zm_d,deltatmin_d)
 
-      ! ierr = cudaDeviceSynchronize()
-      ! call calcul_residue_ele<<<grid, tblock, 0, stream2>>>()
-      call calcul_residue_ele<<<grid, tblock, 0>>>()
+      ierr = cudaStreamSynchronize(stream1)
+      call calcul_residue_ele<<<grid, tblock, 0, stream2>>>()
+
+      ierr = cudaStreamSynchronize(stream2)
+      ! call copy_2d<<<grid_copy, block_copy, 0, stream1>>>(vdlg0_d, vdlg_d)
+      ierr = cudaMemcpyAsync(vdlg0_d, vdlg_d, ndln*nelt, stream1)
 
       if(ndo>1) then
         ierr = cudaMemcpyAsync(debit_sortie_arr,debit_sortie_arr_d,size(debit_sortie_arr),stream1)
@@ -172,13 +166,13 @@ contains
         ierr = cudaMemcpyAsync(debit_entree_arr,debit_entree_arr_d,size(debit_entree_arr),stream1)
       end if
 
-      ! ierr = cudaDeviceSynchronize()
-
       if(ndo>1) then
+        ierr = cudaStreamSynchronize(stream1)
         debit_sortie  =  debit_sortie + sum(debit_sortie_arr)
       end if
 
       if(ndi>1) then
+        ierr = cudaStreamSynchronize(stream1)
         !En fait on parcours les arretes numérote dans get_io_index
         do iter_nodes=1,ndi-1
           !!iter_entree = numero_ndinput(iter_nodes)
@@ -187,16 +181,11 @@ contains
         end do
       end if
 
-      call copy_into_res_d<<<grid_copy, block_copy>>>(vdlg_d,vdlg0_d,res_d)
-
       !!Reduce sum of all debits
       if(num_mpi_process>1) then
         call MPI_ALLREDUCE(MPI_IN_PLACE,debit_entree,nombre_entrees,fp_kind_mpi,MPI_SUM,MPI_COMM_WORLD, mpi_ierr)
         call MPI_ALLREDUCE(MPI_IN_PLACE,debit_sortie,1,fp_kind_mpi,MPI_SUM,MPI_COMM_WORLD, mpi_ierr)
       end if
-
-
-      ! print*, "Avant échange mémoire"
 
       !!  Echange sur GPU directement bloc
       if(num_mpi_process>1) then
@@ -209,19 +198,21 @@ contains
         else
           !!Not Cuda Aware version
           !! First copy from the GPU to CPU, then from CPU to CPU, ten from CPU to GPU
-          ierr = cudaMemcpy(vdlg_d, vdlg, nelt, cudamemcpyDeviceToHost)
+          ierr = cudaMemcpy(vdlg_d, vdlg, nelt*ndln, cudamemcpyDeviceToHost)
           ierr = cudadevicesynchronize()
           call gpu_echange_fant_bloc_async_not_cuda_aware(vdlg, ndln)
         end if
       end if
 
-      ! Calcul du pas de temps via la CFL
-      call cflcond<<<grid, tblock,0,stream1>>>(vdlg_d,deltatmin_d)
       !!Reset du pas de temps sur le gpu
-      ierr = cudaMemcpyAsync(dt_d,dt_max,1,stream2) 
-      ierr = cudaStreamSynchronize(stream2) !! On peut commenter cette ligne pour faire le pari que la race condition sera ok
-      call reduction<<<grid_reduc, tblock_reduc, tblock_reduc%x*sizeof(deltatmin_d(1)),stream1>>>(deltatmin_d)
-      ierr = cudaMemcpyAsync(dt,dt_d,1,stream1)
+      ierr = cudaMemcpyAsync(dt_d,dt_max,1,stream1) 
+      ! Calcul du pas de temps via la CFL
+      call cflcond<<<grid, tblock,0,stream2>>>(vdlg_d,deltatmin_d)
+
+      ierr = cudaStreamSynchronize(stream1) !! On peut commenter cette ligne pour faire le pari que la race condition sera ok
+
+      call reduction<<<grid_reduc, tblock_reduc, tblock_reduc%x*sizeof(deltatmin_d(1)),stream2>>>(deltatmin_d)
+      ierr = cudaMemcpyAsync(dt,dt_d,1,stream2)
 
       !!Attendre fin de l'échange mémoire de vdlg
       !! et mise a jour vdlg avec vdlg
@@ -234,12 +225,12 @@ contains
         end if
       end if
 
-      call copy_2d<<<grid_copy, block_copy, 0, stream2>>>(vdlg0_d, vdlg_d)
 
       !!Take the smallest dt across all GPUs
       if(num_mpi_process>1) then
-        ierr = cudaStreamSynchronize(stream1)
+        ierr = cudaStreamSynchronize(stream2)
         call MPI_ALLREDUCE(MPI_IN_PLACE,dt,1,fp_kind_mpi,MPI_MIN,MPI_COMM_WORLD, mpi_ierr)
+        ierr = cudaMemcpyAsync(dt_d,dt,1,stream2)
       end if
 
       if(dt>9999 .or. dt < 1e-15) then
@@ -247,10 +238,7 @@ contains
         exit
       end if
 
-      ierr = cudaMemcpyAsync(dt_d,dt,1,stream1)
-
       tc = tc + dt
-      tc_d = tc
 
       ! *** Affichage de l'avancement ***
       if ( mod(nt,freqaffich)==0 ) then
@@ -347,12 +335,10 @@ contains
 
           t_reg_perm = tc
           tc   = tc + ts  ! pour sortir de la boucle while !to exit the while loop
-          tc_d = tc
         end if
       else
         cond_reg_perm = 0
       endif
-      !endif
 
       debit_sortie0 = debit_sortie
     enddo 
@@ -421,28 +407,10 @@ contains
 
   end subroutine copy_2d
 
-  attributes(global) subroutine copy_into_res_d(vdlg_d,vdlg0_d,res_d)
-    use precision_kind
-    use global_data_device
-
-    real(fp_kind), intent(inout) :: vdlg_d(ndln_d,nelt_d), vdlg0_d(ndln_d,nelt_d), res_d(ndln_d,nelt_d)
-
-    integer :: ti, gi
-
-    ti = threadIdx%x
-    gi = (blockIdx%x - 1)*blockDim%x + ti
-
-    if (gi <= nelt_d-nelt_fant_recep_d) then
-      vdlg_d(:,gi) = vdlg0_d(:,gi) + dt_d * res_d(:,gi)
-    endif
-
-  end subroutine copy_into_res_d
-
-
   attributes(global) subroutine copy_1d(a,b,n)
     use precision_kind
-    real(fp_kind), intent(inout) :: a(:), b(:)
     integer, intent(in) :: n
+    real(fp_kind), intent(inout) :: a(n), b(n)
 
     integer :: ti,gi
 
@@ -642,6 +610,9 @@ contains
       else 
         res_d(:,gi) = (sourcbath_d(:,gi) - resc_d(:,gi)) / surf_d(gi)
       endif
+
+      vdlg_d(:,gi) = vdlg0_d(:,gi) + dt_d * res_d(:,gi)
+
     endif
 
   end subroutine calcul_residue_ele

@@ -188,8 +188,11 @@ program main
     call cuda_glerror('set_initial_condition',1)
   endif               
 
-  !! Calcul de la solution initiale sur les noeuds
   vdlg0 = vdlg0_d
+  vdlg = vdlg0
+  vdlg_d = vdlg
+
+  !! Calcul de la solution initiale sur les noeuds
   call sol_nodes(sh0,she0,shu0,shv0,su0,sv0)
 
   !!  Storage for postraitement with possibility of animation (Tecplot)
@@ -207,7 +210,6 @@ program main
 
   !! Initialisation du temps et calcul de dt via la CFL
   tc = 0.00
-  tc_d = tc
 
   !! Résolution par méthode volumes finis
   call solve_finite_volumes
