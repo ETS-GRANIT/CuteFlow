@@ -7,9 +7,9 @@ CC = 60
 CUTEFLAGS = -Mcuda=cc60 -O0 -g -Mfptrap=zero,overflow,underflow -Mbounds -Mdclchk -Mchkptr -Mchkstk -Meh_frame, -Minform,inform -I/cvmfs/soft.computecanada.ca/easybuild/software/2020/avx2/MPI/nvhpc20/cuda11.0/openmpi4/cgns/4.1.2/include/
 CUTECOMPILER = mpif90 
 
-CUTEFILES = mpiDeviceUtil.cuf precision.cuf global_data.cuf global_data_constant_device.cuf data_transfer.cuf  m_param.cuf main_prog_variables.cuf \
-maillage.cuf cond_initial_cudaf.cuf  pre_post_traitement.cuf cflcond_cudaf.cuf \
-cotes_cudaf_shared.cuf source_cudaf.cuf Full_FV_cudaf_shared.cuf general_cudaf.cuf
+CUTEFILES = precision_kind.cuf mpi_select_gpu.cuf file_id.cuf global_data.cuf global_data_device.cuf data_transfer.cuf maillage.cuf cfl_condition.cuf initial_condition.cuf pre_post_traitement.cuf source_terms.cuf flux_riemann.cuf finite_volumes_method.cuf main.cuf
+# CUTEFILES = cfl_condition.cuf file_id.cuf flux_riemann.cuf global_data_device.cuf maillage.cuf mpi_select_gpu.cuf  pre_post_traitement.cuf data_transfer.cuf  finite_volumes_method.cuf global_data.cuf initial_condition.cuf main.cuf precision_kind.cuf source_terms.cuf
+
 
 CUTEFILESPREF = $(addprefix ${SRC}/cuteflow/, ${CUTEFILES})
 
