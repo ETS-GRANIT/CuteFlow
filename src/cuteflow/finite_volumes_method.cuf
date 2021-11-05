@@ -29,7 +29,7 @@ contains
 
     real(fp_kind), dimension(2)  :: greta, grhaut
 
-    type(dim3 )                             :: grid, tblock, grid_nodes, tblock_nodes, grid11, tblock11, grids, tblocks,block_copy, grid_copy , grid_halved, grid_reduc, tblock_reduc
+    type(dim3 )                             :: grid, tblock, grid_nodes, tblock_nodes, grid11, tblock11, grids, tblocks,block_copy, grid_copy , grid_halved, grid_reduc, tblock_reduc, grid_usc, tblock_usc
     real(fp_kind)                           :: time_start, time_stop, tb1, tb2, te1, te2
     real(fp_kind)                           :: errf, errf1, errf2, errf3, errf4, errf5
     integer                                 :: ierr, cond_reg_perm 
@@ -93,6 +93,9 @@ contains
     tblocks = dim3(8, ns, 1)
     grids   = dim3(ceiling(real(nelt)/real(tblocks%x)), 1, 1)
 
+    tblock_usc = dim3(32, 1, 1)
+    grid_usc   = dim3(ceiling(real(nmax_ptset)/real(tblock_usc%x)), nelt_fant_envoi_bloc, 1)
+
     if (solinit==1) then
       if (tc_init < TS) then
         tc = tc_init
@@ -105,12 +108,16 @@ contains
     !!Initial dt exchange
     call cflcond<<<grid, tblock>>>(vdlg0_d,deltatmin_d)
     call reduction<<<grid_reduc, tblock_reduc, tblock_reduc%x*sizeof(deltatmin_d(1))>>>(deltatmin_d)
-    ierr = cudaMemcpyAsync(dt,dt_d,1,stream1)
+    ierr = cudaMemcpy(dt,dt_d,1)
     if(dt<1e-14) then
       dt = 1e-10
     endif
-    call MPI_ALLREDUCE(MPI_IN_PLACE,dt,1,fp_kind_mpi,MPI_MIN,MPI_COMM_WORLD, mpi_ierr)
-    dt_d = dt
+
+    if(num_mpi_process>1) then
+      call MPI_ALLREDUCE(MPI_IN_PLACE,dt,1,fp_kind_mpi,MPI_MIN,MPI_COMM_WORLD, mpi_ierr)
+      dt_d = dt
+    end if
+
     if(dt>100000) then
       print*," dt > 100000 probable erreur, diminuer le nombre cfl ou augmenter la tolérence sec/mouillé" 
     end if
@@ -127,6 +134,8 @@ contains
     write(*,*) 'Loop over time starts' 
     call cpu_time(temps_initial)
     do while ( (tc - ts + 2*tol ) < tol )
+      ierr = cudaDeviceSynchronize()
+
       if(debug_mode==1) then
         if(nt >= max_iter-1) then
           tc = ts+1
@@ -143,8 +152,6 @@ contains
 
       tcm = tc / 60   ! *** temps en minutes ***
 
-      ierr = cudaDeviceSynchronize()
-
       !! ****** Calculation of Flux starts ******
       call cotes3<<<grids, tblocks, ns*tblocks%x*sizeof(1.0d0), stream1>>>(surf_d,zm_d,vdlg_d)
 
@@ -154,9 +161,8 @@ contains
       ierr = cudaStreamSynchronize(stream1)
       call calcul_residue_ele<<<grid, tblock, 0, stream2>>>()
 
-      ierr = cudaStreamSynchronize(stream2)
-      ! call copy_2d<<<grid_copy, block_copy, 0, stream1>>>(vdlg0_d, vdlg_d)
-      ierr = cudaMemcpyAsync(vdlg0_d, vdlg_d, ndln*nelt, stream1)
+       ierr = cudaStreamSynchronize(stream2)
+       call update_send_cells<<<grid_usc, tblock_usc, 0, stream2>>>
 
       if(ndo>1) then
         ierr = cudaMemcpyAsync(debit_sortie_arr,debit_sortie_arr_d,size(debit_sortie_arr),stream1)
@@ -191,7 +197,8 @@ contains
       if(num_mpi_process>1) then
         if(cuda_aware==1) then
           if(is_cgns) then
-            call gpu_echange_cgns(vdlg_d, ndln)
+            ierr =cudastreamsynchronize(stream2)
+            ! call gpu_echange_cgns(vdlg_d, ndln)
           else
             call gpu_echange_fant_bloc_async(vdlg_d, ndln)
           end if
@@ -207,7 +214,7 @@ contains
       !!Reset du pas de temps sur le gpu
       ierr = cudaMemcpyAsync(dt_d,dt_max,1,stream1) 
       ! Calcul du pas de temps via la CFL
-      call cflcond<<<grid, tblock,0,stream2>>>(vdlg_d,deltatmin_d)
+      call cflcond<<<grid, tblock, 0, stream2>>>(vdlg_d,deltatmin_d)
 
       ierr = cudaStreamSynchronize(stream1) !! On peut commenter cette ligne pour faire le pari que la race condition sera ok
 
@@ -217,24 +224,25 @@ contains
       !!Attendre fin de l'échange mémoire de vdlg
       !! et mise a jour vdlg avec vdlg
       if(num_mpi_process>1) then
-        call MPI_WAITALL(size(reqsend),reqsend,sendstat,mpi_ierr)
-        call MPI_WAITALL(size(reqrecv),reqrecv,recvstat,mpi_ierr)
+        ! call MPI_WAITALL(size(reqsend),reqsend,sendstat,mpi_ierr)
+        ! call MPI_WAITALL(size(reqrecv),reqrecv,recvstat,mpi_ierr)
         if(cuda_aware==0) then
           ierr = cudaMemcpy(vdlg, vdlg_d, nelt, cudamemcpyDeviceToHost)
-          ierr = cudadevicesynchronize()
         end if
       end if
 
+      ierr = cudaMemcpyAsync(vdlg0_d, vdlg_d, ndln*nelt, stream1)
 
       !!Take the smallest dt across all GPUs
       if(num_mpi_process>1) then
         ierr = cudaStreamSynchronize(stream2)
         call MPI_ALLREDUCE(MPI_IN_PLACE,dt,1,fp_kind_mpi,MPI_MIN,MPI_COMM_WORLD, mpi_ierr)
         ierr = cudaMemcpyAsync(dt_d,dt,1,stream2)
+        ierr = cudadevicesynchronize()
       end if
 
       if(dt>9999 .or. dt < 1e-15) then
-        print*, "Erreur sur le pas de temps dt=", dt
+        print*, "Erreur sur le pas de temps dt=", dt, " iteration= ", nt
         exit
       end if
 
@@ -266,6 +274,7 @@ contains
         endif
 
         start=0
+        vdlg = vdlg_d
         call paraview_export (vdlg, zm, she0, sh0, shu0, shv0, cptsolvtk)
         cptsolvtk = cptsolvtk + 1
 
@@ -549,40 +558,49 @@ contains
 
   end subroutine gpu_echange_fant_bloc
 
-  subroutine gpu_echange_cgns(a,nd)
+  attributes(global) subroutine update_send_cells
+    use precision_kind
+    use global_data_device
+
+    implicit none
+
+    integer :: ti, gi, gj
+
+    ti = threadIdx%x
+    gi = (blockIdx%x - 1)*blockDim%x + ti
+    gj = blockIdx%y
+
+    if(gi <= elt_fant_envoi_length_d(gj)) then
+      elt_fant_envoi_sol_d(:,gi,gj) = vdlg_d(:,elt_fant_envoi_id_d(gi,gj))
+    end if
+
+  end subroutine update_send_cells
+
+  subroutine gpu_echange_cgns(a_d,nd)
     use mpi
     use precision_kind 
     use global_data
     use global_data_device
+    use cudafor
 
     implicit none
     integer, intent(in) :: nd
-    real(fp_kind), device, intent(inout) :: a(nd,nelt)
+    real(fp_kind), device, intent(inout) :: a_d(nd,nelt)
     integer :: i, j, tag
     integer :: nsbloc, nsreste, k
 
     k=1
-    do i=1,nelt_fant_recep_bloc
-
-      do j=1,elt_fant_envoi_list(i)%length
-        elt_fant_envoi_list(i)%elem_sol(:,j) = a(:,elt_fant_envoi_list(i)%elem_id(j))
-      end do
-
-      ! nsbloc = nd*elt_fant_envoi_list(i)%length/768 + 1
-      ! nreste = nd*elt_fant_envoi_bloc(i)%length-(nsbloc-1)*768
-
+    do i=1,nelt_fant_envoi_bloc
       tag = mpi_process_id
-      call MPI_ISend(elt_fant_envoi_list(i)%elem_sol(1,1), nd*elt_fant_envoi_list(i)%length, fp_kind_mpi, &
+      call MPI_ISend(elt_fant_envoi_sol_d(1,1,i), nd*elt_fant_envoi_list(i)%length, fp_kind_mpi, &
         &elt_fant_envoi_list(i)%proc, tag, MPI_COMM_WORLD, reqsend(i), mpi_ierr)
     end do
 
     do i=1,nelt_fant_recep_bloc
-      call MPI_IRecv(a(1,elt_fant_recep_range(i)%start), nd*elt_fant_recep_range(i)%length, fp_kind_mpi, &
+      call MPI_IRecv(a_d(1,elt_fant_recep_range(i)%start), nd*elt_fant_recep_range(i)%length, fp_kind_mpi, &
         &elt_fant_recep_range(i)%proc, elt_fant_recep_range(i)%proc, MPI_COMM_WORLD, reqrecv(i), mpi_ierr)
     end do
 
-    ! call MPI_WAITALL(n_elt_fant_recep_range,req_envoi,stat_envoi,mpi_ierr)
-    ! call MPI_WAITALL(n_elt_fant_recep_range,req_recep,stat_recep,mpi_ierr)
   end subroutine gpu_echange_cgns
 
   attributes(global) subroutine calcul_residue_ele
@@ -613,6 +631,11 @@ contains
 
       vdlg_d(:,gi) = vdlg0_d(:,gi) + dt_d * res_d(:,gi)
 
+      if(vdlg_d(1,gi) <= tolisec_d) then
+        vdlg_d(1,gi) = tolisec_d
+        vdlg_d(2,gi) = 0.
+        vdlg_d(3,gi) = 0.
+      end if
     endif
 
   end subroutine calcul_residue_ele

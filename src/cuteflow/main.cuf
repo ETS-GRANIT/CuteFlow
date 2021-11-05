@@ -122,19 +122,19 @@ program main
   !! Construction of visualization vectors in post-processing
   if (solvtk == 1) then
     do ii = 1,vtk_snapshots
-      tsolvtk(ii) = ii*ts/(1.0*vtk_snapshots)
+      tsolvtk(ii) = (ii-1)*ts/(1.0*vtk_snapshots)
     enddo
   endif
 
   if (solsimple /= 0) then
     do ii = 1,simple_snapshots
-      tsolsimple(ii) = ii*ts/(1.0*simple_snapshots)
+      tsolsimple(ii) = (ii-1)*ts/(1.0*simple_snapshots)
     enddo
   endif
 
   if (solrestart == 1) then
     do ii = 1,restart_snapshots
-      tsolrestart(ii)= ii*ts/(1.0*restart_snapshots)
+      tsolrestart(ii)= (ii-1)*ts/(1.0*restart_snapshots)
     enddo
   endif 
 

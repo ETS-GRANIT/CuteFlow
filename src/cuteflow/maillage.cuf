@@ -403,6 +403,7 @@ contains
     use global_data_device
     use precision_kind
     use cgns
+    use cudafor
 
     implicit none
 
@@ -469,8 +470,6 @@ contains
     nnt = sizes(1)
     nelt = sizes(2)
 
-
-    nnt = nnt
     allocate(coord(nnt), coordonnees(nnt,3), manning_nd(nnt))
 
     call cg_coord_read_f(fn, base, zone, "CoordinateX", 4, 1, nnt, coord, ierr)
@@ -523,7 +522,7 @@ contains
     ndi = 0
     ndo = 0
 
-    print*, n_bocos, "boundary conditions"
+    ! print*, n_bocos, "boundary conditions"
 
     !!Read a first time to see how many local input/output nodes there are
     do boco=1,n_bocos
@@ -541,7 +540,7 @@ contains
       end if
     end do
 
-    print*, "INPUT " , nombre_entrees, ndi
+    ! print*, "INPUT " , nombre_entrees, ndi
     if(nombre_entrees>0) then
       allocate(long_entree(nombre_entrees))
       allocate(long_entree_d(nombre_entrees))
@@ -553,7 +552,7 @@ contains
       end if
     end if
 
-    print*, "OUTPUT " , nombre_sorties, ndo
+    ! print*, "OUTPUT " , nombre_sorties, ndo
     if(nombre_sorties>0 .and. ndo>0) then
       allocate(ndoutput(ndo))
       allocate(numero_ndoutput(ndo))
@@ -572,6 +571,7 @@ contains
       boconame = trim(adjustl(boconame))
 
       if(n_bcnodes>1) then
+
         if(bocoType == 9) then
           call cg_boco_read_f(fn, base, zone, boco, ndinput(ndi+1:), NULL, ierr)
           !!Find which input from the donnees.f file it corresponds to
@@ -590,6 +590,8 @@ contains
           if (ierr .ne. CG_OK) call cg_error_exit_f
           ndi = ndi + n_bcnodes
         else if(bocoType == 13) then
+          call cg_boco_read_f(fn, base, zone, boco, ndoutput(ndo+1:), NULL, ierr)
+          !!Find which output from the donnees.f file it corresponds to
           found = .FALSE.
           do it=1,nombre_sorties
             if(boconame == outlet_name(it)) then
@@ -599,9 +601,9 @@ contains
           end do
           if (not (found)) then
             print*,"Outlet name : ", trim(adjustl(boconame)), ", not found in donnees.f file ! Setting it to 1"
-            numero_ndinput(ndi+1:) = 1
+            numero_ndoutput(ndo+1:) = 1
           end if
-          call cg_boco_read_f(fn, base, zone, boco, ndoutput(ndo+1:), NULL, ierr)
+          print*,mpi_process_id," output nodes ",ndo,numero_ndoutput(ndo+1),ndoutput(ndo+1)
           if (ierr .ne. CG_OK) call cg_error_exit_f
           ndo = ndo + n_bcnodes
         end if
@@ -624,7 +626,7 @@ contains
 
         nelt_fant_envoi_bloc = n_userdata2
         allocate(elt_fant_envoi_list(nelt_fant_envoi_bloc))
-        ! allocate(reqsend(nelt_fant_envoi_bloc), sendstat(MPI_STATUS_SIZE, nelt_fant_envoi_bloc))
+        allocate(elt_fant_envoi_length_d(nelt_fant_envoi_bloc))
 
         !!Pour tous les voisins
         do j=1,n_userdata2
@@ -642,7 +644,6 @@ contains
           if (ierr .ne. CG_OK) call cg_error_exit_f
 
           allocate(elt_fant_envoi_list(j)%elem_id(n_ptset))
-          allocate(elt_fant_envoi_list(j)%elem_sol(3,n_ptset))
 
           elt_fant_envoi_list(j)%length = n_ptset !! Longueur du message
           elt_fant_envoi_list(j)%proc = ord !! Destinataire
@@ -652,7 +653,21 @@ contains
 
           call cg_goto_f(fn, base, ierr, zonename, 0, userdataname, 0, "end")
           if (ierr .ne. CG_OK) call cg_error_exit_f
+
+          nmax_ptset = max(nmax_ptset, n_ptset)
+
         end do
+
+        allocate(elt_fant_envoi_id_d(nmax_ptset,nelt_fant_envoi_bloc))
+        allocate(elt_fant_envoi_sol_d(3,nmax_ptset,nelt_fant_envoi_bloc))
+
+        elt_fant_envoi_id_d = -1
+        do j=1,n_userdata2
+          elt_fant_envoi_length_d(j) = elt_fant_envoi_list(j)%length
+          ! ierr = cudamemcpy(elt_fant_envoi_id_d(1,j),elt_fant_envoi_list(j)%elem_id(:),elt_fant_envoi_list(j)%length)
+          elt_fant_envoi_id_d(:elt_fant_envoi_list(j)%length,j) = elt_fant_envoi_list(j)%elem_id(:)
+        end do
+
         call cg_goto_f(fn, base, ierr, zonename, 0, "end")
         if (ierr .ne. CG_OK) call cg_error_exit_f
 
@@ -1323,7 +1338,7 @@ contains
     implicit none
 
     real(fp_kind) :: x1, x2 ,x3, x4, y1, y2, y3, y4, z1, z2, z3, z4, gz1, gz2
-    real(fp_kind) :: xg, yg, zg, d1, d2, d3, d4, aaa, bbb, ddd, dx, surf_area
+    real(fp_kind) :: xg, yg, zg, d1, d2, d3, d4, a, b, c, s, dx, surf_area
 
     integer :: ti,gi
 
@@ -1340,8 +1355,17 @@ contains
       x3 = coo_table_elemwise_d(gi,7)
       y3 = coo_table_elemwise_d(gi,8)
 
-      surf_area = ( (x3-x2)*y1 + (x1-x3)*y2 + (x2-x1)*y3 ) / 2
-      surf_d(gi) = surf_area
+      a = sqrt((x2-x1)**2+(y2-y1)**2)
+      b = sqrt((x3-x2)**2+(y3-y2)**2)
+      c = sqrt((x1-x3)**2+(y1-y3)**2)
+      s = (a+b+c)/2.
+
+      ! surf_area = ( (x3-x2)*y1 + (x1-x3)*y2 + (x2-x1)*y3 ) / 2.
+      ! surf_d(gi) = surf_area
+      surf_d(gi) = sqrt(s*(s-a)*(s-b)*(s-c))
+      if(surf_d(gi) < 1e-8) then
+        print*,"erreur calcul surface elem",gi
+      endif
 
       z1 = coo_table_elemwise_d(gi,3)
       z2 = coo_table_elemwise_d(gi,6)
@@ -1371,7 +1395,6 @@ contains
       long_entree(ientree) = 0.
     end do
 
-    print*,nelt_fant_recep
     do kvol=1,nelt-nelt_fant_recep
       do kfac=1,ns
         n1 = connectivite(kvol,kfac)

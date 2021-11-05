@@ -70,4 +70,9 @@ module global_data_device
 
   real(fp_kind), device, dimension(:,:), allocatable :: vdlg_d, vdlg0_d, vdlg_nodes_d
   real(fp_kind), device, dimension(:,:), allocatable :: resc_d, res_d
+
+  integer, device, dimension(:), allocatable :: elt_fant_envoi_length_d
+  integer, device, dimension(:,:), allocatable :: elt_fant_envoi_id_d
+  real(fp_kind), device, dimension(:,:,:), allocatable :: elt_fant_envoi_sol_d
+
 end module global_data_device

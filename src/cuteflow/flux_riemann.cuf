@@ -120,7 +120,7 @@ contains
       endif
 
       if ( kvoisin == -2 ) then ! *** flux sortant ***
-        if ( vitul > tolisec_d .and. vitul/sqrt(gp_d*hautl) < 1.d0 ) then
+        if ( vitul >= 0. .and. vitul/sqrt(gp_d*hautl) < 1.d0 ) then
           hautl = h_sortie_d(id_entree) - zml
           hautl = max(0.0D0, hautl)
           flux(1) = hautl * vitul
@@ -133,7 +133,6 @@ contains
         endif
 
         debit_sortie_arr_d(io_identifier_d(gi))  = flux(1)*ln
-
       endif
 
       if ( kvoisin == -3 ) then  ! *** flux de mur ***

@@ -32,7 +32,6 @@ contains
         normvites = sqrt(vitessu**2 + vitessv**2)
         vitessmax = max( 0.01D0, (normvites + sqrt(gp_d * abs(hauteur))))
         deltatmin_d(gi) = min( cfl_d * cotemin_arr_d(gi)/vitessmax, 1000000.0D0)
-        ! print*,solut_d(1,gi),solut_d(2,gi),solut_d(3,gi),cotemin_arr_d(gi),vitessmax,deltatmin_d(gi)
       else
         deltatmin_d(gi) = 1000000.0D0
       endif
@@ -40,7 +39,11 @@ contains
       if(is_dt_constant_d==1) then
         deltatmin_d(gi) = constant_dt_d
       end if
+
+      ! print*,"cfl",gi,solut_d(1,gi)
+
     endif   
+
     dt_d=1000000.0D0
   end subroutine cflcond
 

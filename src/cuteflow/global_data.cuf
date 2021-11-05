@@ -16,7 +16,6 @@ module global_data
   type msg_list
     integer :: length, proc
     integer, dimension(:), allocatable :: elem_id
-    real(kind=fp_kind), dimension(:,:), allocatable :: elem_sol
   end type
 
   type(msg_range), dimension(:), allocatable :: elt_fant_recep_range
@@ -181,4 +180,6 @@ module global_data
   real(fp_kind), dimension(:)  , allocatable :: surf, sh0, shu0, shv0, su0,she0, sv0, zm
   real(fp_kind), pinned, dimension(:,:), allocatable :: vdlg, vdlg0, vdlg_nodes
   real(fp_kind) :: temps_initial, temps_final
+
+  integer :: nmax_ptset=0
 end module global_data
