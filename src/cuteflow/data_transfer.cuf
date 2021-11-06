@@ -84,6 +84,8 @@ contains
     convec_d            =convec
     h0_d                =h0
 
+    mpi_process_id_d = mpi_process_id
+
     tc_init_d = tc_init
 
     call cuda_glerror('ierr <- global_data_transfer <-- data_transfer.cuf',1)

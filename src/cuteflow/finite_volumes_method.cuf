@@ -161,8 +161,7 @@ contains
       ierr = cudaStreamSynchronize(stream1)
       call calcul_residue_ele<<<grid, tblock, 0, stream2>>>()
 
-       ierr = cudaStreamSynchronize(stream2)
-       call update_send_cells<<<grid_usc, tblock_usc, 0, stream2>>>
+      call update_send_cells<<<grid_usc, tblock_usc, 0, stream2>>>()
 
       if(ndo>1) then
         ierr = cudaMemcpyAsync(debit_sortie_arr,debit_sortie_arr_d,size(debit_sortie_arr),stream1)
@@ -197,8 +196,8 @@ contains
       if(num_mpi_process>1) then
         if(cuda_aware==1) then
           if(is_cgns) then
-            ierr =cudastreamsynchronize(stream2)
-            ! call gpu_echange_cgns(vdlg_d, ndln)
+            ierr = cudastreamsynchronize(stream2)
+            call gpu_echange_cgns(vdlg_d, ndln)
           else
             call gpu_echange_fant_bloc_async(vdlg_d, ndln)
           end if
@@ -224,14 +223,16 @@ contains
       !!Attendre fin de l'échange mémoire de vdlg
       !! et mise a jour vdlg avec vdlg
       if(num_mpi_process>1) then
-        ! call MPI_WAITALL(size(reqsend),reqsend,sendstat,mpi_ierr)
-        ! call MPI_WAITALL(size(reqrecv),reqrecv,recvstat,mpi_ierr)
+        call MPI_WAITALL(size(reqsend),reqsend,sendstat,mpi_ierr)
+        call MPI_WAITALL(size(reqrecv),reqrecv,recvstat,mpi_ierr)
         if(cuda_aware==0) then
           ierr = cudaMemcpy(vdlg, vdlg_d, nelt, cudamemcpyDeviceToHost)
         end if
       end if
 
+      ierr = cudadevicesynchronize()
       ierr = cudaMemcpyAsync(vdlg0_d, vdlg_d, ndln*nelt, stream1)
+      ierr = cudadevicesynchronize()
 
       !!Take the smallest dt across all GPUs
       if(num_mpi_process>1) then
@@ -275,6 +276,7 @@ contains
 
         start=0
         vdlg = vdlg_d
+        ierr = cudadevicesynchronize()
         call paraview_export (vdlg, zm, she0, sh0, shu0, shv0, cptsolvtk)
         cptsolvtk = cptsolvtk + 1
 
@@ -572,6 +574,7 @@ contains
 
     if(gi <= elt_fant_envoi_length_d(gj)) then
       elt_fant_envoi_sol_d(:,gi,gj) = vdlg_d(:,elt_fant_envoi_id_d(gi,gj))
+      ! if(abs(vdlg_d(2,elt_fant_envoi_id_d(gi,gj))) > 0.2) print*,gi,gj,elt_fant_envoi_id_d(gi,gj)
     end if
 
   end subroutine update_send_cells

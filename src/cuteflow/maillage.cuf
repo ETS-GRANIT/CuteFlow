@@ -656,6 +656,8 @@ contains
 
           nmax_ptset = max(nmax_ptset, n_ptset)
 
+          print*, mpi_process_id, j, " ElemsToSend", elt_fant_envoi_list(j)%length, elt_fant_envoi_list(j)%proc, elt_fant_envoi_list(j)%elem_id(1)
+
         end do
 
         allocate(elt_fant_envoi_id_d(nmax_ptset,nelt_fant_envoi_bloc))
@@ -664,8 +666,8 @@ contains
         elt_fant_envoi_id_d = -1
         do j=1,n_userdata2
           elt_fant_envoi_length_d(j) = elt_fant_envoi_list(j)%length
-          ! ierr = cudamemcpy(elt_fant_envoi_id_d(1,j),elt_fant_envoi_list(j)%elem_id(:),elt_fant_envoi_list(j)%length)
-          elt_fant_envoi_id_d(:elt_fant_envoi_list(j)%length,j) = elt_fant_envoi_list(j)%elem_id(:)
+          ierr = cudamemcpy(elt_fant_envoi_id_d(1,j),elt_fant_envoi_list(j)%elem_id,elt_fant_envoi_list(j)%length)
+          ! elt_fant_envoi_id_d(:elt_fant_envoi_list(j)%length,j) = elt_fant_envoi_list(j)%elem_id(:)
         end do
 
         call cg_goto_f(fn, base, ierr, zonename, 0, "end")
@@ -706,7 +708,7 @@ contains
 
           if((nelt - elt_fant_recep_range(j)%start ) > nelt_fant_recep) nelt_fant_recep = nelt-elt_fant_recep_range(j)%start
 
-          ! print*, me, i, j, " ElemsToRecv", elt_fant_recep_range(j)
+          print*, mpi_process_id, j, " ElemsToRecv", elt_fant_recep_range(j)%length, elt_fant_recep_range(j)%proc, elt_fant_recep_range(j)%start
 
           call cg_goto_f(fn, base, ierr, zonename, 0, userdataname, 0, "end")
           if (ierr .ne. CG_OK) call cg_error_exit_f

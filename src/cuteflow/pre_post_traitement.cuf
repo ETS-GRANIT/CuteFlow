@@ -379,7 +379,7 @@ contains
     write(ec_Paraview,'(a)') ""
     write(ec_Paraview,'(a)') "VECTORS velocity float"
     do iel=1, nelt
-      if ( vdlg(1,nd) > tolisec ) then
+      if ( vdlg(1,iel) > tolisec ) then
         solu = vdlg(2,iel)/vdlg(1,iel)
         solv = vdlg(3,iel)/vdlg(1,iel)
       else
