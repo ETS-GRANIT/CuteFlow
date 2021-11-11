@@ -389,6 +389,16 @@ contains
       write(ec_Paraview,'(3f16.6)')   solu, solv, 0.
     end do
 
+    write(ec_Paraview,'(a)') ""
+    write(ec_Paraview,'(a)') "VECTORS flux float"
+    do iel=1, nelt
+      if ( vdlg(1,iel) > tolisec ) then
+        write(ec_Paraview,'(3f16.6)')   vdlg(2,iel), vdlg(3,iel), 0.
+      else
+        write(ec_Paraview,'(3f16.6)')   0., 0., 0.
+      endif
+    end do
+
     close(ec_Paraview)
 
   end subroutine paraview_export
