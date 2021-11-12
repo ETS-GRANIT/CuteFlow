@@ -28,6 +28,7 @@ program main
   integer         :: i, ii, j, p, kk, ss, ie, iel, nt, n_MC, i_MC, af_input
   integer         :: nsbloc, nreste, tot
   character(4)    :: i_MC_char
+  character(8)    :: ii_str
   integer         :: status, l, ie_coupe_transv, ierr, dev
   real(fp_kind)   :: d2, t2, dtime2, tcm2, d, t, time_start, time_stop
   real(fp_kind)   :: errf, errf1, errf2, errf3, errf4, errf5
@@ -113,16 +114,24 @@ program main
 
   allocate( vdlg(ndln,nelt), vdlg0(ndln,nelt))
   allocate( vdlg_d(ndln,nelt), vdlg0_d(ndln,nelt))
+  allocate( vdlg_visu(nelt,7))
+
   if(diffusion) allocate(vdlg_nodes_d(ndln,nnt))
 
   allocate( she0(nnt), sh0(nnt), shu0(nnt), shv0(nnt), su0(nnt), sv0(nnt) )
 
-  allocate( tsoljauge(200000), tsolrestart(200000), tsolvtk(200000), tsolsimple(200000))
+  allocate( tsoljauge(200000), tsolrestart(200000), tsolsimple(200000))
+
+  if(vtk_snapshots==1) vtk_snapshots=2
+  allocate(tsolvtk(vtk_snapshots), solname_vtk(vtk_snapshots))
 
   !! Construction of visualization vectors in post-processing
   if (solvtk == 1) then
     do ii = 1,vtk_snapshots
-      tsolvtk(ii) = (ii-1)*ts/(1.0*vtk_snapshots)
+      write(ii_str,"(I8)") ii-1
+      solname_vtk(ii) = "Solution_"//trim(adjustl(trim(ii_str)))
+      tsolvtk(ii) = (ii-1)*ts/real(vtk_snapshots-1)
+      print*, ii_str, " ", tsolvtk(ii), solname_vtk(ii)
     enddo
   endif
 
@@ -199,6 +208,10 @@ program main
   if(solvtk) then             
     start=1
     call paraview_export(vdlg0, zm, she0, sh0, shu0, shv0, cptsolvtk)
+    !CGNS EXPORT
+    if(is_cgns==1) then
+      call cgns_export(she0, shu0, shv0, tsolvtk(cptsolvtk), cptsolvtk)
+    end if
     cptsolvtk = cptsolvtk + 1
   endif
 

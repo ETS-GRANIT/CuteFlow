@@ -278,12 +278,13 @@ contains
         vdlg = vdlg_d
         ierr = cudadevicesynchronize()
         call paraview_export (vdlg, zm, she0, sh0, shu0, shv0, cptsolvtk)
-        cptsolvtk = cptsolvtk + 1
 
         !CGNS EXPORT
-        ! if(is_cgns==1) then
-        !   call cgns_export(she0, shu0, shv0, tsolvtk(cptsolvtk), cptsolvtk)
-        ! end if
+        if(is_cgns==1) then
+          call cgns_export(she0, shu0, shv0, tsolvtk(cptsolvtk), cptsolvtk)
+        end if
+
+        cptsolvtk = cptsolvtk + 1
       endif
 
       if ((solsimple /= 0 .and. abs( tc - tsolsimple(cptsolsimple) ) <= tolaffiche) .or. (debug_mode == 1) )then

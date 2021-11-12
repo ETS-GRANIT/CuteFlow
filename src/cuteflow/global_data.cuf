@@ -142,6 +142,7 @@ module global_data
 
   !real(fp_kind), dimension(200000)             :: tvis3d2 , tvis2d2, tsoljauge, tsolrestart, tsolvtk
   real(fp_kind), dimension(:), allocatable             :: tvis3d2 , tvis2d2, tsoljauge, tsolrestart, tsolvtk, long_entree, cotemin_arr, tsolcoupes, tsolsimple
+  character(len=32), dimension(:), allocatable :: solname_vtk
   integer, dimension(:)  ,   allocatable :: ndinput, ndoutput, ndwall, i_dry_wet, nbr_nds_coupes, numero_ndinput, numero_ndoutput
   ! integer, dimension(:,:), allocatable :: elt_fant_recep, elt_fant_envoi
   integer, dimension(:,:), allocatable :: elt_fant_recep_bloc, elt_fant_envoi_bloc
@@ -178,7 +179,7 @@ module global_data
   integer, parameter :: gridxlim=65535, gridylim=2147483647
 
   real(fp_kind), dimension(:)  , allocatable :: surf, sh0, shu0, shv0, su0,she0, sv0, zm
-  real(fp_kind), pinned, dimension(:,:), allocatable :: vdlg, vdlg0, vdlg_nodes
+  real(fp_kind), pinned, dimension(:,:), allocatable :: vdlg, vdlg0, vdlg_nodes, vdlg_visu
   real(fp_kind) :: temps_initial, temps_final
 
   integer :: nmax_ptset=0
