@@ -298,7 +298,7 @@ contains
     do zone=1,n_zones
       !!!Vertex = 2
       !!!Cellcenter = 3
-      print*,solname_vtk(it)
+      ! print*,solname_vtk(it)
       call cg_sol_write_f(fn, base, zone, solname_vtk(it), 3, it, ierr)
       if (ierr .ne. CG_OK) call cg_error_exit_f
 

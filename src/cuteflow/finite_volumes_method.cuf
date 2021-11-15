@@ -211,6 +211,7 @@ contains
       end if
 
       !!Reset du pas de temps sur le gpu
+      ierr = cudaStreamSynchronize(stream2)
       ierr = cudaMemcpyAsync(dt_d,dt_max,1,stream1) 
       ! Calcul du pas de temps via la CFL
       call cflcond<<<grid, tblock, 0, stream2>>>(vdlg_d,deltatmin_d)
@@ -230,9 +231,7 @@ contains
         end if
       end if
 
-      ierr = cudadevicesynchronize()
       ierr = cudaMemcpyAsync(vdlg0_d, vdlg_d, ndln*nelt, stream1)
-      ierr = cudadevicesynchronize()
 
       !!Take the smallest dt across all GPUs
       if(num_mpi_process>1) then
@@ -639,6 +638,10 @@ contains
         vdlg_d(1,gi) = tolisec_d
         vdlg_d(2,gi) = 0.
         vdlg_d(3,gi) = 0.
+      end if
+
+      if(vdlg_d(1,gi) > 1e5) then
+        print*,dt_d
       end if
     endif
 

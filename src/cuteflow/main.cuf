@@ -131,7 +131,7 @@ program main
       write(ii_str,"(I8)") ii-1
       solname_vtk(ii) = "Solution_"//trim(adjustl(trim(ii_str)))
       tsolvtk(ii) = (ii-1)*ts/real(vtk_snapshots-1)
-      print*, ii_str, " ", tsolvtk(ii), solname_vtk(ii)
+      ! print*, ii_str, " ", tsolvtk(ii), solname_vtk(ii)
     enddo
   endif
 
