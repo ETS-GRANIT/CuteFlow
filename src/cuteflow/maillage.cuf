@@ -85,7 +85,7 @@ contains
     endif
 
     !!Si iflux==3 alors on calcule les elements upwind de chaque coté de chaque cellule
-    if(iflux==3) then
+    if(iflux>=3) then
       block_set = dim3(32,1,1)
       grid_set  = dim3(ceiling(real(nelt)/real(block_set%x)),1,1)
       call check_gridlim(block_set, grid_set, 'err <- tab_bound_tri <-- maillage.cuf (1)')

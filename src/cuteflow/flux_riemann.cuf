@@ -164,7 +164,7 @@ contains
         else if(iflux_d==2) then 
           !!WAF méthode riadh ata
           call solver_Riemann_riadh(gi,kvoisin,surf_d,norm,vdlg_d,hijet,vitul,vitvl,hjiet,vitur,vitvr,zml,zmr,flux,ln,pp)
-        else if (iflux_d==3 .or. iflux_d==4) then 
+        else if (iflux_d>=3) then 
           !! WAF Loukilli
           !! Order 2 second neighbor
 
@@ -442,7 +442,7 @@ contains
     integer, intent(in)                         :: kvol, kvoisin
     integer, intent(inout)                      :: pp
     real(fp_kind), intent(inout)                   :: hl, ul, vl, hr, ur, vr, zml, zmr, ln
-    real(fp_kind), intent(inout)                   :: hl_upw, ul_upw, vl_upw, hr_upw, ur_upw, vr_upw
+    real(fp_kind), intent(in)                   :: hl_upw, ul_upw, vl_upw, hr_upw, ur_upw, vr_upw
     real(fp_kind), dimension(2), intent(in)     :: norm
     real(fp_kind), dimension(3), intent(inout)  :: flux
     real(fp_kind), dimension(nelt_d), intent(in)     :: surf
@@ -462,120 +462,15 @@ contains
 
     pp = pp + 1
 
-    if(hl.lt.eps.and.hr.lt.eps) goto 20
+    !!!Reconstruct u with speed knowledge
+    hl = hl + 0.5*(hr-hl_upw)
+    ul = ul + 0.5*(ur-ul_upw)
+    vl = vl + 0.5*(vr-vl_upw)
 
-    al = sqrt( gp_d * hl )
-    ar = sqrt( gp_d * hr )
+    hr = hr + 0.5*(hr_upw-hl)
+    ur = ur + 0.5*(ur_upw-ul)
+    vr = vr + 0.5*(vr_upw-vl)
 
-    het  =  ( hl + hr ) / 2.  -  ( ur - ul ) * ( hl + hr ) / ( al + ar ) / 4.
-    uet  =  ( ul + ur ) / 2.  -  ( hr - hl ) * ( al + ar ) / ( hl + hr ) 
-
-    if ( het.lt.hl ) then
-      pql = 1.
-    else
-      if(hl.gt.eps) then
-        pql = sqrt(0.5*(het+hl)*het/hl**2)
-      else
-        pql = 0.
-      end if
-    endif
-
-    if ( het.lt.hr ) then
-      pqr = 1.
-    else
-      if(hr.gt.eps) then
-        pqr = sqrt(0.5*(het+hr)*het/hr**2)
-      else
-        pqr = 0.
-      end if
-    endif
-
-    20 continue
-
-    if ( hl.gt.eps ) then
-      sl = ul-al*pql
-    else
-      sl  = ur - 2 * ar
-      sr  = ur + ar
-      goto 35
-    end if
-
-    if ( hr.gt.eps ) then
-      sr = ur+ar*pqr
-    else
-      sl  = ul - al
-      sr  = ul + 2 * al
-      goto 35
-    end if
-
-    35 continue
-
-    !!Compute weighing coeficients
-    dtoverdx =  1.8*dt_d/min(cotemin_arr_d(kvoisin), cotemin_arr_d(kvol)) !!cotemin_arr_d is 1.8*inscribed_circle_radius
-
-    cr = sr * dtoverdx
-    cl = sl * dtoverdx
-    cet = set * dtoverdx
-
-    !! TVD stabilization 
-    delta_loc_r = hr-hl
-    delta_loc_l = hr-hl
-    delta_loc_et = vr-vl
-
-    if(sr>0) then
-      delta_upw_r = hl-hl_upw
-    else
-      delta_upw_r = hr_upw-hr
-    endif
-
-    if(sl>0) then
-      delta_upw_l = hl-hl_upw
-    else
-      delta_upw_l = hr_upw-hr
-    endif
-
-    if(set>0) then
-      delta_upw_et = vl-vl_upw
-    else
-      delta_upw_et = vr_upw-vr
-    endif
-
-    rl = delta_upw_l/(delta_loc_l + eps)
-    rr = delta_upw_r/(delta_loc_r + eps)
-    ret = delta_upw_et/(delta_loc_et + eps)
-
-    call limiter(rl,cl,limit_l)
-    call limiter(rr,cr,limit_r)
-    call limiter(ret,cet,limit_et)
-
-    wl = (1 + dsign(1.d0,sl) * limit_l)/2.
-    wlet = (1 + dsign(1.d0,set) * limit_et)/2.
-
-    wlr = (dsign(1.d0,sr)*limit_r - dsign(1.d0,sl)*limit_l)/2.
-
-    wr = (1 - dsign(1.d0,sr) * limit_r)/2.
-    wret = (1 - dsign(1.d0,set) * limit_et)/2.
-
-    !!Reconstruct u with speed knowledge
-    if(sl>0) then
-      hl = hl + 0.5*(hl-hl_upw)*limit_l
-      ul = ul + 0.5*(ul-ul_upw)*limit_l
-      vl = vl + 0.5*(vl-vl_upw)*limit_l
-    else
-      hl = hl + 0.5*(hr-hl)*limit_l
-      ul = ul + 0.5*(ur-ul)*limit_l
-      vl = vl + 0.5*(vr-vl)*limit_l
-    endif
-
-    if(sr>0) then
-      hr = hr + 0.5*(hr-hl)*limit_r
-      ur = ur + 0.5*(ur-ul)*limit_r
-      vr = vr + 0.5*(vr-vl)*limit_r
-    else
-      hl = hl + 0.5*(hr_upw-hr)*limit_r
-      ul = ul + 0.5*(ur_upw-ur)*limit_r
-      vl = vl + 0.5*(vr_upw-vr)*limit_r
-    endif
 
     !!Do HLLC again
     if(hl.lt.eps.and.hr.lt.eps) goto 21

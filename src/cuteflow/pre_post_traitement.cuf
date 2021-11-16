@@ -298,7 +298,6 @@ contains
     do zone=1,n_zones
       !!!Vertex = 2
       !!!Cellcenter = 3
-      ! print*,solname_vtk(it)
       call cg_sol_write_f(fn, base, zone, solname_vtk(it), 3, it, ierr)
       if (ierr .ne. CG_OK) call cg_error_exit_f
 
@@ -309,10 +308,10 @@ contains
       call cgp_field_write_f(fn, base, zone, it, 4, 'MomentumX', field_mx, ierr)
       if (ierr .ne. CG_OK) call cgp_error_exit_f
 
-      call cgp_field_write_f(fn, base, zone, it, 4, 'MomentumY', field_mz, ierr)
+      call cgp_field_write_f(fn, base, zone, it, 4, 'MomentumY', field_my, ierr)
       if (ierr .ne. CG_OK) call cgp_error_exit_f
 
-      call cgp_field_write_f(fn, base, zone, it, 4, 'MomentumZ', field_my, ierr)
+      call cgp_field_write_f(fn, base, zone, it, 4, 'MomentumZ', field_mz, ierr)
       if (ierr .ne. CG_OK) call cgp_error_exit_f
 
       call cgp_field_write_f(fn, base, zone, it, 4, 'VelocityX', field_vx, ierr)
