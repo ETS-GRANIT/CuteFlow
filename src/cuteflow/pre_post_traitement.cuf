@@ -239,7 +239,7 @@ contains
 
     integer :: my_zone
     integer :: ierr, fn, n_bases, base, cellDim, physDim, n_zones, zone, zoneType, sizes(3*3), ord, i
-    integer :: field_wd, field_vx, field_vy, field_vz, field_mx, field_my, field_mz
+    integer :: field_wd, field_vx, field_vy, field_vz, field_mx, field_my, field_mz, field_b, field_fs
     integer, dimension(2) :: idata
     character(200) :: basename, zonename
 
@@ -280,29 +280,35 @@ contains
     my_zone = zone
 
     if(it==1) then
-      call cg_biter_write_f(fn, base, 'TimeIterValues', vtk_snapshots, ierr)
+      call cg_biter_write_f(fn, base, 'TimeIterValues', visu_snapshots, ierr)
       call cg_goto_f(fn, base, ierr,'BaseIterativeData_t',1,'end')
       !!RealDouble = 4
-      call cg_array_write_f('TimeValues',4,1,vtk_snapshots,tsolvtk,ierr)
+      call cg_array_write_f('TimeValues',4,1,visu_snapshots,tsolvisu,ierr)
 
       do zone=1,n_zones
         call cg_ziter_write_f(fn,base,zone,'ZoneIterativeData',ierr)
         call cg_goto_f(fn,base,ierr,'Zone_t',zone,'ZoneIterativeData_t',1,'end')
         idata(1)=32
-        idata(2)=vtk_snapshots
+        idata(2)=visu_snapshots
         !!Character = 5
-        call cg_array_write_f('FlowSolutionPointers',5,2,idata,solname_vtk,ierr)
+        call cg_array_write_f('FlowSolutionPointers',5,2,idata,solname_visu,ierr)
       end do
     end if
 
     do zone=1,n_zones
       !!!Vertex = 2
       !!!Cellcenter = 3
-      call cg_sol_write_f(fn, base, zone, solname_vtk(it), 3, it, ierr)
+      call cg_sol_write_f(fn, base, zone, solname_visu(it), 3, it, ierr)
       if (ierr .ne. CG_OK) call cg_error_exit_f
 
       !!RealDouble = 4
       call cgp_field_write_f(fn, base, zone, it, 4, 'Water Depth', field_wd, ierr)
+      if (ierr .ne. CG_OK) call cgp_error_exit_f
+
+      call cgp_field_write_f(fn, base, zone, it, 4, 'Bathymetry', field_b, ierr)
+      if (ierr .ne. CG_OK) call cgp_error_exit_f
+
+      call cgp_field_write_f(fn, base, zone, it, 4, 'Free surface elevation', field_fs, ierr)
       if (ierr .ne. CG_OK) call cgp_error_exit_f
 
       call cgp_field_write_f(fn, base, zone, it, 4, 'MomentumX', field_mx, ierr)
@@ -343,9 +349,17 @@ contains
         vdlg_visu(i,6) = 0.
         vdlg_visu(i,7) = 0.
       end if
+
+      vdlg_visu(i,8) = vdlg(1,i) + zm(i) - sol_z_offset
     end do
 
     call cgp_field_write_data_f(fn, base, zone, it, field_wd, 1, nelt,  vdlg_visu(1,1), ierr)
+    if (ierr .ne. CG_OK) call cgp_error_exit_f
+
+    call cgp_field_write_data_f(fn, base, zone, it, field_b, 1, nelt,  zm, ierr)
+    if (ierr .ne. CG_OK) call cgp_error_exit_f
+
+    call cgp_field_write_data_f(fn, base, zone, it, field_fs, 1, nelt,  vdlg_visu(1,8), ierr)
     if (ierr .ne. CG_OK) call cgp_error_exit_f
 
     call cgp_field_write_data_f(fn, base, zone, it, field_mx, 1, nelt,  vdlg_visu(1,2), ierr)

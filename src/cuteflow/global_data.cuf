@@ -55,7 +55,7 @@ module global_data
   integer :: iflux, ilimiteur=1, iupwind=1, fricimplic=1, debit_var  
   integer :: freqaffich, solrestart, restart_snapshots, simple_snapshots
   real(fp_kind) :: sol_z_offset=0.
-  integer :: comptvisu, cptsolvtk, cptsoljauge, cptsolrestart, cptdebit, cptviscoupe, cptsolsimple
+  integer :: comptvisu, cptsolvisu, cptsoljauge, cptsolrestart, cptdebit, cptviscoupe, cptsolsimple
   real(fp_kind) :: long, critere_arret, debitglob_sum
   real(fp_kind), dimension(20) :: debitglob, h_sortie
   character(len=100) :: inlet_name(20), outlet_name(20)
@@ -67,7 +67,7 @@ module global_data
 
   integer :: nelt_global, nelt_global_non_fant
   integer :: nnt_global
-  integer :: vtk_snapshots, base_unique, nonlin, solvtk, k_base
+  integer :: visu_snapshots, base_unique, nonlin, solvisu, k_base
   integer :: cuda_aware=1
   integer :: is_cgns=0, is_dt_constant=0
   integer :: debug_mode=0, max_iter=5
@@ -104,7 +104,7 @@ module global_data
   & sol_z_offset,& !!ne fonctionne que pour simple vtk et bluekenue
   & solrestart, restart_snapshots,& 
   & solsimple, simple_snapshots, &
-  & solvtk, vtk_snapshots,&
+  & solvisu, visu_snapshots,&
   & sortie_finale_bluekenue
 
   !! Input pour l'analyse stochastiqu
@@ -140,9 +140,9 @@ module global_data
   real(fp_kind), dimension(20) :: debit_entree
   real(fp_kind) :: h0, coef_bol  ! Pour le problème du bol parabolique 
 
-  !real(fp_kind), dimension(200000)             :: tvis3d2 , tvis2d2, tsoljauge, tsolrestart, tsolvtk
-  real(fp_kind), dimension(:), allocatable             :: tvis3d2 , tvis2d2, tsoljauge, tsolrestart, tsolvtk, long_entree, cotemin_arr, tsolcoupes, tsolsimple
-  character(len=32), dimension(:), allocatable :: solname_vtk
+  !real(fp_kind), dimension(200000)             :: tvis3d2 , tvis2d2, tsoljauge, tsolrestart, tsolvisu
+  real(fp_kind), dimension(:), allocatable             :: tvis3d2 , tvis2d2, tsoljauge, tsolrestart, tsolvisu, long_entree, cotemin_arr, tsolcoupes, tsolsimple
+  character(len=32), dimension(:), allocatable :: solname_visu
   integer, dimension(:)  ,   allocatable :: ndinput, ndoutput, ndwall, i_dry_wet, nbr_nds_coupes, numero_ndinput, numero_ndoutput
   ! integer, dimension(:,:), allocatable :: elt_fant_recep, elt_fant_envoi
   integer, dimension(:,:), allocatable :: elt_fant_recep_bloc, elt_fant_envoi_bloc

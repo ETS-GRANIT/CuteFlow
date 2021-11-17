@@ -252,7 +252,7 @@ contains
       if ( mod(nt,freqaffich)==0 ) then
         print*,'-----------------------------------------------'
         write(*,*) 'nt = ', nt
-        print*,' prochain tsolvtk = ', tsolvtk(cptsolvtk), cptsolvtk
+        print*,' prochain tsolvisu = ', tsolvisu(cptsolvisu), cptsolvisu
         if (tc < 3600)   print*, 'tc = ', tc, ' Secondes   =>', tc/60,    ' Minutes' 
         if (tc >= 3600)  print*, 'tc = ', tc, ' Secondes   =>', tc/3600,  ' Heures'
         if (tc >= 86400) print*, 'tc = ', tc, ' Secondes   =>', tc/86400, ' Jours'
@@ -266,7 +266,7 @@ contains
       endif
 
       ! *** Stockage de la solution pour postraitement et animation 
-      if( (solvtk == 1 .and. abs( tc - tsolvtk(cptsolvtk) ) <= tolaffiche) .or. (debug_mode == 1) )then
+      if( (solvisu > 0 .and. abs( tc - tsolvisu(cptsolvisu) ) <= tolaffiche) .or. (debug_mode == 1) )then
         if(is_solnode == 0) then 
           vdlg = vdlg_d
           call sol_nodes(sh0,she0,shu0,shv0,su0,sv0)
@@ -276,14 +276,16 @@ contains
         start=0
         vdlg = vdlg_d
         ierr = cudadevicesynchronize()
-        call paraview_export (vdlg, zm, she0, sh0, shu0, shv0, cptsolvtk)
-
-        !CGNS EXPORT
-        if(is_cgns==1) then
-          call cgns_export(she0, shu0, shv0, tsolvtk(cptsolvtk), cptsolvtk)
+        if(solvisu==1 .or. solvisu==3) then
+          call paraview_export (vdlg, zm, she0, sh0, shu0, shv0, cptsolvisu)
         end if
 
-        cptsolvtk = cptsolvtk + 1
+        !CGNS EXPORT
+        if(is_cgns==1 .and. (solvisu==2 .or. solvisu==3)) then
+          call cgns_export(she0, shu0, shv0, tsolvisu(cptsolvisu), cptsolvisu)
+        end if
+
+        cptsolvisu = cptsolvisu + 1
       endif
 
       if ((solsimple /= 0 .and. abs( tc - tsolsimple(cptsolsimple) ) <= tolaffiche) .or. (debug_mode == 1) )then

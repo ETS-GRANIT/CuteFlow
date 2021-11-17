@@ -63,7 +63,7 @@ program main
   !! Initization of the iteration counters
   comptvisu        = 0
   cptviscoupe      = 1
-  cptsolvtk        = 1
+  cptsolvisu        = 1
   cptsoljauge      = 1
   cptsolrestart    = 1
   cptsolsimple     = 1
@@ -114,7 +114,7 @@ program main
 
   allocate( vdlg(ndln,nelt), vdlg0(ndln,nelt))
   allocate( vdlg_d(ndln,nelt), vdlg0_d(ndln,nelt))
-  allocate( vdlg_visu(nelt,7))
+  allocate( vdlg_visu(nelt,8))
 
   if(diffusion) allocate(vdlg_nodes_d(ndln,nnt))
 
@@ -122,16 +122,15 @@ program main
 
   allocate( tsoljauge(200000), tsolrestart(200000), tsolsimple(200000))
 
-  if(vtk_snapshots==1) vtk_snapshots=2
-  allocate(tsolvtk(vtk_snapshots), solname_vtk(vtk_snapshots))
+  if(visu_snapshots==1) visu_snapshots=2
+  allocate(tsolvisu(visu_snapshots), solname_visu(visu_snapshots))
 
   !! Construction of visualization vectors in post-processing
-  if (solvtk == 1) then
-    do ii = 1,vtk_snapshots
+  if (solvisu > 0) then
+    do ii = 1,visu_snapshots
       write(ii_str,"(I8)") ii-1
-      solname_vtk(ii) = "Solution_"//trim(adjustl(trim(ii_str)))
-      tsolvtk(ii) = (ii-1)*ts/real(vtk_snapshots-1)
-      ! print*, ii_str, " ", tsolvtk(ii), solname_vtk(ii)
+      solname_visu(ii) = "Solution_"//trim(adjustl(trim(ii_str)))
+      tsolvisu(ii) = (ii-1)*ts/real(visu_snapshots-1)
     enddo
   endif
 
@@ -169,8 +168,7 @@ program main
   write(*,*) 'Fricimplic          =', fricimplic
   write(*,*) 'solrestart          =', solrestart
   write(*,*) 'restart_snapshots   =', restart_snapshots
-  write(*,*) 'solvtk               =', solvtk
-  write(*,*) 'vtk_snapshots     =', vtk_snapshots
+  write(*,*) 'visu_snapshots     =', visu_snapshots
   write(*,*) 'tol_reg_perm        =', tol_reg_perm
   write(*,*) 'tol                 =', tol
   write(*,*) 'tolisec             =', tolisec
@@ -205,14 +203,16 @@ program main
   call sol_nodes(sh0,she0,shu0,shv0,su0,sv0)
 
   !!  Storage for postraitement with possibility of animation (Tecplot)
-  if(solvtk) then             
+  if(solvisu>0) then             
     start=1
-    call paraview_export(vdlg0, zm, she0, sh0, shu0, shv0, cptsolvtk)
-    !CGNS EXPORT
-    if(is_cgns==1) then
-      call cgns_export(she0, shu0, shv0, tsolvtk(cptsolvtk), cptsolvtk)
+    if(solvisu==1 .or. solvisu==3) then
+      call paraview_export(vdlg0, zm, she0, sh0, shu0, shv0, cptsolvisu)
     end if
-    cptsolvtk = cptsolvtk + 1
+    !CGNS EXPORT
+    if(is_cgns==1 .and. (solvisu==2 .or. solvisu==3)) then
+      call cgns_export(she0, shu0, shv0, tsolvisu(cptsolvisu), cptsolvisu)
+    end if
+    cptsolvisu = cptsolvisu + 1
   endif
 
   if(solsimple/=0) then

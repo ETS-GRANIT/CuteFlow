@@ -58,7 +58,7 @@ contains
     debit_var_d     = debit_var 
     freqaffich_d    = freqaffich
     comptvisu_d     = comptvisu
-    cptsolvtk_d      = cptsolvtk
+    cptsolvisu_d      = cptsolvisu
     cptsoljauge_d   = cptsoljauge
     cptsolrestart_d     = cptsolrestart
     cptdebit_d      = cptdebit 

@@ -370,6 +370,19 @@ contains
     endif
   end subroutine cotes3
 
+  attributes(device) subroutine simple_limiter(r1, r2, A)
+    use precision_kind
+    use global_data_device
+
+    implicit none
+
+    real(fp_kind), intent(in) :: r1, r2
+    real(fp_kind), intent(inout) :: A
+
+    !!Leer style
+    A = (r1*r2 + abs(r1*r2))/(r1+r2+1e-12)
+  end subroutine simple_limiter
+
   attributes(device) subroutine limiter(r, c, A)
     use precision_kind
     use global_data_device
@@ -457,22 +470,69 @@ contains
     real(fp_kind) :: dtoverdx, cr, cl, cet, wl, wlet, wlr, wr, wret
     real(fp_kind) :: rr, rl, ret, delta_loc_l, delta_loc_r, delta_loc_et
     real(fp_kind) :: delta_upw_r, delta_upw_l, delta_upw_et, limit_l, limit_r, limit_et
+    real(fp_kind) :: delta_hl, delta_hr, delta_ul, delta_ur, delta_vl, delta_vr
+    real(fp_kind), dimension(3) :: delta_N, delta_M
 
     eps = 1e-16
 
     pp = pp + 1
 
-    !!!Reconstruct u with speed knowledge
-    hl = hl + 0.5*(hr-hl_upw)
-    ul = ul + 0.5*(ur-ul_upw)
-    vl = vl + 0.5*(vr-vl_upw)
-
-    hr = hr + 0.5*(hr_upw-hl)
-    ur = ur + 0.5*(ur_upw-ul)
-    vr = vr + 0.5*(vr_upw-vl)
+    dtoverdx =  0.5*dt_d/min(cotemin_arr_d(kvoisin), cotemin_arr_d(kvol)) !!cotemin_arr_d is 1.8*inscribed_circle_radius
+    ! dtoverdx =  dt_d/min(cotemin_arr_d(kvoisin), cotemin_arr_d(kvol)) !!cotemin_arr_d is 1.8*inscribed_circle_radius
 
 
-    !!Do HLLC again
+    !!!Data reconstruction I
+    delta_N(1) = hl-hl_upw
+    delta_N(2) = ul-ul_upw
+    delta_N(3) = vl-vl_upw
+    delta_M(1) = hr-hl
+    delta_M(2) = ur-ul
+    delta_M(3) = vr-vl
+    ! delta_hl = hr-hl_upw
+    call simple_limiter(delta_N(1), delta_M(1), delta_hl)
+    hl = max(0.d0, hl + 0.25*delta_hl)
+    if(hl<tolisec_d) then
+      ul = 0.
+      vl = 0.
+    else
+      ! delta_ul = ur-ul_upw
+      call simple_limiter(delta_N(2), delta_M(2), delta_ul)
+      ! delta_vl = vr-vl_upw
+      call simple_limiter(delta_N(3), delta_M(3), delta_vl)
+      ul = ul + 0.25*delta_ul
+      vl = vl + 0.25*delta_vl
+    end if
+
+    delta_N(1) = hr_upw-hr
+    delta_N(2) = ur_upw-ur
+    delta_N(3) = vr_upw-vr
+    delta_M(1) = hr-hl
+    delta_M(2) = ur-ul
+    delta_M(3) = vr-vl
+    ! delta_hr = hr_upw-hl
+    call simple_limiter(delta_N(1), delta_M(1), delta_hr)
+    hr = max(0.d0, hr - 0.25*delta_hr)
+    if(hr<tolisec_d) then
+      ur = 0.
+      vr = 0.
+    else
+      ! delta_ur = ur_upw-ul
+      call simple_limiter(delta_N(2), delta_M(2), delta_ur)
+      ! delta_vr = vr_upw-vl
+      call simple_limiter(delta_N(3), delta_M(3), delta_vr)
+      ur = ur - 0.25*delta_ur
+      vr = vr - 0.25*delta_vr
+    end if
+
+    !!!Data reconstruction II
+    hl = hl + 0.5*dtoverdx*(hl*ul - hr*ur)
+    ul = ul + 0.5*dtoverdx*(hl*ul**2 + 0.5*gp_d*hl**2 - (hr*ur**2 +0.5*gp_d*hr**2))
+    vl = vl + 0.5*dtoverdx*(hl*ul*vl - hr*ur*vr)
+
+    hr = hr + 0.5*dtoverdx*(hl*ul - hr*ur)
+    ur = ur + 0.5*dtoverdx*(hl*ul**2 + 0.5*gp_d*hl**2 - (hr*ur**2 +0.5*gp_d*hr**2))
+    vr = vr + 0.5*dtoverdx*(hl*ul*vl - hr*ur*vr)
+
     if(hl.lt.eps.and.hr.lt.eps) goto 21
 
     al = sqrt( gp_d * hl )
@@ -564,15 +624,6 @@ contains
         flux_hllc(3) = flux_hllc(1) * vr
       end if
     endif
-
-    ! flux_waf(1) = wl*f(1,1) + wlr*flux_hllc(1) + wr*f(2,1)
-    ! flux_waf(2) = wl*f(1,2) + wlr*flux_hllc(2) + wr*f(2,2)
-    ! flux_waf(3) = (wlet*vl + wret*vr)*flux_waf(1)
-
-    ! *** reprojection du flux ***
-    ! flux(1) = flux_waf(1)
-    ! flux(2) = norm(1)*flux_waf(2) - norm(2)*flux_waf(3)
-    ! flux(3) = norm(2)*flux_waf(2) + norm(1)*flux_waf(3)                       
 
     flux(1) = flux_hllc(1)
     flux(2) = norm(1)*flux_hllc(2) - norm(2)*flux_hllc(3)
