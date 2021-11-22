@@ -2,9 +2,6 @@ module flux_riemann
   implicit none
 contains
   attributes(global) subroutine cotes3(surf_d, zm_d,vdlg_d)
-    ! Cacul du flux HLLC avec methode riadh
-    ! Article : A Weighted Average Flux (WAF) scheme applied to shallow waterequations for real-life applications, Riadh et al.
-
     use precision_kind
     use global_data_device
     implicit none
@@ -292,7 +289,6 @@ contains
               ! if(kupw1>0 .and. kupw1/=kvol .and. orient>0.) then
               if(kupw1>0 .and. kupw1/=kvol) then
                 ! if(kupw1>0 .and. kupw1/=kvol) then
-                ! if(kvol==6195 .and. kvoisin == 6199) print*, "L",i, kupw1
                 if(vdlg_d(1,kupw1) > tolisec_d) then
                   hl_upw = hl_upw + vdlg_d(1,kupw1)*surf_d(kupw1)
                   ul_upw = ul_upw + (vdlg_d(2,kupw1) * norm(1) + vdlg_d(3,kupw1) * norm(2))*surf_d(kupw1)/vdlg_d(1,kupw1)
@@ -308,7 +304,6 @@ contains
               orient = (x_centroid_d(kupw2)-xupw)*(xupw-x_centroid_d(kvoisin)) + (y_centroid_d(kupw2)-yupw)*(yupw-y_centroid_d(kvoisin)) 
               ! if(kupw2>0 .and. kupw2/=kvoisin .and. orient>0.) then
               if(kupw2>0 .and. kupw2/=kvoisin) then
-                ! if(kvol==6195 .and. kvoisin == 6199) print*, "R",i, kupw2
                 ! if(kupw2>0 .and. kupw2/=kvoisin) then
                 if(vdlg_d(1,kupw2) > tolisec_d) then
                   hr_upw = hr_upw + vdlg_d(1,kupw2)*surf_d(kupw2)
@@ -344,7 +339,9 @@ contains
           if(iflux_d==3) then
             call solver_Riemann_waf(gi,kvoisin,surf_d,norm,vdlg_d,hijet,vitul,vitvl,hjiet,vitur,vitvr,zml,zmr,hl_upw,ul_upw,vl_upw,hr_upw,ur_upw,vr_upw,flux,ln,pp)
           else if(iflux_d==4) then
-            call solver_Riemann_waf_3(gi,kvoisin,surf_d,norm,vdlg_d,hijet,vitul,vitvl,hjiet,vitur,vitvr,zml,zmr,hl_upw,ul_upw,vl_upw,hr_upw,ur_upw,vr_upw,flux,ln,pp)
+            call solver_Riemann_muscl(gi,kvoisin,surf_d,norm,vdlg_d,hijet,vitul,vitvl,hjiet,vitur,vitvr,zml,zmr,hl_upw,ul_upw,vl_upw,hr_upw,ur_upw,vr_upw,flux,ln,pp)
+          else if(iflux_d==5) then
+            call solver_Riemann_waf_average_state(gi,kvoisin,surf_d,norm,vdlg_d,hijet,vitul,vitvl,hjiet,vitur,vitvr,zml,zmr,hl_upw,ul_upw,vl_upw,hr_upw,ur_upw,vr_upw,flux,ln,pp)
           end if
         end if ! de choix schéma iflux
 
@@ -380,7 +377,15 @@ contains
     real(fp_kind), intent(inout) :: A
 
     !!Leer style
-    A = (r1*r2 + abs(r1*r2))/(r1+r2+1e-12)
+    ! A = (r1*r2 + abs(r1*r2))/(r1+r2+1e-12)
+
+
+    if(r2>0) then
+      A = max(0.d0, min(2*r1,r2), min(r1,2*r2))
+    else
+      A = min(0.d0, max(2*r1,r2), max(r1,2*r2))
+    endif
+
   end subroutine simple_limiter
 
   attributes(device) subroutine limiter(r, c, A)
@@ -444,7 +449,7 @@ contains
 
   end subroutine limiter
 
-  attributes(device) subroutine solver_Riemann_waf_3(kvol,kvoisin,surf,norm,vdlg,hl,ul,vl,hr,ur,vr,zml,zmr,hl_upw,ul_upw,vl_upw,hr_upw,ur_upw,vr_upw,flux,ln,pp)
+  attributes(device) subroutine solver_Riemann_muscl(kvol,kvoisin,surf,norm,vdlg,hl,ul,vl,hr,ur,vr,zml,zmr,hl_upw,ul_upw,vl_upw,hr_upw,ur_upw,vr_upw,flux,ln,pp)
     ! Solveur tiré de : "Numerical Tracking of Shallow Water Waves by the Unstructured Finite Volume WAF Approximation" 
     !  Loukili et Soulaimani 2007
 
@@ -477,7 +482,7 @@ contains
 
     pp = pp + 1
 
-    dtoverdx =  0.5*dt_d/min(cotemin_arr_d(kvoisin), cotemin_arr_d(kvol)) !!cotemin_arr_d is 1.8*inscribed_circle_radius
+    dtoverdx =  1.8*dt_d/min(cotemin_arr_d(kvoisin), cotemin_arr_d(kvol)) !!cotemin_arr_d is 1.8*inscribed_circle_radius
     ! dtoverdx =  dt_d/min(cotemin_arr_d(kvoisin), cotemin_arr_d(kvol)) !!cotemin_arr_d is 1.8*inscribed_circle_radius
 
 
@@ -490,7 +495,7 @@ contains
     delta_M(3) = vr-vl
     ! delta_hl = hr-hl_upw
     call simple_limiter(delta_N(1), delta_M(1), delta_hl)
-    hl = max(0.d0, hl + 0.25*delta_hl)
+    hl = max(0.d0, hl + 0.5*delta_hl)
     if(hl<tolisec_d) then
       ul = 0.
       vl = 0.
@@ -499,19 +504,19 @@ contains
       call simple_limiter(delta_N(2), delta_M(2), delta_ul)
       ! delta_vl = vr-vl_upw
       call simple_limiter(delta_N(3), delta_M(3), delta_vl)
-      ul = ul + 0.25*delta_ul
-      vl = vl + 0.25*delta_vl
+      ul = ul + 0.5*delta_ul
+      vl = vl + 0.5*delta_vl
     end if
 
-    delta_N(1) = hr_upw-hr
-    delta_N(2) = ur_upw-ur
-    delta_N(3) = vr_upw-vr
-    delta_M(1) = hr-hl
-    delta_M(2) = ur-ul
-    delta_M(3) = vr-vl
+    delta_M(1) = hr_upw-hr
+    delta_M(2) = ur_upw-ur
+    delta_M(3) = vr_upw-vr
+    delta_N(1) = hr-hl
+    delta_N(2) = ur-ul
+    delta_N(3) = vr-vl
     ! delta_hr = hr_upw-hl
     call simple_limiter(delta_N(1), delta_M(1), delta_hr)
-    hr = max(0.d0, hr - 0.25*delta_hr)
+    hr = max(0.d0, hr - 0.5*delta_hr)
     if(hr<tolisec_d) then
       ur = 0.
       vr = 0.
@@ -520,8 +525,8 @@ contains
       call simple_limiter(delta_N(2), delta_M(2), delta_ur)
       ! delta_vr = vr_upw-vl
       call simple_limiter(delta_N(3), delta_M(3), delta_vr)
-      ur = ur - 0.25*delta_ur
-      vr = vr - 0.25*delta_vr
+      ur = ur - 0.5*delta_ur
+      vr = vr - 0.5*delta_vr
     end if
 
     !!!Data reconstruction II
@@ -628,7 +633,7 @@ contains
     flux(1) = flux_hllc(1)
     flux(2) = norm(1)*flux_hllc(2) - norm(2)*flux_hllc(3)
     flux(3) = norm(2)*flux_hllc(2) + norm(1)*flux_hllc(3)                       
-  end subroutine solver_Riemann_waf_3
+  end subroutine solver_Riemann_muscl
 
   attributes(device) subroutine solver_Riemann_waf(kvol,kvoisin,surf,norm,vdlg,hl,ul,vl,hr,ur,vr,zml,zmr,hl_upw,ul_upw,vl_upw,hr_upw,ur_upw,vr_upw,flux,ln,pp)
     ! Solveur tiré de : "Numerical Tracking of Shallow Water Waves by the Unstructured Finite Volume WAF Approximation" 
@@ -651,8 +656,9 @@ contains
     real(fp_kind)                 :: eps
     real(fp_kind), dimension(3)   :: flux1, flux_hllc, flux_waf
     real(fp_kind), dimension(2,3) :: f, q
-    real(fp_kind), dimension(3) :: fet, qet
+    real(fp_kind), dimension(3)   :: fet, qet
     real(fp_kind)                 :: al, ar, het, gl, gr, sl, sr, set, xl, xr, uet, pql, pqr, denom, pond
+    real(fp_kind)                 :: u_avg, h_avg, v_avg
     real(fp_kind) :: dtoverdx, cr, cl, cet, wl, wlet, wlr, wr, wret
     real(fp_kind) :: rr, rl, ret, delta_loc_l, delta_loc_r, delta_loc_et
     real(fp_kind) :: delta_upw_r, delta_upw_l, delta_upw_et, limit_l, limit_r, limit_et
@@ -716,6 +722,7 @@ contains
       set = (sl*hr*(ur-sr) -sr*hl*(ul-sl))/denom
     end if
 
+    !!CLASSIC HLLC
     !Calcul de Ql et Qr
     q(1,1) = hl
     q(1,2) = hl*ul
@@ -752,6 +759,7 @@ contains
         flux_hllc(3) = flux_hllc(1) * vr
       end if
     endif
+    !!END CLASSIC HLLC
 
     dtoverdx =  1.8*dt_d/min(cotemin_arr_d(kvoisin), cotemin_arr_d(kvol)) !!cotemin_arr_d is 1.8*inscribed_circle_radius
 
@@ -799,7 +807,7 @@ contains
     wret = (1 - dsign(1.d0,set) * limit_et)/2.
 
     flux_waf(1) = wl*f(1,1) + wlr*flux_hllc(1) + wr*f(2,1)
-    flux_waf(2) = wl*f(1,2) + wlr*flux_hllc(2) + wr*f(2,2)
+    flux_waf(1) = wl*f(1,2) + wlr*flux_hllc(2) + wr*f(2,2)
     flux_waf(3) = (wlet*vl + wret*vr)*flux_waf(1)
 
     ! *** reprojection du flux ***
@@ -807,6 +815,192 @@ contains
     flux(2) = norm(1)*flux_waf(2) - norm(2)*flux_waf(3)
     flux(3) = norm(2)*flux_waf(2) + norm(1)*flux_waf(3)                       
   end subroutine solver_Riemann_waf
+
+  attributes(device) subroutine solver_Riemann_waf_average_state(kvol,kvoisin,surf,norm,vdlg,hl,ul,vl,hr,ur,vr,zml,zmr,hl_upw,ul_upw,vl_upw,hr_upw,ur_upw,vr_upw,flux,ln,pp)
+    ! Solveur tiré de : "Numerical Tracking of Shallow Water Waves by the Unstructured Finite Volume WAF Approximation" 
+    !  Loukili et Soulaimani 2007
+
+    use precision_kind
+    use global_data_device
+    implicit none
+
+    integer, intent(in)                         :: kvol, kvoisin
+    integer, intent(inout)                      :: pp
+    real(fp_kind), intent(in)                   :: hl, ul, vl, hr, ur, vr, zml, zmr, ln
+    real(fp_kind), intent(in)                   :: hl_upw, ul_upw, vl_upw, hr_upw, ur_upw, vr_upw
+    real(fp_kind), dimension(2), intent(in)     :: norm
+    real(fp_kind), dimension(3), intent(inout)  :: flux
+    real(fp_kind), dimension(nelt_d), intent(in)     :: surf
+    real(fp_kind), dimension(ndln_d,nelt_d), intent(in)   :: vdlg
+
+    integer                       :: i 
+    real(fp_kind)                 :: eps
+    real(fp_kind), dimension(3)   :: flux1, flux_hllc, flux_waf
+    real(fp_kind), dimension(2,3) :: f, q
+    real(fp_kind), dimension(3)   :: fet, qet
+    real(fp_kind)                 :: al, ar, het, gl, gr, sl, sr, set, xl, xr, uet, pql, pqr, denom, pond
+    real(fp_kind)                 :: u_avg, h_avg, v_avg
+    real(fp_kind) :: dtoverdx, cr, cl, cet, wl, wlet, wlr, wr, wret
+    real(fp_kind) :: rr, rl, ret, delta_loc_l, delta_loc_r, delta_loc_et
+    real(fp_kind) :: delta_upw_r, delta_upw_l, delta_upw_et, limit_l, limit_r, limit_et
+
+    eps = 1e-16
+
+    pp = pp + 1
+
+    if(hl.lt.eps.and.hr.lt.eps) goto 20
+
+    al = sqrt( gp_d * hl )
+    ar = sqrt( gp_d * hr )
+
+    het  =  ( hl + hr ) / 2.  -  ( ur - ul ) * ( hl + hr ) / ( al + ar ) / 4.
+    uet  =  ( ul + ur ) / 2.  -  ( hr - hl ) * ( al + ar ) / ( hl + hr ) 
+
+    if ( het.lt.hl ) then
+      pql = 1.
+    else
+      if(hl.gt.eps) then
+        pql = sqrt(0.5*(het+hl)*het/hl**2)
+      else
+        pql = 0.
+      end if
+    endif
+
+    if ( het.lt.hr ) then
+      pqr = 1.
+    else
+      if(hr.gt.eps) then
+        pqr = sqrt(0.5*(het+hr)*het/hr**2)
+      else
+        pqr = 0.
+      end if
+    endif
+
+    20 continue
+
+    if ( hl.gt.eps ) then
+      sl = ul-al*pql
+    else
+      sl  = ur - 2 * ar
+      sr  = ur + ar
+      goto 35
+    end if
+
+    if ( hr.gt.eps ) then
+      sr = ur+ar*pqr
+    else
+      sl  = ul - al
+      sr  = ul + 2 * al
+      goto 35
+    end if
+
+    35 continue
+
+    denom = hr*(ur-sr)-hl*(ul-sl)
+    if(abs(denom).lt.eps) then
+      set = uet
+    else
+      set = (sl*hr*(ur-sr) -sr*hl*(ul-sl))/denom
+    end if
+
+    !!CLASSIC HLLC
+    !Calcul de Ql et Qr
+    q(1,1) = hl
+    q(1,2) = hl*ul
+    q(1,3) = hl*vl
+
+    q(2,1) = hr
+    q(2,2) = hr*ur
+    q(2,3) = hr*vr
+
+    !!Cacul de G(Ul)
+    f(1,1) = hl * ul
+    f(1,2) = hl * ul**2 + gp_d*hl*hl/2.0D0
+    f(1,3) = hl * ul * vl
+
+    !!Cacul de G(Ur)
+    f(2,1) = hr * ur
+    f(2,2) = hr * ur**2 + gp_d*hr*hr/2.0D0
+    f(2,3) = hr * ur * vr
+
+    !!G(U*) 
+    fet = (sr*f(1,:)-sl*f(2,:)+sl*sr*(q(2,:)-q(1,:)))/(sr-sl+eps) !!HLL classique
+    !!uet = (sr*ul-sl*ur + sl*sr*(hr-hl))/((sr-sl+eps)
+    ! uet = fet(1)/het
+
+    !Flux HLLC
+    if (sl > 0) then ! G(Ul)
+      flux_hllc(:) = f(1,:)
+    else if (sr < 0) then ! G(Ur)
+      flux_hllc(:) = f(2,:)
+    else
+      flux_hllc(:) = fet(:)
+      !Correction HLLC
+      if(set > 0) then
+        flux_hllc(3) = flux_hllc(1) * vl
+      else
+        flux_hllc(3) = flux_hllc(1) * vr
+      end if
+    endif
+    !!END CLASSIC HLLC
+
+    dtoverdx =  1.8*dt_d/min(cotemin_arr_d(kvoisin), cotemin_arr_d(kvol)) !!cotemin_arr_d is 1.8*inscribed_circle_radius
+
+    cr = sr * dtoverdx
+    cl = sl * dtoverdx
+    cet = set * dtoverdx
+
+    !! TVD stabilization 
+    delta_loc_r = hr-hl
+    delta_loc_l = hr-hl
+    delta_loc_et = vr-vl
+
+    if(sr>0) then
+      delta_upw_r = hl-hl_upw
+    else
+      delta_upw_r = hr_upw-hr
+    endif
+
+    if(sl>0) then
+      delta_upw_l = hl-hl_upw
+    else
+      delta_upw_l = hr_upw-hr
+    endif
+
+    if(set>0) then
+      delta_upw_et = vl-vl_upw
+    else
+      delta_upw_et = vr_upw-vr
+    endif
+
+    rl = delta_upw_l/(delta_loc_l + eps)
+    rr = delta_upw_r/(delta_loc_r + eps)
+    ret = delta_upw_et/(delta_loc_et + eps)
+
+    call limiter(rl,cl,limit_l)
+    call limiter(rr,cr,limit_r)
+    call limiter(ret,cet,limit_et)
+
+    wl = (1 + dsign(1.d0,sl) * limit_l)/2.
+    wlet = (1 + dsign(1.d0,set) * limit_et)/2.
+
+    wlr = (dsign(1.d0,sr)*limit_r - dsign(1.d0,sl)*limit_l)/2.
+
+    wr = (1 - dsign(1.d0,sr) * limit_r)/2.
+    wret = (1 - dsign(1.d0,set) * limit_et)/2.
+
+    h_avg = wl*hl + wlr*het + wr*hr
+    u_avg = wl*ul + wlr*uet + wr*ur
+
+    flux_waf(1) = h_avg*u_avg
+    flux_waf(1) = h_avg*u_avg**2 + 0.5*gp_d*h_avg**2
+    flux_waf(3) = (wlet*vl + wret*vr)*flux_waf(1)
+
+    ! *** reprojection du flux ***
+    flux(1) = flux_waf(1)
+    flux(2) = norm(1)*flux_waf(2) - norm(2)*flux_waf(3)
+    flux(3) = norm(2)*flux_waf(2) + norm(1)*flux_waf(3)                       
+  end subroutine solver_Riemann_waf_average_state
 
   attributes(device) subroutine solver_Riemann_hllc(kvol,kvoisin,surf,norm,vdlg,hl,ul,vl,hr,ur,vr,zml,zmr,flux,ln,pp)
     ! HLLC classique

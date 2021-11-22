@@ -164,11 +164,9 @@ contains
       cotemin = min(cotemin,cotemin_arr(kvol))
     enddo
 
-    print*,mpi_process_id,"avant all reduce"
     call MPI_BARRIER(MPI_COMM_WORLD,mpi_ierr)
     call mpi_allreduce(mpi_in_place,cotemin,1,fp_kind_mpi,mpi_min,mpi_comm_world, mpi_ierr)
     call MPI_BARRIER(MPI_COMM_WORLD,mpi_ierr)
-    print*,mpi_process_id,"apres all reduce"
     cotemin_d = cotemin
     cotemin_arr_d = cotemin_arr
   end subroutine lecture_maillage

@@ -161,7 +161,9 @@ contains
       ierr = cudaStreamSynchronize(stream1)
       call calcul_residue_ele<<<grid, tblock, 0, stream2>>>()
 
-      call update_send_cells<<<grid_usc, tblock_usc, 0, stream2>>>()
+      if(num_mpi_process>1 .and. is_cgns==1) then
+        call update_send_cells<<<grid_usc, tblock_usc, 0, stream2>>>()
+      end if
 
       if(ndo>1) then
         ierr = cudaMemcpyAsync(debit_sortie_arr,debit_sortie_arr_d,size(debit_sortie_arr),stream1)
@@ -230,6 +232,9 @@ contains
           ierr = cudaMemcpy(vdlg, vdlg_d, nelt, cudamemcpyDeviceToHost)
         end if
       end if
+
+      !!soulaim
+      ! call update_nodes_sol<<<grid, tblock, 0, stream2>>>()
 
       ierr = cudaMemcpyAsync(vdlg0_d, vdlg_d, ndln*nelt, stream1)
 
@@ -404,6 +409,30 @@ contains
 
   end subroutine solve_finite_volumes
 
+  attributes(global) subroutine update_nodes_sol
+    use precision_kind
+    use global_data_device
+
+    integer :: ti,gi,s,n
+    real(fp_kind), dimension(3) :: fl
+
+    ti = threadIdx%x
+    gi = (blockIdx%x - 1)*blockDim%x + ti
+
+    if(gi <= nelt_d) then
+      do s=1,3
+        n = connectivite_d(gi,s)
+
+        fl(1) = vdlg_d(1,gi)*vdlg_d(2,gi)
+        fl(2) = vdlg_d(1,gi)*vdlg_d(2,gi)**2 + gp_d*vdlg_d(1,gi)**2
+        fl(3) = vdlg_d(1,gi)*vdlg_d(2,gi)*vdlg_d(3,gi)
+
+        vdlg_nodes_d(:,n) = vdlg_nodes_d(:,n) + dt_d*fl(:)/surf_d(gi)
+      end do
+    endif
+
+  end subroutine update_nodes_sol
+
   attributes(global) subroutine copy_2d(a,b)
     use precision_kind
     use global_data_device
@@ -576,7 +605,6 @@ contains
 
     if(gi <= elt_fant_envoi_length_d(gj)) then
       elt_fant_envoi_sol_d(:,gi,gj) = vdlg_d(:,elt_fant_envoi_id_d(gi,gj))
-      ! if(abs(vdlg_d(2,elt_fant_envoi_id_d(gi,gj))) > 0.2) print*,gi,gj,elt_fant_envoi_id_d(gi,gj)
     end if
 
   end subroutine update_send_cells
@@ -640,10 +668,6 @@ contains
         vdlg_d(1,gi) = tolisec_d
         vdlg_d(2,gi) = 0.
         vdlg_d(3,gi) = 0.
-      end if
-
-      if(vdlg_d(1,gi) > 1e5) then
-        print*,dt_d
       end if
     endif
 
