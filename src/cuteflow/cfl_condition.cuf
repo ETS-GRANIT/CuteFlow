@@ -24,6 +24,7 @@ contains
 
 
     if(gi <= nelt_d-nelt_fant_recep_d) then
+      if(gi==1) dt_d = 1000000.0D0
       deltatmin_d(gi) = 1000000.0D0
       hauteur = solut_d(1,gi)
       if ( hauteur > tolisec_d ) then
@@ -41,8 +42,6 @@ contains
       end if
 
     endif   
-
-    dt_d=1000000.0D0
   end subroutine cflcond
 
   attributes(global) subroutine cflcond_sec(solut_d, deltatmin_d, dt_d)

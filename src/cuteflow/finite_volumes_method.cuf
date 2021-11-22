@@ -158,27 +158,14 @@ contains
       !! ***** Calculation of source terms
       call source<<<grid, tblock, 0, stream2>>>(vdlg_d,surf_d,zm_d,deltatmin_d)
 
-      ierr = cudaStreamSynchronize(stream1)
-      call calcul_residue_ele<<<grid, tblock, 0, stream2>>>()
-
-      if(num_mpi_process>1 .and. is_cgns==1) then
-        call update_send_cells<<<grid_usc, tblock_usc, 0, stream2>>>()
-      end if
-
       if(ndo>1) then
         ierr = cudaMemcpyAsync(debit_sortie_arr,debit_sortie_arr_d,size(debit_sortie_arr),stream1)
-      end if
-
-      if(ndi>1) then
-        ierr = cudaMemcpyAsync(debit_entree_arr,debit_entree_arr_d,size(debit_entree_arr),stream1)
-      end if
-
-      if(ndo>1) then
         ierr = cudaStreamSynchronize(stream1)
         debit_sortie  =  debit_sortie + sum(debit_sortie_arr)
       end if
 
       if(ndi>1) then
+        ierr = cudaMemcpyAsync(debit_entree_arr,debit_entree_arr_d,size(debit_entree_arr),stream1)
         ierr = cudaStreamSynchronize(stream1)
         !En fait on parcours les arretes numérote dans get_io_index
         do iter_nodes=1,ndi-1
@@ -192,6 +179,13 @@ contains
       if(num_mpi_process>1) then
         call MPI_ALLREDUCE(MPI_IN_PLACE,debit_entree,nombre_entrees,fp_kind_mpi,MPI_SUM,MPI_COMM_WORLD, mpi_ierr)
         call MPI_ALLREDUCE(MPI_IN_PLACE,debit_sortie,1,fp_kind_mpi,MPI_SUM,MPI_COMM_WORLD, mpi_ierr)
+      end if
+
+      ierr = cudaStreamSynchronize(stream1)
+      call calcul_residue_ele<<<grid, tblock, 0, stream2>>>()
+
+      if(num_mpi_process>1 .and. is_cgns==1) then
+        call update_send_cells<<<grid_usc, tblock_usc, 0, stream2>>>()
       end if
 
       !!  Echange sur GPU directement bloc
@@ -213,15 +207,24 @@ contains
       end if
 
       !!Reset du pas de temps sur le gpu
-      ierr = cudaStreamSynchronize(stream2)
-      ierr = cudaMemcpyAsync(dt_d,dt_max,1,stream1) 
+      ! ierr = cudaStreamSynchronize(stream2)
+      ! ierr = cudaMemcpyAsync(dt_d,dt_max,1,stream1) 
       ! Calcul du pas de temps via la CFL
       call cflcond<<<grid, tblock, 0, stream2>>>(vdlg_d,deltatmin_d)
 
-      ierr = cudaStreamSynchronize(stream1) !! On peut commenter cette ligne pour faire le pari que la race condition sera ok
+      ! ierr = cudaStreamSynchronize(stream1) !! On peut commenter cette ligne pour faire le pari que la race condition sera ok
 
       call reduction<<<grid_reduc, tblock_reduc, tblock_reduc%x*sizeof(deltatmin_d(1)),stream2>>>(deltatmin_d)
-      ierr = cudaMemcpyAsync(dt,dt_d,1,stream2)
+      ! ierr = cudaMemcpyAsync(dt,dt_d,1,stream2)
+
+      !!Take the smallest dt across all GPUs
+      if(num_mpi_process>1) then
+        ierr = cudaStreamSynchronize(stream2)
+        ! call MPI_ALLREDUCE(MPI_IN_PLACE,dt,1,fp_kind_mpi,MPI_MIN,MPI_COMM_WORLD, mpi_ierr)
+        call MPI_ALLREDUCE(MPI_IN_PLACE,dt_d,1,fp_kind_mpi,MPI_MIN,MPI_COMM_WORLD, mpi_ierr)
+        ! ierr = cudaMemcpyAsync(dt_d,dt,1,stream2)
+        ierr = cudaMemcpyAsync(dt,dt_d,1,stream2)
+      end if
 
       !!Attendre fin de l'échange mémoire de vdlg
       !! et mise a jour vdlg avec vdlg
@@ -237,14 +240,6 @@ contains
       ! call update_nodes_sol<<<grid, tblock, 0, stream2>>>()
 
       ierr = cudaMemcpyAsync(vdlg0_d, vdlg_d, ndln*nelt, stream1)
-
-      !!Take the smallest dt across all GPUs
-      if(num_mpi_process>1) then
-        ierr = cudaStreamSynchronize(stream2)
-        call MPI_ALLREDUCE(MPI_IN_PLACE,dt,1,fp_kind_mpi,MPI_MIN,MPI_COMM_WORLD, mpi_ierr)
-        ierr = cudaMemcpyAsync(dt_d,dt,1,stream2)
-        ierr = cudadevicesynchronize()
-      end if
 
       if(dt>9999 .or. dt < 1e-15) then
         print*, "Erreur sur le pas de temps dt=", dt, " iteration= ", nt
