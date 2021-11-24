@@ -1,32 +1,12 @@
 module file_id
   integer, parameter :: lu_fich             = 10        ! fichier lecture donnees limites (limit reading file)
-  integer, parameter :: lu_ter              = 20        ! fichier lecture donnees terrain(file reading field data) 
-  integer, parameter :: lu_mail             = 30        ! fichier lecture donnees maillage structure (file reading data mesh structure)
   integer, parameter :: lu_init             = 40        ! fichier lecture donnees initiales (file reading initial data) 
-  integer, parameter :: lu_simul            = 50        ! fichier lecture donnees simulation (file reading data simulation) 
-  integer, parameter :: lu_input            = 60        ! fichier lecture des input pour l'analyse stochastique (input reading file for stochastic analysis) 
-  integer, parameter :: ec_coord            = 21        ! fichier ecriture table coordonnees (file writing table coordinates)
-  integer, parameter :: ec_conec            = 22        ! fichier ecriture table connectivite (connectivity file writing table)
-  integer, parameter :: ec_bound            = 23        ! fichier ecriture table elts frontiers (file writing table elts frontiers) 
-  integer, parameter :: ec_bound_w          = 24        ! fichier ecriture table elts frontiers (file writing table elts frontiers)
-  integer, parameter :: ec_bound_r          = 25        ! fichier lecture table elts frontiers (elts frontiers table reading file)
-  integer, parameter :: lec_mesh            = 200       ! fichier lecture d'un maillage non structure (file reading an unstructured mesh)  
-  integer, parameter :: ec_tecplot          = 300       ! fichier ecriture solution 3d pour Bluekenu (file writing 3d solution for Bluekenu) 
-  integer, parameter :: ec_solj_eta         = 796       ! fichier ecriture solution jauges (file writing solution gauges) 
-  integer, parameter :: ec_solj_h           = 797       ! fichier ecriture solution jauges (file writing solution gauges)      
-  integer, parameter :: ec_solj_u           = 798       ! fichier ecriture solution jauges (file writing solution gauges) 
-  integer, parameter :: ec_solj_v           = 799       ! fichier ecriture solution jauges (file writing solution gauges) 
-  integer, parameter :: ec_sol2d            = 800       ! fichier ecriture solution coupe en 2d (file writing solution in 2d cut)
-  integer, parameter :: ec_sol3d            = 801       ! fichier ecriture solution 3D (3d solution writing file) 
-  integer, parameter :: ec_Q_coupes         = 802       ! fichier ecriture solution coupe debit 
+  integer, parameter :: lec_mesh             = 41        ! fichier lecture donnees initiales (file reading initial data) 
   integer, parameter :: ec_Bluekenu_eta     = 803       ! fichier ecriture so lution 3d pour Bluekenu (3d writing file for Bluekenu)
   integer, parameter :: ec_Bluekenu_h       = 804       ! fichier ecriture solution 3d pour Bluekenu (file writing 3d solution for Bluekenu) 
   integer, parameter :: ec_Bluekenu_u       = 805       ! fichier ecriture solution 3d pour Bluekenu (file writing 3d solution for Bluekenu) 
   integer, parameter :: ec_Bluekenu_v       = 806       ! fichier ecriture solution 3d pour Bluekenu (file writing 3d solution for Bluekenu)
   integer, parameter :: ec_Paraview         = 901       ! fichier ecriture so lution 3d pour Paraview (3d writing file for Paraview)
-  integer, parameter :: ec_bilan_sim        = 1000      ! fichier ecriture bilan de la simulation (file write simulation report) 
   integer, parameter :: ec_sol_elt_t        = 1006      ! fichier ecriture stockage des solutions dans les cellules a intervalle de temps (file write storage solutions in cells at time interval)
-  integer, parameter :: ec_sol_nd_t         = 1008      ! fichier ecriture stockage des solutions dans les cellules a intervalle de temps (file write storage solutions in cells at time interval)
-  integer, parameter :: ec_sol_simple_nd     = 1010       
-  integer, parameter :: ec_sol_simple_elt     = 1011    
+  integer, parameter :: ec_sol_simple     = 1011    
 end module file_id

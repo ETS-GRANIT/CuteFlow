@@ -51,7 +51,6 @@ contains
 
     ! loi_debitglob_d = loi_debitglob
     iflux_d         = iflux
-    debug_mode_d    = debug_mode
     ilimiteur_d     = ilimiteur
     iupwind_d       = iupwind
     fricimplic_d    = fricimplic

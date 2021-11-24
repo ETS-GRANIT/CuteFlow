@@ -20,7 +20,6 @@ contains
     real(fp_kind)               :: x3, y3, p, ca, cb, cc, aire
     type(cudaEvent)             :: startEvent , stopEvent
     real(fp_kind)               :: start_cpu, stop_cpu, errf1, errf2, errf3
-    real                        :: time_cuda
     type (dim3)                 :: block_set, grid_set
 
     !! ns = nombre de sommet ici 3 pour des triangles
@@ -538,7 +537,7 @@ contains
       end if
     end do
 
-    ! print*, "INPUT " , nombre_entrees, ndi
+    print*, "INPUT " , nombre_entrees, ndi
     if(nombre_entrees>0) then
       allocate(long_entree(nombre_entrees))
       allocate(long_entree_d(nombre_entrees))
@@ -550,7 +549,7 @@ contains
       end if
     end if
 
-    ! print*, "OUTPUT " , nombre_sorties, ndo
+    print*, "OUTPUT " , nombre_sorties, ndo
     if(nombre_sorties>0 .and. ndo>0) then
       allocate(ndoutput(ndo))
       allocate(numero_ndoutput(ndo))

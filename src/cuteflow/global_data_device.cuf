@@ -75,4 +75,6 @@ module global_data_device
   integer, device, dimension(:,:), allocatable :: elt_fant_envoi_id_d
   real(fp_kind), device, dimension(:,:,:), allocatable :: elt_fant_envoi_sol_d
 
+  real(fp_kind), device, allocatable      :: deltatmin_d(:)
+
 end module global_data_device

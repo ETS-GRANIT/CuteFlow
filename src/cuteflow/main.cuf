@@ -32,7 +32,6 @@ program main
   integer         :: status, l, ie_coupe_transv, ierr, dev
   real(fp_kind)   :: d2, t2, dtime2, tcm2, d, t, time_start, time_stop
   real(fp_kind)   :: errf, errf1, errf2, errf3, errf4, errf5
-  real            :: time_cuda
   type(dim3 )     :: grid, tblock, grid_nodes, tblock_nodes, grid11, tblock11
   type(cudaEvent) :: startEvent , stopEvent
   integer                     :: stat(MPI_STATUS_SIZE)
@@ -61,10 +60,7 @@ program main
   dt_max=1000000.0D0
 
   !! Initization of the iteration counters
-  comptvisu        = 0
-  cptviscoupe      = 1
-  cptsolvisu        = 1
-  cptsoljauge      = 1
+  cptsolvisu       = 1
   cptsolrestart    = 1
   cptsolsimple     = 1
   ie_coupe_transv  = 0
@@ -116,9 +112,8 @@ program main
   allocate( vdlg_d(ndln,nelt), vdlg0_d(ndln,nelt))
   allocate( vdlg_visu(nelt,8))
 
-  if(diffusion) allocate(vdlg_nodes_d(ndln,nnt))
-
-  allocate( she0(nnt), sh0(nnt), shu0(nnt), shv0(nnt), su0(nnt), sv0(nnt) )
+  allocate( vdlg_nodes(ndln,nnt))
+  allocate( vdlg_nodes_d(ndln,nnt))
 
   allocate( tsoljauge(200000), tsolrestart(200000), tsolsimple(200000))
 
@@ -200,24 +195,24 @@ program main
   vdlg_d = vdlg
 
   !! Calcul de la solution initiale sur les noeuds
-  call sol_nodes(sh0,she0,shu0,shv0,su0,sv0)
+  ! call sol_nodes(sh0,she0,shu0,shv0,su0,sv0)
 
   !!  Storage for postraitement with possibility of animation (Tecplot)
   if(solvisu>0) then             
     start=1
     if(solvisu==1 .or. solvisu==3) then
-      call paraview_export(vdlg0, zm, she0, sh0, shu0, shv0, cptsolvisu)
+      call paraview_export(cptsolvisu)
     end if
     !CGNS EXPORT
     if(is_cgns==1 .and. (solvisu==2 .or. solvisu==3)) then
-      call cgns_export(she0, shu0, shv0, tsolvisu(cptsolvisu), cptsolvisu)
+      call cgns_export(cptsolvisu)
     end if
     cptsolvisu = cptsolvisu + 1
   endif
 
   if(solsimple/=0) then
     start=1
-    call simple_export(vdlg0, zm, she0, sh0, shu0, shv0, cptsolsimple)
+    call simple_export(cptsolsimple)
     cptsolsimple = cptsolsimple + 1
   end if
 
@@ -227,70 +222,16 @@ program main
   !! Résolution par méthode volumes finis
   call solve_finite_volumes
 
-  close(ec_solj_h)
-  close(ec_solj_u)
-
-  close(ec_tecplot)
-  close(320)
-  close(330)
-
-  close(350)
-  close(360)
-  close(370)
-
-  close(400)
-
-  if(solrestart==1) then
-    close(ec_sol_elt_t)
-    close(ec_sol_nd_t)
-  endif
-
-  d=temps_final-temps_initial
-
   print*, '==========================================================================='
   print*, '=========================   FIN DE LA SIMULATION   ========================'
   print*, '==========================================================================='
   print*, ''
-  print*, 'DUREE DU CALCUL :', d, ' Secondes '
-  if (d >= 60)    print*, '   soit:',  d/60,    ' Minutes'
-  if (d >= 3600)  print*, '   soit:', d/3600,  ' Heures'
-  if (d >= 86400) print*, '   soit:', d/86400, ' Jours'
+  print*, 'DUREE DU CALCUL :', time_cuda, ' Secondes '
+  if (time_cuda >= 60)    print*, '   soit:',  time_cuda/60,   ' Minutes'
+  if (time_cuda >= 3600)  print*, '   soit:', time_cuda/3600,  ' Heures'
+  if (time_cuda >= 86400) print*, '   soit:', time_cuda/86400, ' Jours'
   print*, '==========================================================================='
   print*, '==========================================================================='   
-
-  !! Enregistrment du temps cpu de calcul (calculating cpu time registration) 
-  write(ec_bilan_sim,*) '====================================================================='
-  write(ec_bilan_sim,*) '======================= FIN DE LA SIMULATION ========================'
-  write(ec_bilan_sim,*) '====================================================================='
-  write(ec_bilan_sim,*) ''
-
-  write(ec_bilan_sim,*) 'MODELE FULL-ORDER VOLUMES FINIS'
-  write(ec_bilan_sim,*) ''
-
-  if ( t_reg_perm > 0. ) then
-    write(ec_bilan_sim,*) ' REGIME PERMANENR ATTEINT A : T =', t_reg_perm, ' Secondes'
-    write(ec_bilan_sim,*) ''
-    do af_input=1,nombre_entrees
-      write(ec_bilan_sim,*) 'debit_entre ',af_input, " = ",  debit_entree
-    end do
-    write(ec_bilan_sim,*) 'debit_sorti =', debit_sortie
-    write(ec_bilan_sim,*) ''
-  else
-    write(ec_bilan_sim,*) 'TEMPS DE SIMULATION ATTEINT A : T = ', tc, ' Secondes'
-    write(ec_bilan_sim,*) ''
-  endif
-
-  write(ec_bilan_sim,*) 'DUREE DU CALCUL :', d, ' Secondes'
-  if (d >= 60)    print*, '   soit:',  d/60,    ' Minutes'
-  if (d >= 3600)  print*, '   soit:', d/3600,  ' Heures'
-  if (d >= 86400) print*, '   soit:', d/86400, ' Jours'
-  write(ec_bilan_sim,*) '====================================================================='
-  write(ec_bilan_sim,*) '====================================================================='  
-
-  close(ec_bilan_sim)
-  close(3001)
-  close(3002)
-  close(3003)
 
   call MPI_FINALIZE(mpi_ierr)
 end program main

@@ -1,7 +1,7 @@
 module source_terms
   implicit none
 contains
-  attributes(global) subroutine source(vdlg_d,surf_d,zm_d,deltatmin_d)
+  attributes(global) subroutine compute_source_terms(vdlg_d,surf_d,zm_d,deltatmin_d)
     !
     ! ======================================================================
     !
@@ -230,5 +230,5 @@ contains
       endif
     endif
 
-  end subroutine source
+  end subroutine compute_source_terms
 end module source_terms

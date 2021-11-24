@@ -1,7 +1,7 @@
 module flux_riemann
   implicit none
 contains
-  attributes(global) subroutine cotes3(surf_d, zm_d,vdlg_d)
+  attributes(global) subroutine compute_flux(surf_d, zm_d,vdlg_d)
     use precision_kind
     use global_data_device
     implicit none
@@ -365,7 +365,7 @@ contains
       if(tj == 1)  resc_d(3,gi) = s1(ti, 1) + s1(ti, 2) + s1(ti, 3)
 
     endif
-  end subroutine cotes3
+  end subroutine compute_flux
 
   attributes(device) subroutine simple_limiter(r1, r2, A)
     use precision_kind
@@ -476,6 +476,7 @@ contains
     real(fp_kind) :: rr, rl, ret, delta_loc_l, delta_loc_r, delta_loc_et
     real(fp_kind) :: delta_upw_r, delta_upw_l, delta_upw_et, limit_l, limit_r, limit_et
     real(fp_kind) :: delta_hl, delta_hr, delta_ul, delta_ur, delta_vl, delta_vr
+    real(fp_kind) :: hll, ull, vll, hrr, urr, vrr
     real(fp_kind), dimension(3) :: delta_N, delta_M
 
     eps = 1e-16
@@ -487,37 +488,43 @@ contains
 
 
     !!!Data reconstruction I
-    delta_N(1) = hl-hl_upw
-    delta_N(2) = ul-ul_upw
-    delta_N(3) = vl-vl_upw
+    delta_N(1) = (hl-hl_upw)/2.
+    delta_N(2) = (ul-ul_upw)/2.
+    delta_N(3) = (vl-vl_upw)/2.
     delta_M(1) = hr-hl
     delta_M(2) = ur-ul
     delta_M(3) = vr-vl
     ! delta_hl = hr-hl_upw
     call simple_limiter(delta_N(1), delta_M(1), delta_hl)
+    hll = max(0.d0, hl - 0.5*delta_hl)
     hl = max(0.d0, hl + 0.5*delta_hl)
-    if(hl<tolisec_d) then
+    if(hl<tolisec_d .or. hll<tolisec_d) then
       ul = 0.
       vl = 0.
+      ull = 0.
+      vll = 0.
     else
       ! delta_ul = ur-ul_upw
       call simple_limiter(delta_N(2), delta_M(2), delta_ul)
       ! delta_vl = vr-vl_upw
       call simple_limiter(delta_N(3), delta_M(3), delta_vl)
+      ull = ul - 0.5*delta_ul
+      vll = vl - 0.5*delta_vl
       ul = ul + 0.5*delta_ul
       vl = vl + 0.5*delta_vl
     end if
 
-    delta_M(1) = hr_upw-hr
-    delta_M(2) = ur_upw-ur
-    delta_M(3) = vr_upw-vr
+    delta_M(1) = (hr_upw-hr)/2.
+    delta_M(2) = (ur_upw-ur)/2.
+    delta_M(3) = (vr_upw-vr)/2.
     delta_N(1) = hr-hl
     delta_N(2) = ur-ul
     delta_N(3) = vr-vl
     ! delta_hr = hr_upw-hl
     call simple_limiter(delta_N(1), delta_M(1), delta_hr)
+    hrr = max(0.d0, hr + 0.5*delta_hr)
     hr = max(0.d0, hr - 0.5*delta_hr)
-    if(hr<tolisec_d) then
+    if(hr<tolisec_d .or. hrr<tolisec_d) then
       ur = 0.
       vr = 0.
     else
@@ -525,18 +532,20 @@ contains
       call simple_limiter(delta_N(2), delta_M(2), delta_ur)
       ! delta_vr = vr_upw-vl
       call simple_limiter(delta_N(3), delta_M(3), delta_vr)
+      urr = ur + 0.5*delta_ur
+      vrr = vr + 0.5*delta_vr
       ur = ur - 0.5*delta_ur
       vr = vr - 0.5*delta_vr
     end if
 
     !!!Data reconstruction II
-    hl = hl + 0.5*dtoverdx*(hl*ul - hr*ur)
-    ul = ul + 0.5*dtoverdx*(hl*ul**2 + 0.5*gp_d*hl**2 - (hr*ur**2 +0.5*gp_d*hr**2))
-    vl = vl + 0.5*dtoverdx*(hl*ul*vl - hr*ur*vr)
+    hl = hl + 0.5*dtoverdx*(hll*ull - hl*ul)
+    ul = ul + 0.5*dtoverdx*(hll*ull**2 + 0.5*gp_d*hll**2 - (hl*ul**2 +0.5*gp_d*hl**2))
+    vl = vl + 0.5*dtoverdx*(hll*ull*vll - hl*ul*vl)
 
-    hr = hr + 0.5*dtoverdx*(hl*ul - hr*ur)
-    ur = ur + 0.5*dtoverdx*(hl*ul**2 + 0.5*gp_d*hl**2 - (hr*ur**2 +0.5*gp_d*hr**2))
-    vr = vr + 0.5*dtoverdx*(hl*ul*vl - hr*ur*vr)
+    hr = hr + 0.5*dtoverdx*(hr*ur - hrr*urr)
+    ur = ur + 0.5*dtoverdx*(hr*ur**2 + 0.5*gp_d*hr**2 - (hrr*urr**2 +0.5*gp_d*hrr**2))
+    vr = vr + 0.5*dtoverdx*(hr*ur*vr - hrr*urr*vrr)
 
     if(hl.lt.eps.and.hr.lt.eps) goto 21
 

@@ -70,12 +70,10 @@ module global_data
   integer :: visu_snapshots, base_unique, nonlin, solvisu, k_base
   integer :: cuda_aware=1
   integer :: is_cgns=0, is_dt_constant=0
-  integer :: debug_mode=0, max_iter=5
 
   !! Construction de la namelist pour la lecture du fichier de donnee
   namelist/donnees_namelist/ &
 
-  & debug_mode, max_iter, &
   & gp, &
   & is_override_manning, override_manning, & 
 
@@ -178,9 +176,9 @@ module global_data
 
   integer, parameter :: gridxlim=65535, gridylim=2147483647
 
-  real(fp_kind), dimension(:)  , allocatable :: surf, sh0, shu0, shv0, su0,she0, sv0, zm
+  real(fp_kind), dimension(:), allocatable :: surf, zm
   real(fp_kind), pinned, dimension(:,:), allocatable :: vdlg, vdlg0, vdlg_nodes, vdlg_visu
-  real(fp_kind) :: temps_initial, temps_final
 
   integer :: nmax_ptset=0
+  real    :: time_cuda
 end module global_data
