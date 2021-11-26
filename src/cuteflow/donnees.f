@@ -1,7 +1,5 @@
   &DONNEES_NAMELIST 
 
-  debug_mode=0,max_iter=1,
-
   ! Données du terrain
   GP=9.81,
   is_override_manning=1, override_manning=0.02200,               ! nombre de manning qui override les autes si is_...=1
@@ -9,16 +7,15 @@
   ! Données du maillage
   is_cgns=1,
   meshfile_path='./',
-  ! meshfile='mesh_7562_2.cgns',                    ! Fichier de maillage
+  meshfile='mesh_7562_2.cgns',                    ! Fichier de maillage
   ! meshfile='mesh_7562_4.cgns',                    ! Fichier de maillage
   ! meshfile='mesh_7562.cgns',                    ! Fichier de maillage
-  meshfile='mesh_15162_bump.cgns',                    ! Fichier de maillage
+  ! meshfile='mesh_15162_bump.cgns',                    ! Fichier de maillage
   ! meshfile='mesh_15162.cgns',                    ! Fichier de maillage
   ! meshfile='mesh_717822.cgns',                    ! Fichier de maillage
+  ! meshfile='mesh_717822_2.cgns',                    ! Fichier de maillage
   elt_bound=0,                                                   ! 1 si le fichier boundary_table existe déja
   nombre_entrees=0, nombre_sorties=0,                                ! 0 si fichier non formaté pour plusieurs entrées/sorties
-
-  cuda_aware=1,
 
   ! Initialisation avec un Barrage
   eqlin_barrage=1,                                               ! 1 pour initialiser avec un barrage
@@ -45,20 +42,18 @@
   H_sortie=29.0,                                                 ! Hauteur du niveau à la sortie du domaine
 
   ! Paramètres des schémas numériques
-  IFLUX=4, ilimiteur=1, iupwind=1,                                ! 1 -> HLLC , 2 -> WAF Riadh, 3 -> WAF Loukili
+  IFLUX=2, ilimiteur=1, iupwind=1,                                ! 1 -> HLLC , 2 -> WAF Riadh, 3 -> WAF Loukili
   ! timedisc="euler"
   tolisec=1.0E-05,                                               ! Tolérence sec/mouillé
   friction=1,                                                    ! 1 pour prendre en compte la friction
   fricimplic=1,                                                  ! 0 -> explicite, 1 -> I-dt/2*J, 2 -> I-dt*B
 
-  TS=50.0, CFL=0.9,                                             ! Temps maximal de simultion, nombre CFL
+  TS=1.0, CFL=0.9,                                             ! Temps maximal de simultion, nombre CFL
   is_dt_constant=0, constant_dt=1e-5,
   tol_reg_perm=1.0E-15,                                          ! Tolérence relative entre debit entrée et débit sortie
   freqaffich=10000,                                               ! Frequence de print dans outfile.[0-9]
 
   sol_z_offset=0.
-  solrestart=0, restart_snapshots=2,                            ! Sauvegarde en overwrite la solution pour restart
-  solsimple=0, simple_snapshots=11,                              ! 1 noeuds, 2 éléments, 3 noeuds+elements
-  solvisu=2, visu_snapshots=201,                                  ! 1 vtk only 2 cgns only 3 both
+  solrestart=0,                                                  ! Save sol for restart
+  solvisu=1, visu_snapshots=10,                         ! 1 all, 2 vtk, 3 cgns, 4 simple nodes, 5 simple elems
   sortie_finale_bluekenue=0/                                     ! Sauvergarde fichiers T3S à la fin
-  

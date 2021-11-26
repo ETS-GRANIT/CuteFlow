@@ -1,13 +1,10 @@
 module flux_riemann
   implicit none
 contains
-  attributes(global) subroutine compute_flux(surf_d, zm_d,vdlg_d)
+  attributes(global) subroutine compute_flux
     use precision_kind
     use global_data_device
     implicit none
-
-    real(fp_kind), dimension(nelt_d), intent(in)      :: surf_d, zm_d
-    real(fp_kind), dimension(ndln_d,nelt_d), intent(in)    :: vdlg_d
 
     integer                     :: i, nc1, nc2, kvoisin, dl,pp, nc3, kvol, kv
     real(fp_kind)               :: x1, x2, y1, y2, ln, x3, y3, xupw, yupw
@@ -19,7 +16,7 @@ contains
     real(fp_kind)               :: kvoisin_v2_h, kvoisin_v2_u, kvoisin_v2_v
     real(fp_kind)               :: hl_upw, ul_upw, vl_upw, hr_upw, ur_upw, vr_upw
     real(fp_kind)               :: kupw1_area, kupw2_area
-    real(fp_kind)               :: zero, debitnorm, orient
+    real(fp_kind)               :: debitnorm, orient
     real(fp_kind), dimension(2) :: norm
     real(fp_kind), dimension(3) :: flux
     real :: cond
@@ -32,13 +29,7 @@ contains
     tj = threadIdx%y
     gj=  (blockIdx%y - 1)*blockDim%y + tj
 
-    zero = 0.d0
-
-    !   Retrieve a neighboring cell dry ===============================
-    ! do it outside and see if un_voisin_sec is being used here    
-
     if(gi <= nelt_d-nelt_fant_recep_d) then
-      ! write(*,*),gi,"launch"
       kvol = gi
       nc1 = tj
       cond = merge(1,0, nc1 == ns_d)

@@ -2,24 +2,67 @@ module pre_post_traitement
   implicit none
 contains
 
-  attributes(global) subroutine compute_sol_at_nodes
+  subroutine global_save_sol_visu
     use precision_kind
+    use global_data
     use global_data_device
+    use file_id
+    implicit none
 
-    integer :: ti, gi
-    integer :: s, ns
+    integer :: ierr
 
-    ti = threadIdx%x
-    gi = (blockIdx%x - 1)*blockDim%x + ti
+    ! *** Stockage de la solution pour postraitement et animation 
+    if((solvisu > 0 .and. abs( tc - tsolvisu(cptsolvisu) ) <= tolaffiche))then
+      vdlg = vdlg_d
 
-    if(gi <= nelt_d) then
-      do s=1,3
-        ns = connectivite_d(gi,s)
-        vdlg_nodes_d(:,ns) = vdlg_nodes_d(:,ns) + vdlg_d(:,gi)/surf_d(gi)
+      !Praview EXPORT
+      if(solvisu==1 .or. solvisu==2) then
+        call paraview_export(cptsolvisu)
+      end if
+
+      !CGNS EXPORT
+      if(is_cgns==1 .and. (solvisu==1 .or. solvisu==3)) then
+        call cgns_export(cptsolvisu)
+      end if
+
+      !Simple EXPORT
+      if(solvisu==1 .or. solvisu==4) then
+        if(.not. is_solnode) then
+          vdlg_nodes = 0.
+          call compute_sol_on_nodes
+          is_solnode = .TRUE.
+        end if
+        call simple_export(cptsolvisu)
+      end if
+
+      cptsolvisu = cptsolvisu + 1
+
+      ! call save_sol_for_restart
+    endif
+
+  end subroutine global_save_sol_visu
+
+  subroutine compute_sol_on_nodes
+    use precision_kind
+    use global_data
+
+    real(fp_kind), dimension(nnt) :: area
+    integer :: i, j, jj
+
+    area = 0.
+
+    do i=1,nelt
+      do j=1,ndln
+        jj = connectivite(i,j)
+        vdlg_nodes(:,jj) = vdlg_nodes(:,jj) + vdlg(:,i)*surf(i)
+        area(jj) = area(jj) + surf(i)
       end do
-    end if
+    end do
 
-  end subroutine compute_sol_at_nodes
+    do jj=1,nnt
+        vdlg_nodes(:,jj) = vdlg_nodes(:,jj)/area(jj)
+    end do
+  end subroutine compute_sol_on_nodes
 
   subroutine ouv_fichiers
     use precision_kind
@@ -55,6 +98,7 @@ contains
     real(fp_kind) :: solu, solv
 
     write(valtemps,'(f12.3)') tc 
+
     if(num_mpi_process>1) then
       solfile_eta_T3S = trim(adjustl(mpi_process_id_string)) // '_solution-ETA-Bluekenue_t_'// trim(adjustl(valtemps)) // 's.T3S'
       solfile_h_T3S   = trim(adjustl(mpi_process_id_string)) //   '_solution-H-Bluekenue_t_'// trim(adjustl(valtemps)) // 's.T3S'
@@ -131,19 +175,13 @@ contains
     integer, intent(in) :: ci
     integer :: nd, iel, i
 
-    if(ci==-1) then
-      write(valtemps,*) "Final"
-    else if(ci==0) then
-      write(valtemps,*) "Initial"
-    else
-      write(valtemps,'(I20)') ci-1
-    end if
+    write(valtemps,'(I20)') ci
 
-    if(solsimple==1 .or. solsimple==3) then 
+    if(solvisu==4 .or. solvisu==1) then 
       if(num_mpi_process>1) then
-        solfile_simple = trim(adjustl(trim(mpi_process_id_string)))//'_solution_nodes_simple_'//trim(adjustl(trim(valtemps)))//adjustl(trim('.txt'))
+        solfile_simple = trim(adjustl(trim(mpi_process_id_string)))//'_solution_noeuds_simple_'//trim(adjustl(trim(valtemps)))//adjustl(trim('.txt'))
       else
-        solfile_simple = 'solution_nodes_simple_'//trim(adjustl(trim(valtemps)))//adjustl(trim('.txt'))
+        solfile_simple = 'solution_noeuds_simple_'//trim(adjustl(trim(valtemps)))//adjustl(trim('.txt'))
       end if
       open(unit=ec_sol_simple,file=solfile_simple,status="unknown")
       write(ec_sol_simple,*) tc                        
@@ -151,7 +189,9 @@ contains
         write(ec_sol_simple,'(4f16.6)') vdlg_nodes(1,nd), vdlg_nodes(1,nd)+coordonnees(nd,3)-sol_z_offset, vdlg_nodes(2,nd), vdlg_nodes(3,nd)
       end do
       close(ec_sol_simple)
-    else if(solsimple==2 .or. solsimple==3) then 
+    end if
+
+    if(solvisu==5 .or. solvisu==1) then 
       if(num_mpi_process>1) then
         solfile_simple = trim(adjustl(trim(mpi_process_id_string)))//'_solution_elements_simple_'//trim(adjustl(trim(valtemps)))//adjustl(trim('.txt'))
       else
@@ -176,7 +216,7 @@ contains
 
     integer, intent(in) :: it
 
-    integer :: my_zone
+    integer :: my_zone, sol
     integer :: ierr, fn, n_bases, base, cellDim, physDim, n_zones, zone, zoneType, sizes(3*3), ord, i
     integer :: field_wd, field_vx, field_vy, field_vz, field_mx, field_my, field_mz, field_b, field_fs
     integer, dimension(2) :: idata
@@ -218,54 +258,54 @@ contains
 
     my_zone = zone
 
-    if(it==1) then
-      call cg_biter_write_f(fn, base, 'TimeIterValues', visu_snapshots, ierr)
+    if(it==0) then
+      call cg_biter_write_f(fn, base, 'TimeIterValues', visu_snapshots+1, ierr)
       call cg_goto_f(fn, base, ierr,'BaseIterativeData_t',1,'end')
       !!RealDouble = 4
-      call cg_array_write_f('TimeValues',4,1,visu_snapshots,tsolvisu,ierr)
+      call cg_array_write_f('TimeValues',4,1,visu_snapshots+1,tsolvisu(0:),ierr)
 
       do zone=1,n_zones
         call cg_ziter_write_f(fn,base,zone,'ZoneIterativeData',ierr)
         call cg_goto_f(fn,base,ierr,'Zone_t',zone,'ZoneIterativeData_t',1,'end')
         idata(1)=32
-        idata(2)=visu_snapshots
+        idata(2)=visu_snapshots+1
         !!Character = 5
-        call cg_array_write_f('FlowSolutionPointers',5,2,idata,solname_visu,ierr)
+        call cg_array_write_f('FlowSolutionPointers',5,2,idata,solname_visu(0:),ierr)
       end do
     end if
 
     do zone=1,n_zones
       !!!Vertex = 2
       !!!Cellcenter = 3
-      call cg_sol_write_f(fn, base, zone, solname_visu(it), 3, it, ierr)
+      call cg_sol_write_f(fn, base, zone, solname_visu(it), 3, sol, ierr)
       if (ierr .ne. CG_OK) call cg_error_exit_f
 
       !!RealDouble = 4
-      call cgp_field_write_f(fn, base, zone, it, 4, 'Water Depth', field_wd, ierr)
+      call cgp_field_write_f(fn, base, zone, sol, 4, 'Water Depth', field_wd, ierr)
       if (ierr .ne. CG_OK) call cgp_error_exit_f
 
-      call cgp_field_write_f(fn, base, zone, it, 4, 'Bathymetry', field_b, ierr)
+      call cgp_field_write_f(fn, base, zone, sol, 4, 'Bathymetry', field_b, ierr)
       if (ierr .ne. CG_OK) call cgp_error_exit_f
 
-      call cgp_field_write_f(fn, base, zone, it, 4, 'Free surface elevation', field_fs, ierr)
+      call cgp_field_write_f(fn, base, zone, sol, 4, 'Free surface elevation', field_fs, ierr)
       if (ierr .ne. CG_OK) call cgp_error_exit_f
 
-      call cgp_field_write_f(fn, base, zone, it, 4, 'MomentumX', field_mx, ierr)
+      call cgp_field_write_f(fn, base, zone, sol, 4, 'MomentumX', field_mx, ierr)
       if (ierr .ne. CG_OK) call cgp_error_exit_f
 
-      call cgp_field_write_f(fn, base, zone, it, 4, 'MomentumY', field_my, ierr)
+      call cgp_field_write_f(fn, base, zone, sol, 4, 'MomentumY', field_my, ierr)
       if (ierr .ne. CG_OK) call cgp_error_exit_f
 
-      call cgp_field_write_f(fn, base, zone, it, 4, 'MomentumZ', field_mz, ierr)
+      call cgp_field_write_f(fn, base, zone, sol, 4, 'MomentumZ', field_mz, ierr)
       if (ierr .ne. CG_OK) call cgp_error_exit_f
 
-      call cgp_field_write_f(fn, base, zone, it, 4, 'VelocityX', field_vx, ierr)
+      call cgp_field_write_f(fn, base, zone, sol, 4, 'VelocityX', field_vx, ierr)
       if (ierr .ne. CG_OK) call cgp_error_exit_f
 
-      call cgp_field_write_f(fn, base, zone, it, 4, 'VelocityY', field_vy, ierr)
+      call cgp_field_write_f(fn, base, zone, sol, 4, 'VelocityY', field_vy, ierr)
       if (ierr .ne. CG_OK) call cgp_error_exit_f
 
-      call cgp_field_write_f(fn, base, zone, it, 4, 'VelocityZ', field_vz, ierr)
+      call cgp_field_write_f(fn, base, zone, sol, 4, 'VelocityZ', field_vz, ierr)
       if (ierr .ne. CG_OK) call cgp_error_exit_f
     end do
 
@@ -292,31 +332,31 @@ contains
       vdlg_visu(i,8) = vdlg(1,i) + zm(i) - sol_z_offset
     end do
 
-    call cgp_field_write_data_f(fn, base, zone, it, field_wd, 1, nelt,  vdlg_visu(1,1), ierr)
+    call cgp_field_write_data_f(fn, base, zone, sol, field_wd, 1, nelt,  vdlg_visu(1,1), ierr)
     if (ierr .ne. CG_OK) call cgp_error_exit_f
 
-    call cgp_field_write_data_f(fn, base, zone, it, field_b, 1, nelt,  zm, ierr)
+    call cgp_field_write_data_f(fn, base, zone, sol, field_b, 1, nelt,  zm, ierr)
     if (ierr .ne. CG_OK) call cgp_error_exit_f
 
-    call cgp_field_write_data_f(fn, base, zone, it, field_fs, 1, nelt,  vdlg_visu(1,8), ierr)
+    call cgp_field_write_data_f(fn, base, zone, sol, field_fs, 1, nelt,  vdlg_visu(1,8), ierr)
     if (ierr .ne. CG_OK) call cgp_error_exit_f
 
-    call cgp_field_write_data_f(fn, base, zone, it, field_mx, 1, nelt,  vdlg_visu(1,2), ierr)
+    call cgp_field_write_data_f(fn, base, zone, sol, field_mx, 1, nelt,  vdlg_visu(1,2), ierr)
     if (ierr .ne. CG_OK) call cgp_error_exit_f
 
-    call cgp_field_write_data_f(fn, base, zone, it, field_my, 1, nelt,  vdlg_visu(1,3), ierr)
+    call cgp_field_write_data_f(fn, base, zone, sol, field_my, 1, nelt,  vdlg_visu(1,3), ierr)
     if (ierr .ne. CG_OK) call cgp_error_exit_f
 
-    call cgp_field_write_data_f(fn, base, zone, it, field_mz, 1, nelt,  vdlg_visu(1,4), ierr)
+    call cgp_field_write_data_f(fn, base, zone, sol, field_mz, 1, nelt,  vdlg_visu(1,4), ierr)
     if (ierr .ne. CG_OK) call cgp_error_exit_f
 
-    call cgp_field_write_data_f(fn, base, zone, it, field_vx, 1, nelt,  vdlg_visu(1,5), ierr)
+    call cgp_field_write_data_f(fn, base, zone, sol, field_vx, 1, nelt,  vdlg_visu(1,5), ierr)
     if (ierr .ne. CG_OK) call cgp_error_exit_f
 
-    call cgp_field_write_data_f(fn, base, zone, it, field_vy, 1, nelt,  vdlg_visu(1,6), ierr)
+    call cgp_field_write_data_f(fn, base, zone, sol, field_vy, 1, nelt,  vdlg_visu(1,6), ierr)
     if (ierr .ne. CG_OK) call cgp_error_exit_f
 
-    call cgp_field_write_data_f(fn, base, zone, it, field_vz, 1, nelt,  vdlg_visu(1,7), ierr)
+    call cgp_field_write_data_f(fn, base, zone, sol, field_vz, 1, nelt,  vdlg_visu(1,7), ierr)
     if (ierr .ne. CG_OK) call cgp_error_exit_f
 
     call cgp_close_f(fn, ierr)
@@ -342,13 +382,7 @@ contains
     integer :: nd, iel
     real(fp_kind) :: solu, solv
 
-    if(ci==-1) then
-      write(valtemps,*) "Final"
-    else if(ci==0) then
-      write(valtemps,*) "Initial"
-    else
-      write(valtemps,'(I20)') ci-1
-    end if
+    write(valtemps,'(I20)') ci
 
     solfile_para = trim(adjustl(trim(mpi_process_id_string)))//'_solution-Paraview_'//trim(adjustl(trim(valtemps)))//adjustl(trim('.vtk'))
 

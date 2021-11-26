@@ -110,4 +110,33 @@ contains
     end if
     call syncthreads()
   end subroutine reduction
+
+  subroutine compute_time_step(stream)
+    use global_data
+    use global_data_device
+    use precision_kind
+    use cudafor
+    implicit none
+
+    integer(kind=cuda_stream_kind) :: stream
+    integer :: ierr
+
+    ! Calcul du pas de temps via la CFL
+    call cflcond<<<grid, tblock, 0, stream>>>(vdlg_d,deltatmin_d)
+    call reduction<<<grid_reduc, tblock_reduc, tblock_reduc%x*sizeof(deltatmin_d(1)),stream>>>(deltatmin_d)
+
+    !!Take the smallest dt across all GPUs
+    if(num_mpi_process>1) then
+      ierr = cudaStreamSynchronize(stream)
+      call MPI_ALLREDUCE(MPI_IN_PLACE,dt_d,1,fp_kind_mpi,MPI_MIN,MPI_COMM_WORLD, mpi_ierr)
+    end if
+
+    ! ierr = cudaMemcpyAsync(dt,dt_d,1,stream)
+    ierr = cudaMemcpy(dt,dt_d,1)
+
+    if(dt>9999 .or. dt < 1e-12) then
+      print*, "Erreur sur le pas de temps dt=", dt
+      tc = tc + 1000000000000.
+    end if
+  end subroutine compute_time_step
 end module cfl_condition

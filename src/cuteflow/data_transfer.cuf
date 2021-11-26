@@ -56,13 +56,8 @@ contains
     fricimplic_d    = fricimplic
     debit_var_d     = debit_var 
     freqaffich_d    = freqaffich
-    comptvisu_d     = comptvisu
     cptsolvisu_d      = cptsolvisu
-    cptsoljauge_d   = cptsoljauge
-    cptsolrestart_d     = cptsolrestart
-    cptdebit_d      = cptdebit 
     long_d          = long
-    critere_arret_d = critere_arret
     debitglob_d     = debitglob
     h_sortie_d      = h_sortie
     ts_d            = ts
@@ -79,8 +74,6 @@ contains
     !! Input for stochastic analysis
     ndim_d              =ndim 
     ndln_d              =ndln     
-    departchrono_d      =departchrono
-    convec_d            =convec
     h0_d                =h0
 
     mpi_process_id_d = mpi_process_id

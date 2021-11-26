@@ -44,7 +44,7 @@ module global_data
 
   !! Variables donnees initiales
   character(len=200)  :: fich_sol_init
-  integer             :: solinit, eqlin_barrage, plan, sortie_finale_bluekenue, solsimple
+  integer             :: solinit, eqlin_barrage, plan, sortie_finale_bluekenue
   real(fp_kind)             :: h_amont, u_amont, v_amont, h_aval, u_aval, v_aval
   real(fp_kind)             :: xplan, yplan, zplan, xpoint, ypoint, zpoint
   real(fp_kind)             :: x1eqbar, x2eqbar, y1eqbar, y2eqbar
@@ -53,10 +53,10 @@ module global_data
   character(len=6)    :: inlet
   character(len=30)   :: loi_debitglob
   integer :: iflux, ilimiteur=1, iupwind=1, fricimplic=1, debit_var  
-  integer :: freqaffich, solrestart, restart_snapshots, simple_snapshots
+  integer :: freqaffich, solrestart 
   real(fp_kind) :: sol_z_offset=0.
-  integer :: comptvisu, cptsolvisu, cptsoljauge, cptsolrestart, cptdebit, cptviscoupe, cptsolsimple
-  real(fp_kind) :: long, critere_arret, debitglob_sum
+  integer :: cptsolvisu
+  real(fp_kind) :: long
   real(fp_kind), dimension(20) :: debitglob, h_sortie
   character(len=100) :: inlet_name(20), outlet_name(20)
   real(fp_kind) :: ts, tsstab, cfl, tolisec, tol_reg_perm
@@ -68,7 +68,6 @@ module global_data
   integer :: nelt_global, nelt_global_non_fant
   integer :: nnt_global
   integer :: visu_snapshots, base_unique, nonlin, solvisu, k_base
-  integer :: cuda_aware=1
   integer :: is_cgns=0, is_dt_constant=0
 
   !! Construction de la namelist pour la lecture du fichier de donnee
@@ -80,8 +79,6 @@ module global_data
   & is_cgns,&
   & meshfile_path,&
   & meshfile, elt_bound, nombre_entrees, nombre_sorties, &
-
-  &cuda_aware,&
 
   & eqlin_barrage, x1eqbar, x2eqbar, y1eqbar, y2eqbar, &
   & h_amont, u_amont, v_amont, h_aval, u_aval, v_aval, & 
@@ -100,8 +97,7 @@ module global_data
   & freqaffich,tolaffiche&
 
   & sol_z_offset,& !!ne fonctionne que pour simple vtk et bluekenue
-  & solrestart, restart_snapshots,& 
-  & solsimple, simple_snapshots, &
+  & solrestart,& 
   & solvisu, visu_snapshots,&
   & sortie_finale_bluekenue
 
@@ -124,8 +120,6 @@ module global_data
   character (3)::  num_seq_base3
 
   integer, parameter :: w=1, ndim=2, ndln=3     
-  integer, parameter :: departchrono=1
-  integer, parameter :: convec=1
 
   integer :: n_seq_base     
   integer :: nelt, nnt, ns, ndi, ndo, ndw, correction, prediction, nbase, nbase_h, nbase_eta, nbase_eta_tild, nbase_hu, nbase_hv, nbase_u, nbase_v, maxdimbase
@@ -134,12 +128,14 @@ module global_data
   integer :: nelt_fant_recep_bloc, nelt_fant_envoi_bloc
   integer :: nelt_entree, nelt_sortie, n_Q, tc_init, start
 
-  real(fp_kind) :: tc, cotemin, t_reg_perm, flux_total, debit_n, x0, vol_tot_entre, vol_tot_sorti, debit_sortie,debit_sortie0, debit_entree_sum, distcote
+  real(fp_kind) :: tc
+
+  real(fp_kind) :: cotemin, t_reg_perm, flux_total, debit_n, x0, vol_tot_entre, vol_tot_sorti, debit_sortie,debit_sortie0, debit_entree_sum, distcote
   real(fp_kind), dimension(20) :: debit_entree
   real(fp_kind) :: h0, coef_bol  ! Pour le problème du bol parabolique 
 
   !real(fp_kind), dimension(200000)             :: tvis3d2 , tvis2d2, tsoljauge, tsolrestart, tsolvisu
-  real(fp_kind), dimension(:), allocatable             :: tvis3d2 , tvis2d2, tsoljauge, tsolrestart, tsolvisu, long_entree, cotemin_arr, tsolcoupes, tsolsimple
+  real(fp_kind), dimension(:), allocatable             :: tsolvisu, long_entree, cotemin_arr 
   character(len=32), dimension(:), allocatable :: solname_visu
   integer, dimension(:)  ,   allocatable :: ndinput, ndoutput, ndwall, i_dry_wet, nbr_nds_coupes, numero_ndinput, numero_ndoutput
   ! integer, dimension(:,:), allocatable :: elt_fant_recep, elt_fant_envoi
@@ -179,6 +175,12 @@ module global_data
   real(fp_kind), dimension(:), allocatable :: surf, zm
   real(fp_kind), pinned, dimension(:,:), allocatable :: vdlg, vdlg0, vdlg_nodes, vdlg_visu
 
+  integer :: iter_reg_perm=0
+  logical :: reg_perm_reached=.FALSE., is_solnode=.FALSE.
+  integer :: nt
   integer :: nmax_ptset=0
   real    :: time_cuda
+
+  type(dim3)      :: grid, tblock, grid_nodes, tblock_nodes, grid_3y, tblock_3y
+  type(dim3)      :: block_copy, grid_copy , grid_halved, grid_reduc, tblock_reduc, grid_usc, tblock_usc
 end module global_data

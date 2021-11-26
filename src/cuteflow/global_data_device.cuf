@@ -25,10 +25,9 @@ module global_data_device
 
   !! Simulation variables
   integer, constant:: iflux_d, ilimiteur_d, iupwind_d, fricimplic_d, debit_var_d, inlet_d, local_time_step_d
-  integer, constant :: debug_mode_d
   integer, constant:: freqaffich_d
-  integer, constant:: comptvisu_d, cptsolvisu_d, cptsoljauge_d, cptsolrestart_d, cptdebit_d 
-  real(fp_kind), constant:: long_d, critere_arret_d
+  integer, constant:: cptsolvisu_d 
+  real(fp_kind), constant:: long_d
   real(fp_kind), dimension(20), constant:: debitglob_d, h_sortie_d
   real(fp_kind), constant:: ts_d, tsstab_d, cfl_d, tol_d, tolisec_d, tolaffiche_d, tol_reg_perm_d
   real(fp_kind), device :: dt_d
@@ -36,11 +35,7 @@ module global_data_device
   real(fp_kind), constant :: constant_dt_d
   integer, constant:: multi_simul_d, monte_carlo_d
 
-  character, device, allocatable  :: un_voisin_sec1_d(:)
-
   integer, constant:: ndim_d, ndln_d     
-  integer, constant:: departchrono_d
-  integer, constant:: convec_d
 
   integer, constant:: nelt_d, nnt_d, ns_d, ndi_d, nombre_entrees_d, nombre_sorties_d, ndo_d, ndw_d, correction_d, prediction_d, nbase_d, nbase_h_d, nbase_eta_d, nbase_eta_tild_d, nbase_hu_d, nbase_hv_d, nbase_u_d, nbase_v_d, maxdimbase_d
   integer, constant :: nelt_fant_recep_d, nelt_fant_envoi_d
@@ -68,7 +63,7 @@ module global_data_device
 
   real(fp_kind), device, dimension(:)  , allocatable :: surf_d, zm_d
 
-  real(fp_kind), device, dimension(:,:), allocatable :: vdlg_d, vdlg0_d, vdlg_nodes_d
+  real(fp_kind), device, dimension(:,:), allocatable :: vdlg_d, vdlg0_d
   real(fp_kind), device, dimension(:,:), allocatable :: resc_d, res_d
 
   integer, device, dimension(:), allocatable :: elt_fant_envoi_length_d

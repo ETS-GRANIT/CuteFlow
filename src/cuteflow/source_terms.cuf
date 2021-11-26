@@ -1,25 +1,11 @@
 module source_terms
   implicit none
 contains
-  attributes(global) subroutine compute_source_terms(vdlg_d,surf_d,zm_d,deltatmin_d)
-    !
-    ! ======================================================================
-    !
-    !     source = calcul du terme source sur kvol    
-    !     source = calculation of the source term on kvol
-    !
-    !     auteur : Youssef Loukili  GRANIT ETSMTL
-    !
-    !     version : 1.0  ;  May 12 2003
-    ! ======================================================================
-    !
+  attributes(global) subroutine compute_source_terms
 
     use precision_kind
     use global_data_device
     implicit none
-
-    real(fp_kind), dimension(ndln_d,nelt_d), intent(in)    :: vdlg_d
-    real(fp_kind), dimension(nelt_d), intent(in)      :: surf_d, zm_d, deltatmin_d
 
     real(fp_kind)                         :: chezy2, vitu, vitv, normvit, area
     real(fp_kind)                         :: x1, y1, x2, y2, x3, y3, ln, orient

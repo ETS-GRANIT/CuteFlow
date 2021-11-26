@@ -18,10 +18,8 @@ contains
 
     !*** Variables locales ***
     integer :: stat(MPI_STATUS_SIZE)
-    integer :: nt, iter_nodes, iter_entree, cond_reg_perm
+    integer :: iter_nodes, iter_entree
 
-    type(dim3)      :: grid, tblock, grid_nodes, tblock_nodes, grid_edges, tblock_edges
-    type(dim3)      :: block_copy, grid_copy , grid_halved, grid_reduc, tblock_reduc, grid_usc, tblock_usc
     real(fp_kind)   :: time_start, time_stop
     integer         :: ierr
     type(cudaEvent) :: startEvent , stopEvent
@@ -30,7 +28,7 @@ contains
     t_reg_perm  = 0.d0
 
     nt             = 0 
-    cond_reg_perm  = 0
+    reg_perm_reached  = .FALSE.
 
     allocate(resc_d(ndln,nelt), res_d(ndln,nelt))
 
@@ -60,20 +58,11 @@ contains
     block_copy = dim3(32,1,1) 
     grid_copy = dim3(ceiling(real(nelt)/real(block_copy%x)),1,1)
 
-    tblock_edges = dim3(8, ns, 1)
-    grid_edges   = dim3(ceiling(real(nelt)/real(tblock_edges%x)), 1, 1)
+    tblock_3y = dim3(8, ns, 1)
+    grid_3y   = dim3(ceiling(real(nelt)/real(tblock_3y%x)), 1, 1)
 
     tblock_usc = dim3(32, 1, 1)
     grid_usc   = dim3(ceiling(real(nmax_ptset)/real(tblock_usc%x)), nelt_fant_envoi_bloc, 1)
-
-    if (solinit==1) then
-      if (tc_init < TS) then
-        tc = tc_init
-      else
-        print*,'TEMPS TOTAL DE SIMULATION INFERIEUR AU TEMPS DE LA SOLUTION INITIALE'
-        tc = 0.
-      endif
-    endif    
 
     !!Initial dt exchange
     call cflcond<<<grid, tblock>>>(vdlg0_d,deltatmin_d)
@@ -81,16 +70,14 @@ contains
     if(num_mpi_process>1) call MPI_ALLREDUCE(MPI_IN_PLACE,dt_d,1,fp_kind_mpi,MPI_MIN,MPI_COMM_WORLD, mpi_ierr)
     ierr = cudaMemcpy(dt,dt_d,1)
 
-    tc = 0.d0
-
-    nt = 0
-
     ierr = cudaEventCreate(startEvent)
     ierr = cudaEventCreate(stopEvent)
     ierr = cudaEventRecord(startEvent,0)
 
     write(*,*) 'Loop over time starts' 
-    do while ( (tc - ts + 2*tol ) < tol )
+    do while( (tc - ts + 2*tol ) < tol .and. reg_perm_reached==.FALSE.)
+      is_solnode = .FALSE.
+
       nt = nt + 1
 
       ierr = cudaDeviceSynchronize()
@@ -98,16 +85,18 @@ contains
       debit_entree  = 0.d0
       debit_sortie  = 0.d0
 
-      call compute_flux<<<grid_edges, tblock_edges, ns*tblock_edges%x*sizeof(1.0d0), stream1>>>(surf_d,zm_d,vdlg_d)
+      call compute_flux<<<grid_3y, tblock_3y, ns*tblock_3y%x*sizeof(1.0d0), stream1>>>()
 
-      call compute_source_terms<<<grid, tblock, 0, stream2>>>(vdlg_d,surf_d,zm_d,deltatmin_d)
+      call compute_source_terms<<<grid, tblock, 0, stream2>>>()
 
+      !Compute outflow
       if(ndo>1) then
         ierr = cudaMemcpyAsync(debit_sortie_arr,debit_sortie_arr_d,size(debit_sortie_arr),stream1)
         ierr = cudaStreamSynchronize(stream1)
         debit_sortie  =  debit_sortie + sum(debit_sortie_arr)
       end if
 
+      !Compute inflow
       if(ndi>1) then
         ierr = cudaMemcpyAsync(debit_entree_arr,debit_entree_arr_d,size(debit_entree_arr),stream1)
         ierr = cudaStreamSynchronize(stream1)
@@ -134,134 +123,34 @@ contains
 
       !!  Echange sur GPU directement bloc
       if(num_mpi_process>1) then
-        if(cuda_aware==1) then
-          if(is_cgns) then
-            ierr = cudastreamsynchronize(stream2)
-            call gpu_echange_cgns(vdlg_d, ndln)
-          else
-            call gpu_echange_fant_bloc_async(vdlg_d, ndln)
-          end if
+        if(is_cgns) then
+          ierr = cudastreamsynchronize(stream2)
+          call gpu_echange_cgns(vdlg_d, ndln)
         else
-          !!Not Cuda Aware version
-          !! First copy from the GPU to CPU, then from CPU to CPU, ten from CPU to GPU
-          ierr = cudaMemcpy(vdlg_d, vdlg, nelt*ndln, cudamemcpyDeviceToHost)
-          ierr = cudadevicesynchronize()
-          call gpu_echange_fant_bloc_async_not_cuda_aware(vdlg, ndln)
+          call gpu_echange_fant_bloc_async(vdlg_d, ndln)
         end if
       end if
 
-      !!Reset du pas de temps sur le gpu
-      ! ierr = cudaStreamSynchronize(stream2)
-      ! ierr = cudaMemcpyAsync(dt_d,dt_max,1,stream1) 
-      ! Calcul du pas de temps via la CFL
-      call cflcond<<<grid, tblock, 0, stream2>>>(vdlg_d,deltatmin_d)
-
-      ! ierr = cudaStreamSynchronize(stream1) !! On peut commenter cette ligne pour faire le pari que la race condition sera ok
-
-      call reduction<<<grid_reduc, tblock_reduc, tblock_reduc%x*sizeof(deltatmin_d(1)),stream2>>>(deltatmin_d)
-      ! ierr = cudaMemcpyAsync(dt,dt_d,1,stream2)
-
-      !!Take the smallest dt across all GPUs
-      if(num_mpi_process>1) then
-        ierr = cudaStreamSynchronize(stream2)
-        ! call MPI_ALLREDUCE(MPI_IN_PLACE,dt,1,fp_kind_mpi,MPI_MIN,MPI_COMM_WORLD, mpi_ierr)
-        call MPI_ALLREDUCE(MPI_IN_PLACE,dt_d,1,fp_kind_mpi,MPI_MIN,MPI_COMM_WORLD, mpi_ierr)
-        ! ierr = cudaMemcpyAsync(dt_d,dt,1,stream2)
-        ierr = cudaMemcpyAsync(dt,dt_d,1,stream2)
-      end if
+      call compute_time_step(stream2)
 
       !!Attendre fin de l'échange mémoire de vdlg
-      !! et mise a jour vdlg avec vdlg
       if(num_mpi_process>1) then
         call MPI_WAITALL(size(reqsend),reqsend,sendstat,mpi_ierr)
         call MPI_WAITALL(size(reqrecv),reqrecv,recvstat,mpi_ierr)
-        if(cuda_aware==0) then
-          ierr = cudaMemcpy(vdlg, vdlg_d, nelt, cudamemcpyDeviceToHost)
-        end if
       end if
 
       ierr = cudaMemcpyAsync(vdlg0_d, vdlg_d, ndln*nelt, stream1)
 
-      if(dt>9999 .or. dt < 1e-15) then
-        print*, "Erreur sur le pas de temps dt=", dt, " iteration= ", nt
-        exit
-      end if
-
       tc = tc + dt
 
-      ! *** Affichage de l'avancement ***
-      if ( mod(nt,freqaffich)==0 ) then
-        print*,'-----------------------------------------------'
-        write(*,*) 'nt = ', nt
-        print*,' prochain tsolvisu = ', tsolvisu(cptsolvisu), cptsolvisu
-        if (tc < 3600)   print*, 'tc = ', tc, ' Secondes   =>', tc/60,    ' Minutes' 
-        if (tc >= 3600)  print*, 'tc = ', tc, ' Secondes   =>', tc/3600,  ' Heures'
-        if (tc >= 86400) print*, 'tc = ', tc, ' Secondes   =>', tc/86400, ' Jours'
-        print*,''
+      !!Verifie la condition de régime stationnaire
+      call check_steady_state
 
-        do iter_entree=1,nombre_entrees
-          print*, 'debit_entree ', iter_entree, " = " ,debit_entree(iter_entree)
-        end do
-        print*, 'debit_sortie =', debit_sortie, 'M3/S'  
-        print*,'-----------------------------------------------'
-      endif
+      !!Affiche l'avancement à l'écran
+      call print_status_in_console
 
-      ! *** Stockage de la solution pour postraitement et animation 
-      if((solvisu > 0 .and. abs( tc - tsolvisu(cptsolvisu) ) <= tolaffiche))then
-        vdlg = vdlg_d
-        ierr = cudadevicesynchronize()
-
-        !Praview EXPORT
-        if(solvisu==1 .or. solvisu==3) then
-          call paraview_export(cptsolvisu)
-        end if
-
-        !CGNS EXPORT
-        if(is_cgns==1 .and. (solvisu==2 .or. solvisu==3)) then
-          call cgns_export(cptsolvisu)
-        end if
-
-        cptsolvisu = cptsolvisu + 1
-      endif
-
-      !Solsimple EXPORT
-      if((solsimple /= 0 .and. abs( tc - tsolsimple(cptsolsimple) ) <= tolaffiche))then
-        call simple_export(cptsolsimple)
-        cptsolsimple = cptsolsimple + 1
-      endif
-
-      !STOCKAGE DE SOLUTIONS INTERMEDIAIRES  (Pour redemarrage)
-      if(solrestart==1 .and. abs( tc - tsolrestart(cptsolrestart) ) <= tolaffiche) then
-        call save_sol_for_restart
-        cptsolrestart = cptsolrestart + 1
-      endif
-
-      debitglob_sum = sum(debitglob)
-      debit_entree_sum = sum(debit_entree)
-
-      if ( debit_entree_sum > 1e-8 .and. abs(debit_entree_sum - debit_sortie)/debit_entree_sum < tol_reg_perm ) then
-        cond_reg_perm = cond_reg_perm + 1
-        if( cond_reg_perm > 100000) then
-
-          if ((60   <= tc) .and. (tc < 3600))   print*, 'tc = ', tc, ' Secondes   =>', tc/60,    ' Minutes' 
-          if ((3600 <= tc) .and. (tc< 86400))  print*, 'tc = ', tc, ' Secondes   =>', tc/3600,  ' Heures'
-          if (tc  >= 86400)        print*, 'tc = ', tc, ' Secondes   =>', tc/86400, ' Jours'
-          print*,('')
-          do iter_entree=1,nombre_entrees
-            print*, 'debit_entree ', iter_entree, " = " ,debit_entree(iter_entree)
-          end do
-          print*, 'debit_sortie = ', debit_sortie
-          print*, '' 
-          print*, 'LE REGIME PERMANENT EST ATTEINT'
-          print*,('================================================================================')
-
-          t_reg_perm = tc
-          tc   = tc + ts  ! pour sortir de la boucle while !to exit the while loop
-        end if
-      else
-        cond_reg_perm = 0
-      endif
-
+      !!Sauvegarde la solution de différentes manières si requis
+      call global_save_sol_visu
     enddo 
 
     write(*,*) 'Loop on time ends at iteration : ', nt
@@ -272,21 +161,11 @@ contains
 
     vdlg = vdlg_d
 
-    if(t_reg_perm>0.0d0) tc = t_reg_perm 
+    if(reg_perm_reached) tc = t_reg_perm 
 
-    if(sortie_finale_bluekenue) then
-      call bluekenue_export
-    end if
+    if(solrestart) call save_sol_for_restart
 
-    if((solrestart==1 .and. abs( tc - tsolrestart(cptsolrestart) ) <= tolaffiche))then
-      call save_sol_for_restart
-      cptsolrestart = cptsolrestart + 1
-    endif
-
-    if(solsimple==1 .and. abs( tc - tsolsimple(cptsolsimple) ) <= tolaffiche) then
-      call simple_export(cptsolsimple)
-      cptsolsimple = cptsolsimple + 1
-    endif
+    if(sortie_finale_bluekenue) call bluekenue_export
 
   end subroutine solve_finite_volumes
 
@@ -363,4 +242,56 @@ contains
     io_identifier_d = io_identifier
     call cuda_glerror('get io index',1)
   end subroutine get_io_index
+  
+  subroutine print_status_in_console 
+    use precision_kind
+    use global_data
+    implicit none
+
+    integer :: iter_entree
+
+    ! *** Affichage de l'avancement ***
+    if ( mod(nt,freqaffich)==0 ) then
+      print*,'-----------------------------------------------'
+
+      write(*,*) 'Iteration number ', nt, ", t = ", tc
+      ! if(solvisu>0) print*,'Next solution time save = ', tsolvisu(cptsolvisu), cptsolvisu
+
+      do iter_entree=1,nombre_entrees
+        print*, 'debit_entree ', iter_entree, " = " ,debit_entree(iter_entree)
+      end do
+
+      print*, 'debit_entree_sum =', debit_entree_sum, 'M3/S'  
+      print*, 'debit_sortie     =', debit_sortie, 'M3/S'  
+
+      print*,'-----------------------------------------------'
+    endif
+
+  end subroutine print_status_in_console 
+
+
+  subroutine check_steady_state
+    use precision_kind
+    use global_data
+    implicit none
+
+    integer :: iter_entree
+
+    debit_entree_sum = sum(debit_entree)
+
+    if ( debit_entree_sum > 1e-8 .and. abs(debit_entree_sum - debit_sortie)/debit_entree_sum < tol_reg_perm ) then
+      iter_reg_perm = iter_reg_perm + 1
+      if( iter_reg_perm > 1000) then
+        print*,'-----------------------------------------------'
+        print*, 'LE REGIME PERMANENT EST ATTEINT'
+        print*,'-----------------------------------------------'
+        t_reg_perm = tc
+
+        reg_perm_reached = .TRUE.
+      end if
+    else
+      iter_reg_perm = 0
+    endif
+
+  end subroutine check_steady_state
 end module finite_volumes_method
