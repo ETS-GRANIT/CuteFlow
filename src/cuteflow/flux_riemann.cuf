@@ -807,7 +807,7 @@ contains
     wret = (1 - dsign(1.d0,set) * limit_et)/2.
 
     flux_waf(1) = wl*f(1,1) + wlr*flux_hllc(1) + wr*f(2,1)
-    flux_waf(1) = wl*f(1,2) + wlr*flux_hllc(2) + wr*f(2,2)
+    flux_waf(2) = wl*f(1,2) + wlr*flux_hllc(2) + wr*f(2,2)
     flux_waf(3) = (wlet*vl + wret*vr)*flux_waf(1)
 
     ! *** reprojection du flux ***
