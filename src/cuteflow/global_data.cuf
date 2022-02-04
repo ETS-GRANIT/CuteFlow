@@ -37,7 +37,7 @@ module global_data
 
 
   !! Variables donnees du maillage
-  character(len=60)       :: meshfile, meshfile_path="./"
+  character(len=60)       :: meshfile, meshfile_path="./", meshfile_nodes
   integer                 :: elt_bound, nombre_entrees, nombre_sorties
   integer, dimension(20)  :: elts
 
@@ -144,7 +144,7 @@ module global_data
   integer, dimension(:,:,:),   allocatable :: boundary
   real(fp_kind), dimension(:)  ,   allocatable :: flux_interface, manning_nd, manning_nelt
   real(fp_kind), dimension(:,:),   allocatable :: coo_table_elemwise, coordonnees, phi, phi_h, phi_eta, phi_eta_tild, phi_hu, phi_hv, phi_u, phi_v, phij_u, phij_v, phi_h_eta
-  real(fp_kind), dimension(:,:),   allocatable :: a, a0, a01, resred, Mpk1_hu, Mpk1_hv, vdlg_moy_snap
+  real(fp_kind), dimension(:,:),   allocatable :: a, a0, a01, resred, Mpk1_hu, Mpk1_hv
   real(fp_kind), dimension(:,:),   allocatable :: Mpk_deta, Mpk_dhu, Mpk_dhv, Mpk_u, Mpk_v, hgn1, hgn2, un1,un2, vn1, vn2, Sfxu, Sfxv, Sfyv, Sfyu 
   real(fp_kind), dimension(:,:,:), allocatable :: Cg2, Cg3, Chuu2, Chuv2, Chvv3, Chuv3, MSfxu, MSfxv, MSfyv, MSfyu
   real(fp_kind), dimension(:),     allocatable :: a_eta, a0_eta, a01_eta, resred_eta, MQk_eta, Mcl_out_eta
@@ -173,7 +173,7 @@ module global_data
   integer, parameter :: gridxlim=65535, gridylim=2147483647
 
   real(fp_kind), dimension(:), allocatable :: surf, zm
-  real(fp_kind), pinned, dimension(:,:), allocatable :: vdlg, vdlg0, vdlg_nodes, vdlg_visu
+  real(fp_kind), pinned, dimension(:,:), allocatable :: vdlg, vdlg0, vdlg_nodes, vdlg_visu, vdlg_visu_nodes
 
   integer :: iter_reg_perm=0
   logical :: reg_perm_reached=.FALSE., is_solnode=.FALSE.

@@ -17,6 +17,8 @@ contains
     real(fp_kind)               :: hl_upw, ul_upw, vl_upw, hr_upw, ur_upw, vr_upw
     real(fp_kind)               :: kupw1_area, kupw2_area
     real(fp_kind)               :: debitnorm, orient
+    real(fp_kind)               :: d_kvol_v1, d_kvol_v2, d_kvoisin_v1, d_kvoisin_v2
+    real(fp_kind)               :: d_mkvol, d_mkvoisin, d_mrl
     real(fp_kind), dimension(2) :: norm
     real(fp_kind), dimension(3) :: flux
     real :: cond
@@ -146,6 +148,8 @@ contains
         vitur = ( hur * norm(1) + hvr * norm(2) ) / hautr
         vitvr = ( hvr * norm(1) - hur * norm(2) ) / hautr
 
+        d_mrl = sqrt((x_centroid_d(kvol)-x_centroid_d(kvoisin))**2 + (y_centroid_d(kvol)-y_centroid_d(kvoisin))**2)
+
         if(iflux_d==1) then
           !!HLLC
           call solver_Riemann_hllc(gi,kvoisin,surf_d,norm,vdlg_d,hijet,vitul,vitvl,hjiet,vitur,vitvr,zml,zmr,flux,ln,pp)
@@ -225,7 +229,18 @@ contains
               kvoisin_v2_v = 0.
             end if
 
-            if(((kvol_v1 == kvol) .or. (kvol_v2==kvol)) .or. ((kvoisin_v1==kvoisin) .or. (kvoisin_v2==kvoisin))) then
+            ! hl_upw=(surf_d(kvol_v1)*kvol_v1_h+surf_d(kvol_v2)*kvol_v2_h)/(surf_d(kvol_v1)+surf_d(kvol_v2))
+            ! ul_upw=(surf_d(kvol_v1)*kvol_v1_u+surf_d(kvol_v2)*kvol_v2_u)/(surf_d(kvol_v1)+surf_d(kvol_v2))
+            ! vl_upw=(surf_d(kvol_v1)*kvol_v1_v+surf_d(kvol_v2)*kvol_v2_v)/(surf_d(kvol_v1)+surf_d(kvol_v2))
+
+            ! hr_upw=(surf_d(kvoisin_v1)*kvoisin_v1_h+surf_d(kvoisin_v2)*kvoisin_v2_h)/(surf_d(kvoisin_v1)+surf_d(kvoisin_v2))
+            ! ur_upw=(surf_d(kvoisin_v1)*kvoisin_v1_u+surf_d(kvoisin_v2)*kvoisin_v2_u)/(surf_d(kvoisin_v1)+surf_d(kvoisin_v2))
+            ! vr_upw=(surf_d(kvoisin_v1)*kvoisin_v1_v+surf_d(kvoisin_v2)*kvoisin_v2_v)/(surf_d(kvoisin_v1)+surf_d(kvoisin_v2))
+
+
+            ! if(((kvol_v1 == kvol) .or. (kvol_v2==kvol)) .or. ((kvoisin_v1==kvoisin) .or. (kvoisin_v2==kvoisin))) then
+            if(((kvol_v1 == kvol) .and. (kvol_v2==kvol)) .or. ((kvoisin_v1==kvoisin) .and. (kvoisin_v2==kvoisin))) then
+
               hl_upw=hautl
               ul_upw=vitul
               vl_upw=vitvl
@@ -234,14 +249,74 @@ contains
               ur_upw=vitur
               vr_upw=vitvr
             else
-              hl_upw=(surf_d(kvol_v1)*kvol_v1_h+surf_d(kvol_v2)*kvol_v2_h)/(surf_d(kvol_v1)+surf_d(kvol_v2))
-              hr_upw=(surf_d(kvoisin_v1)*kvoisin_v1_h+surf_d(kvoisin_v2)*kvoisin_v2_h)/(surf_d(kvoisin_v1)+surf_d(kvoisin_v2))
 
-              ul_upw=(surf_d(kvol_v1)*kvol_v1_u+surf_d(kvol_v2)*kvol_v2_u)/(surf_d(kvol_v1)+surf_d(kvol_v2))
-              ur_upw=(surf_d(kvoisin_v1)*kvoisin_v1_u+surf_d(kvoisin_v2)*kvoisin_v2_u)/(surf_d(kvoisin_v1)+surf_d(kvoisin_v2))
+              if(kvol_v1 == kvol) then
+                hl_upw=kvol_v2_h
+                ul_upw=kvol_v2_u
+                vl_upw=kvol_v2_v
+                d_mkvol = d_kvol_v2
+              else if(kvol_v2 == kvol) then
+                hl_upw=kvol_v1_h
+                ul_upw=kvol_v1_u
+                vl_upw=kvol_v1_v
+                d_mkvol = d_kvol_v1
+              else
+                d_kvol_v1 = sqrt((x_centroid_d(kvol_v1)-x_centroid_d(kvol))**2 + (y_centroid_d(kvol_v1)-y_centroid_d(kvol))**2)
+                d_kvol_v2 = sqrt((x_centroid_d(kvol_v2)-x_centroid_d(kvol))**2 + (y_centroid_d(kvol_v2)-y_centroid_d(kvol))**2)
+                hl_upw=(d_kvol_v1*kvol_v1_h+d_kvol_v2*kvol_v2_h)/(d_kvol_v1+d_kvol_v2)
+                ul_upw=(d_kvol_v1*kvol_v1_u+d_kvol_v2*kvol_v2_u)/(d_kvol_v1+d_kvol_v2)
+                vl_upw=(d_kvol_v1*kvol_v1_v+d_kvol_v2*kvol_v2_v)/(d_kvol_v1+d_kvol_v2)
+                d_mkvol = (d_kvol_v1 + d_kvol_v2)/2.
+              end if
 
-              vl_upw=(surf_d(kvol_v1)*kvol_v1_v+surf_d(kvol_v2)*kvol_v2_v)/(surf_d(kvol_v1)+surf_d(kvol_v2))
-              vr_upw=(surf_d(kvoisin_v1)*kvoisin_v1_v+surf_d(kvoisin_v2)*kvoisin_v2_v)/(surf_d(kvoisin_v1)+surf_d(kvoisin_v2))
+              if(kvoisin_v1 == kvoisin) then
+                hr_upw=kvoisin_v2_h
+                ur_upw=kvoisin_v2_u
+                vr_upw=kvoisin_v2_v
+
+                d_kvoisin_v2 = sqrt((x_centroid_d(kvoisin_v2)-x_centroid_d(kvoisin))**2 + (y_centroid_d(kvoisin_v2)-y_centroid_d(kvoisin))**2)
+                d_mkvoisin = d_kvoisin_v2
+              else if(kvoisin_v2 == kvoisin) then
+                hr_upw=kvoisin_v1_h
+                ur_upw=kvoisin_v1_u
+                vr_upw=kvoisin_v1_v
+
+                d_kvoisin_v1 = sqrt((x_centroid_d(kvoisin_v1)-x_centroid_d(kvoisin))**2 + (y_centroid_d(kvoisin_v1)-y_centroid_d(kvoisin))**2)
+                d_mkvoisin = d_kvoisin_v1
+              else
+                d_kvoisin_v1 = sqrt((x_centroid_d(kvoisin_v1)-x_centroid_d(kvoisin))**2 + (y_centroid_d(kvoisin_v1)-y_centroid_d(kvoisin))**2)
+                d_kvoisin_v2 = sqrt((x_centroid_d(kvoisin_v2)-x_centroid_d(kvoisin))**2 + (y_centroid_d(kvoisin_v2)-y_centroid_d(kvoisin))**2)
+                hr_upw=(d_kvoisin_v1*kvoisin_v1_h+d_kvoisin_v2*kvoisin_v2_h)/(d_kvoisin_v1+d_kvoisin_v2)
+                ur_upw=(d_kvoisin_v1*kvoisin_v1_u+d_kvoisin_v2*kvoisin_v2_u)/(d_kvoisin_v1+d_kvoisin_v2)
+                vr_upw=(d_kvoisin_v1*kvoisin_v1_v+d_kvoisin_v2*kvoisin_v2_v)/(d_kvoisin_v1+d_kvoisin_v2)
+
+                d_mkvoisin = (d_kvoisin_v1 + d_kvoisin_v2)/2.
+              end if
+
+
+            !!!!!Adjust acouting for left and right distances
+            !if(d_mkvol > d_mkvoisin)then
+            !  ! hr_upw = hr_upw + (hr_upw-hl_upw)*(d_mkvol-d_mkvoisin)/(d_mkvoisin+&
+            !  !   & sqrt((x_centroid_d(kvol)-x_centroid_d(kvoisin))**2 + (y_centroid_d(kvol)-y_centroid_d(kvoisin))**2) + d_mkvol)
+            !  ! ur_upw = ur_upw + (ur_upw-ul_upw)*(d_mkvol-d_mkvoisin)/(d_mkvoisin+&
+            !  !   & sqrt((x_centroid_d(kvol)-x_centroid_d(kvoisin))**2 + (y_centroid_d(kvol)-y_centroid_d(kvoisin))**2) + d_mkvol)
+            !  ! vr_upw = vr_upw + (vr_upw-vl_upw)*(d_mkvol-d_mkvoisin)/(d_mkvoisin+&
+            !  !   & sqrt((x_centroid_d(kvol)-x_centroid_d(kvoisin))**2 + (y_centroid_d(kvol)-y_centroid_d(kvoisin))**2) + d_mkvol)
+            !  hl_upw = hl_upw + (hr_upw-hautl)*(d_mkvol-d_mkvoisin)/d_mkvol
+            !  ul_upw = ul_upw + (ur_upw-vitul)*(d_mkvol-d_mkvoisin)/d_mkvol
+            !  vl_upw = vl_upw + (vr_upw-vitvl)*(d_mkvol-d_mkvoisin)/d_mkvol
+            !else
+            !  ! hl_upw = hl_upw + (hr_upw-hl_upw)*(d_mkvol-d_mkvoisin)/(d_mkvoisin+&
+            !  !   & sqrt((x_centroid_d(kvol)-x_centroid_d(kvoisin))**2 + (y_centroid_d(kvol)-y_centroid_d(kvoisin))**2) + d_mkvol)
+            !  ! ul_upw = ul_upw + (ur_upw-ul_upw)*(d_mkvol-d_mkvoisin)/(d_mkvoisin+&
+            !  !   & sqrt((x_centroid_d(kvol)-x_centroid_d(kvoisin))**2 + (y_centroid_d(kvol)-y_centroid_d(kvoisin))**2) + d_mkvol)
+            !  ! vl_upw = vl_upw + (vr_upw-vl_upw)*(d_mkvol-d_mkvoisin)/(d_mkvoisin+&
+            !  !   & sqrt((x_centroid_d(kvol)-x_centroid_d(kvoisin))**2 + (y_centroid_d(kvol)-y_centroid_d(kvoisin))**2) + d_mkvol)
+            !  hr_upw = hr_upw + (hr_upw-hautl)*(d_mkvol-d_mkvoisin)/d_mkvoisin
+            !  ur_upw = ur_upw + (ur_upw-vitul)*(d_mkvol-d_mkvoisin)/d_mkvoisin
+            !  vr_upw = vr_upw + (vr_upw-vitvl)*(d_mkvol-d_mkvoisin)/d_mkvoisin
+            ! end if
+
             end if
           else if(iupwind_d==2) then
             !!Cherche quel côte est l'interface du coté de kvoisin
@@ -276,52 +351,59 @@ contains
             do i=1,6
               !!Indice de la maille i contenant le sommet nc1+2 (opposé à l'interface)
               kupw1 = vertex_neighbors_d(i,connectivite_d(kvol,1+mod(nc1+1,3))) 
-              if(kupw1 <= 0) kupw1 = kvol
-              ! orient = (x_centroid_d(kupw1)-x3)*(x3-x_centroid_d(kvol)) + (y_centroid_d(kupw1)-y3)*(y3-y_centroid_d(kvol)) 
-              orient = (x_centroid_d(kupw1)-x_centroid_d(kvol))*(-norm(1)) + (y_centroid_d(kupw1)-y_centroid_d(kvol))*(-norm(2)) 
-              if(kupw1>0 .and. kupw1/=kvol .and. orient>0.) then
-              ! if(kupw1>0 .and. kupw1/=kvol) then
-                if(vdlg_d(1,kupw1) > tolisec_d) then
-                  hl_upw = hl_upw + vdlg_d(1,kupw1)*surf_d(kupw1)
-                  ul_upw = ul_upw + (vdlg_d(2,kupw1) * norm(1) + vdlg_d(3,kupw1) * norm(2))*surf_d(kupw1)/vdlg_d(1,kupw1)
-                  vl_upw = vl_upw + (vdlg_d(3,kupw1) * norm(1) - vdlg_d(2,kupw1) * norm(2))*surf_d(kupw1)/vdlg_d(1,kupw1)
+              if(kupw1 > 0 .and. kupw1/=kvol) then
+                ! orient = (x_centroid_d(kupw1)-x3)*(x3-x_centroid_d(kvol)) + (y_centroid_d(kupw1)-y3)*(y3-y_centroid_d(kvol)) 
+                orient = (x_centroid_d(kupw1)-x_centroid_d(kvol))*(-norm(1)) + (y_centroid_d(kupw1)-y_centroid_d(kvol))*(-norm(2)) 
+                ! orient = -orient
+                if(kupw1>0 .and. kupw1/=kvol .and. orient>0.) then
+                  ! if(kupw1>0 .and. kupw1/=kvol) then
+                  if(vdlg_d(1,kupw1) > tolisec_d) then
+                    hl_upw = hl_upw + vdlg_d(1,kupw1)*surf_d(kupw1)
+                    ul_upw = ul_upw + (vdlg_d(2,kupw1) * norm(1) + vdlg_d(3,kupw1) * norm(2))*surf_d(kupw1)/vdlg_d(1,kupw1)
+                    vl_upw = vl_upw + (vdlg_d(3,kupw1) * norm(1) - vdlg_d(2,kupw1) * norm(2))*surf_d(kupw1)/vdlg_d(1,kupw1)
+                  end if
                   kupw1_area = kupw1_area + surf_d(kupw1)
+                  ! if(gi==1514) then
+                  !   print*,gi,nc1,1+mod(nc1+1,3),connectivite_d(kvol,1+mod(nc1+1,3)),kupw1
+                  ! end if
                 end if
+
               end if
 
               kupw2 = vertex_neighbors_d(i,connectivite_d(kvoisin,1+mod((tjv+2)-1,3)))
-              if(kupw2 <= 0) kupw2 = kvoisin
-              ! x3 = coo_table_elemwise_d(gi, 3*nc3-2)
-              xupw = coo_table_elemwise_d(kvoisin,3*mod((tjv+2)-1,3)+1)
-              yupw = coo_table_elemwise_d(kvoisin,3*mod((tjv+2)-1,3)+2)
-              ! orient = (x_centroid_d(kupw2)-xupw)*(xupw-x_centroid_d(kvoisin)) + (y_centroid_d(kupw2)-yupw)*(yupw-y_centroid_d(kvoisin)) 
-              orient = (x_centroid_d(kupw2)-x_centroid_d(kvoisin))*(norm(1)) + (y_centroid_d(kupw2)-y_centroid_d(kvoisin))*(norm(2)) 
-              if(kupw2>0 .and. kupw2/=kvoisin .and. orient>0.) then
-              ! if(kupw2>0 .and. kupw2/=kvoisin) then
-                if(vdlg_d(1,kupw2) > tolisec_d) then
-                  hr_upw = hr_upw + vdlg_d(1,kupw2)*surf_d(kupw2)
-                  ur_upw = ur_upw + (vdlg_d(2,kupw2) * norm(1) + vdlg_d(3,kupw2) * norm(2))*surf_d(kupw2)/vdlg_d(1,kupw2)
-                  vr_upw = vr_upw + (vdlg_d(3,kupw2) * norm(1) - vdlg_d(2,kupw2) * norm(2))*surf_d(kupw2)/vdlg_d(1,kupw2)
+              if(kupw2 > 0 .and. kupw2/=kvoisin) then
+                ! x3 = coo_table_elemwise_d(gi, 3*nc3-2)
+                xupw = coo_table_elemwise_d(kvoisin,3*mod((tjv+2)-1,3)+1)
+                yupw = coo_table_elemwise_d(kvoisin,3*mod((tjv+2)-1,3)+2)
+                ! orient = (x_centroid_d(kupw2)-xupw)*(xupw-x_centroid_d(kvoisin)) + (y_centroid_d(kupw2)-yupw)*(yupw-y_centroid_d(kvoisin)) 
+                orient = (x_centroid_d(kupw2)-x_centroid_d(kvoisin))*(norm(1)) + (y_centroid_d(kupw2)-y_centroid_d(kvoisin))*(norm(2)) 
+                ! orient = -orient
+                if(kupw2>0 .and. kupw2/=kvoisin .and. orient>0.) then
+                  ! if(kupw2>0 .and. kupw2/=kvoisin) then
+                  if(vdlg_d(1,kupw2) > tolisec_d) then
+                    hr_upw = hr_upw + vdlg_d(1,kupw2)*surf_d(kupw2)
+                    ur_upw = ur_upw + (vdlg_d(2,kupw2) * norm(1) + vdlg_d(3,kupw2) * norm(2))*surf_d(kupw2)/vdlg_d(1,kupw2)
+                    vr_upw = vr_upw + (vdlg_d(3,kupw2) * norm(1) - vdlg_d(2,kupw2) * norm(2))*surf_d(kupw2)/vdlg_d(1,kupw2)
+                  end if
                   kupw2_area = kupw2_area + surf_d(kupw2)
                 end if
               end if
+
             end do
 
-            if(kupw1_area > 1e-8) then
+            if(kupw1_area > 1e-6 .and. kupw2_area > 1e-6) then
               hl_upw = hl_upw / kupw1_area
               ul_upw = ul_upw / kupw1_area
               vl_upw = vl_upw / kupw1_area
-            else
-              hl_upw = hautl
-              ul_upw = vitul
-              vl_upw = vitvl
-            end if
 
-            if(kupw2_area > 1e-8) then
               hr_upw = hr_upw / kupw2_area
               ur_upw = ur_upw / kupw2_area
               vr_upw = vr_upw / kupw2_area
             else
+              hl_upw = hautl
+              ul_upw = vitul
+              vl_upw = vitvl
+
               hr_upw = hautr
               ur_upw = vitur
               vr_upw = vitvr
@@ -345,7 +427,7 @@ contains
           end if
 
           if(iflux_d==3) then
-            call solver_Riemann_waf(gi,kvoisin,surf_d,norm,vdlg_d,hijet,vitul,vitvl,hjiet,vitur,vitvr,zml,zmr,hl_upw,ul_upw,vl_upw,hr_upw,ur_upw,vr_upw,flux,ln,pp)
+            call solver_Riemann_waf(gi,kvoisin,surf_d,norm,vdlg_d,hijet,vitul,vitvl,hjiet,vitur,vitvr,zml,zmr,hl_upw,ul_upw,vl_upw,hr_upw,ur_upw,vr_upw,d_mrl,d_mkvol,d_mkvoisin,flux,ln,pp)
           else if(iflux_d==4) then
             call solver_Riemann_muscl(gi,kvoisin,surf_d,norm,vdlg_d,hijet,vitul,vitvl,hjiet,vitur,vitvr,zml,zmr,hl_upw,ul_upw,vl_upw,hr_upw,ur_upw,vr_upw,flux,ln,pp)
           else if(iflux_d==5) then
@@ -652,7 +734,7 @@ contains
     flux(3) = norm(2)*flux_hllc(2) + norm(1)*flux_hllc(3)                       
   end subroutine solver_Riemann_muscl
 
-  attributes(device) subroutine solver_Riemann_waf(kvol,kvoisin,surf,norm,vdlg,hl,ul,vl,hr,ur,vr,zml,zmr,hl_upw,ul_upw,vl_upw,hr_upw,ur_upw,vr_upw,flux,ln,pp)
+  attributes(device) subroutine solver_Riemann_waf(kvol,kvoisin,surf,norm,vdlg,hl,ul,vl,hr,ur,vr,zml,zmr,hl_upw,ul_upw,vl_upw,hr_upw,ur_upw,vr_upw,d_mrl,d_mkvol,d_mkvoisin,flux,ln,pp)
     ! Solveur tiré de : "Numerical Tracking of Shallow Water Waves by the Unstructured Finite Volume WAF Approximation" 
     !  Loukili et Soulaimani 2007
 
@@ -678,6 +760,7 @@ contains
     real(fp_kind)                 :: u_avg, h_avg, v_avg
     real(fp_kind) :: dtoverdx, cr, cl, cet, wl, wlet, wlr, wr, wret
     real(fp_kind) :: rr, rl, ret, delta_loc_l, delta_loc_r, delta_loc_et
+    real(fp_kind) :: d_mrl, d_mkvol, d_mkvoisin
     real(fp_kind) :: delta_upw_r, delta_upw_l, delta_upw_et, limit_l, limit_r, limit_et
 
     eps = 1e-16
@@ -778,34 +861,40 @@ contains
     endif
     !!END CLASSIC HLLC
 
-    dtoverdx =  1.8*dt_d/min(cotemin_arr_d(kvoisin), cotemin_arr_d(kvol)) !!cotemin_arr_d is 1.8*inscribed_circle_radius
+    ! dtoverdx =  1.8*dt_d/min(cotemin_arr_d(kvoisin), cotemin_arr_d(kvol)) !!cotemin_arr_d is 1.8*inscribed_circle_radius
+    ! dtoverdx =  dt_d/(1.8*min(cotemin_arr_d(kvoisin), cotemin_arr_d(kvol))) !!cotemin_arr_d is 1.8*inscribed_circle_radius
+    dtoverdx =  dt_d/d_mrl !!cotemin_arr_d is 1.8*inscribed_circle_radius
 
     cr = sr * dtoverdx
     cl = sl * dtoverdx
     cet = set * dtoverdx
 
     !! TVD stabilization 
-    delta_loc_r = hr-hl
-    delta_loc_l = hr-hl
-    delta_loc_et = vr-vl
+    delta_loc_r = (hr-hl)/d_mrl
+    delta_loc_l = (hr-hl)/d_mrl
+    delta_loc_et = (vr-vl)/d_mrl
 
     if(sr>0) then
-      delta_upw_r = hl-hl_upw
+      delta_upw_r = (hl-hl_upw)/d_mkvol
     else
-      delta_upw_r = hr_upw-hr
+      delta_upw_r = (hr_upw-hr)/d_mkvoisin
     endif
 
     if(sl>0) then
-      delta_upw_l = hl-hl_upw
+      delta_upw_l = (hl-hl_upw)/d_mkvol
     else
-      delta_upw_l = hr_upw-hr
+      delta_upw_l = (hr_upw-hr)/d_mkvoisin
     endif
 
     if(set>0) then
-      delta_upw_et = vl-vl_upw
+      delta_upw_et = (vl-vl_upw)/d_mkvol
     else
-      delta_upw_et = vr_upw-vr
+      delta_upw_et = (vr_upw-vr)/d_mkvoisin
     endif
+
+    ! rl = delta_upw_l/(delta_loc_l + eps)
+    ! rr = delta_upw_r/(delta_loc_r + eps)
+    ! ret = delta_upw_et/(delta_loc_et + eps)
 
     rl = delta_upw_l/(delta_loc_l + eps)
     rr = delta_upw_r/(delta_loc_r + eps)

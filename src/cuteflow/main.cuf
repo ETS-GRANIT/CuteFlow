@@ -104,9 +104,10 @@ program main
   allocate( vdlg(ndln,nelt), vdlg0(ndln,nelt))
   allocate( vdlg_d(ndln,nelt), vdlg0_d(ndln,nelt))
   allocate( vdlg_visu(nelt,8))
+  allocate( vdlg_visu_nodes(nnt,8))
 
   allocate( vdlg_nodes(ndln,nnt))
-  ! allocate( vdlg_nodes_d(ndln,nnt))
+  allocate( vdlg_nodes_d(ndln,nnt))
 
   if(solvisu>0) then
     if(visu_snapshots==0) visu_snapshots=1

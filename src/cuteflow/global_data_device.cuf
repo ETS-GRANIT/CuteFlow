@@ -63,7 +63,7 @@ module global_data_device
 
   real(fp_kind), device, dimension(:)  , allocatable :: surf_d, zm_d
 
-  real(fp_kind), device, dimension(:,:), allocatable :: vdlg_d, vdlg0_d
+  real(fp_kind), device, dimension(:,:), allocatable :: vdlg_d, vdlg0_d, vdlg_nodes_d
   real(fp_kind), device, dimension(:,:), allocatable :: resc_d, res_d
 
   integer, device, dimension(:), allocatable :: elt_fant_envoi_length_d

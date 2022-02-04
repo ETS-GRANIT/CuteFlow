@@ -39,7 +39,8 @@ contains
     allocate(boundary(nelt,3,2), boundary_d(nelt,3,2))
     call cuda_glerror('ierr <- memory allocation in boundary_d <--- maillage.cuf',1)
 
-    if(iflux >=3 .and. iupwind==2) then
+    ! if(iflux >=3 .and. iupwind==2) then
+    if(.TRUE.) then
       allocate(vertex_neighbors_d(6,nnt))
       vertex_neighbors_d = -1.
     end if
@@ -416,7 +417,7 @@ contains
     integer :: ptSetType, n_userdata, n_ptSet, n_userdata2
     integer :: sizes(3*3), sectionType, nBeg, nEnd, eBeg, eEnd, nBdry, flag
     character(200) :: filename, basename, command, zonename, sectionname, boconame
-    character(200) :: userdataname, userdataname2
+    character(200) :: userdataname, userdataname2, meshfile_tmp
 
     real(fp_kind), dimension(:), allocatable :: coord
     integer, dimension(:), allocatable :: conn
@@ -426,9 +427,14 @@ contains
       write(command, *) "cp "//trim(adjustl(meshfile_path))//trim(adjustl(meshfile))//&
         &" out_"//trim(adjustl(meshfile))
       call system(command)
+      write(command, *) "cp "//trim(adjustl(meshfile_path))//trim(adjustl(meshfile))//&
+        &" out_nodes_"//trim(adjustl(meshfile))
+      call system(command)
     end if
     call MPI_BARRIER(MPI_COMM_WORLD,mpi_ierr)
+    meshfile_tmp = meshfile
     meshfile = trim(adjustl("out_"))//trim(adjustl(meshfile))
+    meshfile_nodes = trim(adjustl("out_nodes_"))//trim(adjustl(meshfile_tmp))
 
     call cg_open_f(meshfile, CG_MODE_READ, fn, ierr)
     if (ierr .ne. CG_OK) call cg_error_exit_f
@@ -898,7 +904,8 @@ contains
       if ( m1==n3 .and. m3==n1 .or. m3==n3 .and. m2==n1 .or. m2==n3 .and. m1==n1 ) &
         & boundary_d(gi,3,1) = gj
 
-      if(iflux_d >= 3 .and. iupwind_d==2) then
+      ! if(iflux_d >= 3 .and. iupwind_d==2) then
+      if(.TRUE.) then
         if ( (m1==n1) .or. (m1==n2) .or. (m1==n3))  then
           do k=1,6
             if(vertex_neighbors_d(k,m1) == gi) exit
