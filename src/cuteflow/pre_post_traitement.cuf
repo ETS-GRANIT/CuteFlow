@@ -40,8 +40,9 @@ contains
         call simple_export(cptsolvisu)
       end if
 
-      cptsolvisu = cptsolvisu + 1
+      ! print*,"VERRIF TEMPS",tc,cptsolvisu,tsolvisu(cptsolvisu)
 
+      cptsolvisu = cptsolvisu + 1
       ! call save_sol_for_restart
     endif
 
@@ -442,6 +443,8 @@ contains
       !!!Cellcenter = 3
       call cg_sol_write_f(fn, base, zone, solname_visu(it), 3, sol, ierr)
       if (ierr .ne. CG_OK) call cg_error_exit_f
+
+      ! print*,it,solname_visu(it),tsolvisu(it-1)
 
       !!RealDouble = 4
       call cgp_field_write_f(fn, base, zone, sol, 4, 'Water Depth', field_wd, ierr)

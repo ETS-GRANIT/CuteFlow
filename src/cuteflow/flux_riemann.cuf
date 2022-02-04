@@ -248,6 +248,9 @@ contains
               hr_upw=hautr
               ur_upw=vitur
               vr_upw=vitvr
+
+              d_mkvol = d_mrl
+              d_mkvoisin = d_mrl
             else
 
               if(kvol_v1 == kvol) then
