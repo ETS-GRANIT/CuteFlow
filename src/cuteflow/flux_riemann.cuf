@@ -484,16 +484,22 @@ contains
     real(fp_kind), intent(inout) :: A
 
     !!Leer style
-    ! A = (r1*r2 + abs(r1*r2))/(r1+r2+1e-12)
+    A = (r1*r2 + abs(r1*r2))/(r1+r2+1e-12)
 
 
     !!Superbee style (taken from toro book "Rieman solvers and ...")
-    if(r2>0) then
-      A = max(0.d0, min(2*r1,r2), min(r1,2*r2))
-    else
-      A = min(0.d0, max(2*r1,r2), max(r1,2*r2))
-    endif
+    ! if(r2>0) then
+    !   A = max(0.d0, min(2*r1,r2), min(r1,2*r2))
+    ! else
+    !   A = min(0.d0, max(2*r1,r2), max(r1,2*r2))
+    ! endif
 
+    !!Minmod
+    ! if(r2>0) then
+    !   A = max(0.d0, min(r1,r2))
+    ! else
+    !   A = min(0.d0, max(r1,r2))
+    ! endif
   end subroutine simple_limiter
 
   attributes(device) subroutine limiter(r, c, A)
@@ -596,20 +602,26 @@ contains
     delta_N(1) = (hl-hl_upw)/d_mkvol
     delta_N(2) = (ul-ul_upw)/d_mkvol
     delta_N(3) = (vl-vl_upw)/d_mkvol
+    ! delta_N(1) = (hl-hl_upw)/d_mrl
+    ! delta_N(2) = (ul-ul_upw)/d_mrl
+    ! delta_N(3) = (vl-vl_upw)/d_mrl
     delta_M(1) = (hr-hl)/d_mrl
     delta_M(2) = (ur-ul)/d_mrl
     delta_M(3) = (vr-vl)/d_mrl
     call simple_limiter(delta_N(1), delta_M(1), delta_hl)
+    ! delta_hl = (hr-hl_upw)/(d_mrl+d_mkvol)
     hll = max(0.d0, hl - 0.5*delta_hl*d_mrl)
     hlr = max(0.d0, hl + 0.5*delta_hl*d_mrl)
-    if(hl<tolisec_d .or. hll<tolisec_d) then
+    if(hlr<tolisec_d .or. hll<tolisec_d) then
       ulr = 0.
       vlr = 0.
       ull = 0.
       vll = 0.
     else
       call simple_limiter(delta_N(2), delta_M(2), delta_ul)
+      ! delta_ul = (hr-ul_upw)/(d_mrl+d_mkvol)
       call simple_limiter(delta_N(3), delta_M(3), delta_vl)
+      ! delta_vl = (vr-vl_upw)/(d_mrl+d_mkvol)
       ull = ul - 0.5*delta_ul*d_mrl
       vll = vl - 0.5*delta_vl*d_mrl
       ulr = ul + 0.5*delta_ul*d_mrl
@@ -619,10 +631,14 @@ contains
     delta_M(1) = (hr_upw-hr)/d_mkvoisin
     delta_M(2) = (ur_upw-ur)/d_mkvoisin
     delta_M(3) = (vr_upw-vr)/d_mkvoisin
+    ! delta_M(1) = (hr_upw-hr)/d_mrl
+    ! delta_M(2) = (ur_upw-ur)/d_mrl
+    ! delta_M(3) = (vr_upw-vr)/d_mrl
     delta_N(1) = (hr-hl)/d_mrl
     delta_N(2) = (ur-ul)/d_mrl
     delta_N(3) = (vr-vl)/d_mrl
     call simple_limiter(delta_N(1), delta_M(1), delta_hr)
+    ! delta_hr = (hr_upw-hl)/(d_mrl+d_mkvoisin)
     hrr = max(0.d0, hr + 0.5*delta_hr*d_mrl)
     hrl = max(0.d0, hr - 0.5*delta_hr*d_mrl)
     if(hr<tolisec_d .or. hrr<tolisec_d) then
@@ -632,7 +648,9 @@ contains
       vrr = 0.
     else
       call simple_limiter(delta_N(2), delta_M(2), delta_ur)
+      ! delta_ur = (ur_upw-ul)/(d_mrl+d_mkvoisin)
       call simple_limiter(delta_N(3), delta_M(3), delta_vr)
+      ! delta_vr = (vr_upw-vl)/(d_mrl+d_mkvoisin)
       urr = ur + 0.5*delta_ur*d_mrl
       vrr = vr + 0.5*delta_vr*d_mrl
       url = ur - 0.5*delta_ur*d_mrl
@@ -640,13 +658,19 @@ contains
     end if
 
     !!!Data reconstruction II
-    hl = hl + 0.5*dtoverdx*(hll*ull - hlr*ulr)
-    ul = ul + 0.5*dtoverdx*(hll*ull**2 + 0.5*gp_d*hll**2 - (hlr*ulr**2 +0.5*gp_d*hlr**2))
-    vl = vl + 0.5*dtoverdx*(hll*ull*vll - hlr*ulr*vlr)
+    ! hl = hl + 0.5*dtoverdx*(hll*ull - hlr*ulr)
+    ! ul = ul + 0.5*dtoverdx*(hll*ull**2 + 0.5*gp_d*hll**2 - (hlr*ulr**2 +0.5*gp_d*hlr**2))
+    ! vl = vl + 0.5*dtoverdx*(hll*ull*vll - hlr*ulr*vlr)
+    hl = hlr
+    ul = ulr
+    vl = vlr
 
-    hr = hr + 0.5*dtoverdx*(hrl*url - hrr*urr)
-    ur = ur + 0.5*dtoverdx*(hrl*url**2 + 0.5*gp_d*hrl**2 - (hrr*urr**2 +0.5*gp_d*hrr**2))
-    vr = vr + 0.5*dtoverdx*(hrl*url*vrl - hrr*urr*vrr)
+    ! hr = hr + 0.5*dtoverdx*(hrl*url - hrr*urr)
+    ! ur = ur + 0.5*dtoverdx*(hrl*url**2 + 0.5*gp_d*hrl**2 - (hrr*urr**2 +0.5*gp_d*hrr**2))
+    ! vr = vr + 0.5*dtoverdx*(hrl*url*vrl - hrr*urr*vrr)
+    hr = hrl
+    ur = url
+    vr = vrl
 
     if(hl.lt.eps.and.hr.lt.eps) goto 21
 
