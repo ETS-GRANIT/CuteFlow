@@ -64,6 +64,7 @@ contains
     tblock_usc = dim3(32, 1, 1)
     grid_usc   = dim3(ceiling(real(nmax_ptset)/real(tblock_usc%x)), nelt_fant_envoi_bloc, 1)
 
+
     !!Initial dt exchange
     call cflcond<<<grid, tblock>>>(vdlg0_d,deltatmin_d)
     call reduction<<<grid_reduc, tblock_reduc, tblock_reduc%x*sizeof(deltatmin_d(1))>>>(deltatmin_d)
@@ -85,6 +86,7 @@ contains
       debit_entree  = 0.d0
       debit_sortie  = 0.d0
 
+      if(iupwind==3) call update_sol_nodes<<<grid_nodes, tblock_nodes, 0, stream1>>> 
       call compute_flux<<<grid_3y, tblock_3y, ns*tblock_3y%x*sizeof(1.0d0), stream1>>>()
 
       call compute_source_terms<<<grid, tblock, 0, stream2>>>()

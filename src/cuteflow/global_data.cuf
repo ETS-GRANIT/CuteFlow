@@ -87,7 +87,7 @@ module global_data
 
   & inlet, inlet_name,  debitglob, debit_var,loi_debitglob, outlet_name, h_sortie, &
 
-  & iflux, ilimiteur, iupwind&
+  & iflux, ilimiteur, iupwind,&
   & tolisec, & 
   & friction, fricimplic, &
   & diffusion, &

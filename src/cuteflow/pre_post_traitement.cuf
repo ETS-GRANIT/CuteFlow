@@ -11,9 +11,6 @@ contains
 
     integer :: ierr
 
-    tblock_nodes = dim3(32, 1, 1)
-    grid_nodes   = dim3(ceiling(real(nnt)/real(tblock%x)), 1, 1)
-
     ! *** Stockage de la solution pour postraitement et animation 
     if((solvisu > 0 .and. abs( tc - tsolvisu(cptsolvisu) ) <= tolaffiche))then
       vdlg = vdlg_d
