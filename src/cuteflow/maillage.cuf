@@ -41,7 +41,9 @@ contains
 
     ! if(iflux >=3 .and. iupwind==2) then
     if(.TRUE.) then
+      allocate(vertex_neighbors(6,nnt))
       allocate(vertex_neighbors_d(6,nnt))
+      vertex_neighbors = -1.
       vertex_neighbors_d = -1.
     end if
 
@@ -50,6 +52,9 @@ contains
       print*,mpi_process_id,"tab_bound_tri ok", nelt, nnt
       call MPI_BARRIER(MPI_COMM_WORLD,mpi_ierr)
     endif
+
+    call construct_vertex_neighbors
+    vertex_neighbors_d = vertex_neighbors
 
     !!  Construction/Lecture des éléments voisins
     if(num_mpi_process>1) then
@@ -904,36 +909,36 @@ contains
       if ( m1==n3 .and. m3==n1 .or. m3==n3 .and. m2==n1 .or. m2==n3 .and. m1==n1 ) &
         & boundary_d(gi,3,1) = gj
 
-      ! if(iflux_d >= 3 .and. iupwind_d==2) then
-      if(.TRUE.) then
-        if ( (m1==n1) .or. (m1==n2) .or. (m1==n3))  then
-          do k=1,6
-            if(vertex_neighbors_d(k,m1) == gi) exit
-            if(vertex_neighbors_d(k,m1) == -1) then
-              vertex_neighbors_d(k,m1) = gi
-              exit
-            end if
-          end do
-        end if
-        if ( (m2==n1) .or. (m2==n2) .or. (m2==n3))  then
-          do k=1,6
-            if(vertex_neighbors_d(k,m2) == gi) exit
-            if(vertex_neighbors_d(k,m2) == -1) then
-              vertex_neighbors_d(k,m2) = gi
-              exit
-            end if
-          end do
-        end if
-        if ( (m3==n1) .or. (m3==n2) .or. (m3==n3))  then
-          do k=1,6
-            if(vertex_neighbors_d(k,m3) == gi) exit
-            if(vertex_neighbors_d(k,m3) == -1) then
-              vertex_neighbors_d(k,m3) = gi
-              exit
-            end if
-          end do
-        end if
-      end if
+      ! ! if(iflux_d >= 3 .and. iupwind_d==2) then
+      ! if(.TRUE.) then
+      !   if ( (m1==n1) .or. (m1==n2) .or. (m1==n3))  then
+      !     do k=1,6
+      !       if(vertex_neighbors_d(k,m1) == gi) exit
+      !       if(vertex_neighbors_d(k,m1) == -1) then
+      !         vertex_neighbors_d(k,m1) = gi
+      !         exit
+      !       end if
+      !     end do
+      !   end if
+      !   if ( (m2==n1) .or. (m2==n2) .or. (m2==n3))  then
+      !     do k=1,6
+      !       if(vertex_neighbors_d(k,m2) == gi) exit
+      !       if(vertex_neighbors_d(k,m2) == -1) then
+      !         vertex_neighbors_d(k,m2) = gi
+      !         exit
+      !       end if
+      !     end do
+      !   end if
+      !   if ( (m3==n1) .or. (m3==n2) .or. (m3==n3))  then
+      !     do k=1,6
+      !       if(vertex_neighbors_d(k,m3) == gi) exit
+      !       if(vertex_neighbors_d(k,m3) == -1) then
+      !         vertex_neighbors_d(k,m3) = gi
+      !         exit
+      !       end if
+      !     end do
+      !   end if
+      ! end if
 
     end if
 
@@ -1468,4 +1473,25 @@ contains
     xg = xg / ns
     yg = yg / ns
   end subroutine centroid
+
+  subroutine construct_vertex_neighbors
+    use precision_kind
+    use global_data
+
+    implicit none
+
+    integer :: i, j, k, s
+
+    do i=1,nelt
+      do j=1,3
+        s = connectivite(i,j)
+        do k=1,6
+          if(vertex_neighbors(k,s) == -1) then
+            vertex_neighbors(k,s) = i
+            exit
+          end if
+        end do
+      end do
+    end do
+  end subroutine construct_vertex_neighbors
 end module maillage

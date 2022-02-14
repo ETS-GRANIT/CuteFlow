@@ -143,12 +143,12 @@ contains
 
 
       !!Test to vertex and back
-      ! ierr = cudaDeviceSynchronize()
-      ! call MPI_BARRIER(MPI_COMM_WORLD,mpi_ierr)
-      ! ierr = cudaDeviceSynchronize()
-      ! call update_sol_nodes<<<grid_nodes, tblock_nodes>>> 
-      ! ierr = cudaDeviceSynchronize()
-      ! call update_sol_elems<<<grid, tblock>>> 
+      ierr = cudaDeviceSynchronize()
+      call MPI_BARRIER(MPI_COMM_WORLD,mpi_ierr)
+      ierr = cudaDeviceSynchronize()
+      call update_sol_nodes<<<grid_nodes, tblock_nodes>>> 
+      ierr = cudaDeviceSynchronize()
+      call update_sol_elems<<<grid, tblock>>> 
 
 
       ierr = cudaMemcpyAsync(vdlg0_d, vdlg_d, ndln*nelt, stream1)

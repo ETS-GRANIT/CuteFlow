@@ -684,7 +684,9 @@ contains
       do k=1,6
         mgi = vertex_neighbors_d(k,gi)
         if(mgi > 0) then
-          vdlg_nodes_d(:,gi) = vdlg_nodes_d(:,gi) + vdlg_d(:,mgi)*surf_d(mgi)
+          if(vdlg_d(1,mgi) > tolisec_d) then
+            vdlg_nodes_d(:,gi) = vdlg_nodes_d(:,gi) + vdlg_d(:,mgi)*surf_d(mgi)
+          end if
           area_loc = area_loc + surf_d(mgi)
         end if
       end do

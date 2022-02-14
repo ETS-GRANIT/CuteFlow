@@ -140,7 +140,7 @@ module global_data
   integer, dimension(:)  ,   allocatable :: ndinput, ndoutput, ndwall, i_dry_wet, nbr_nds_coupes, numero_ndinput, numero_ndoutput
   ! integer, dimension(:,:), allocatable :: elt_fant_recep, elt_fant_envoi
   integer, dimension(:,:), allocatable :: elt_fant_recep_bloc, elt_fant_envoi_bloc
-  integer, dimension(:,:),   allocatable :: connectivite, ij_wet_dry, ij_dry_wet, nds_coupes
+  integer, dimension(:,:),   allocatable :: connectivite, ij_wet_dry, ij_dry_wet, nds_coupes, vertex_neighbors
   integer, dimension(:,:,:),   allocatable :: boundary
   real(fp_kind), dimension(:)  ,   allocatable :: flux_interface, manning_nd, manning_nelt
   real(fp_kind), dimension(:,:),   allocatable :: coo_table_elemwise, coordonnees, phi, phi_h, phi_eta, phi_eta_tild, phi_hu, phi_hv, phi_u, phi_v, phij_u, phij_v, phi_h_eta
