@@ -640,6 +640,31 @@ contains
     rewind (ec_sol_elt_t)
   end subroutine save_sol_for_restart
 
+  attributes(global) subroutine update_sol_elems
+    use precision_kind
+    use global_data_device
+
+    implicit none
+
+    integer :: ti, gi
+
+    integer :: mgi, k
+
+    ti = threadIdx%x
+    gi = (blockIdx%x - 1)*blockDim%x + ti
+
+    if(gi <= nelt_d) then
+      vdlg_d(:,gi) = 0.
+      do k=1,3
+        mgi = connectivite_d(gi,k)
+        if(vdlg_nodes_d(1,mgi)>tolisec_d) then
+          vdlg_d(:,gi) = vdlg_d(:,gi) + vdlg_nodes_d(:,mgi)
+        end if
+      end do
+      vdlg_d(:,gi) = vdlg_d(:,gi)/3.
+    end if
+  end subroutine update_sol_elems
+
   attributes(global) subroutine update_sol_nodes
     use precision_kind
     use global_data_device
@@ -649,20 +674,21 @@ contains
     integer :: ti, gi
 
     integer :: mgi, k
-    real(fp_kind) :: area=0.
+    real(fp_kind) :: area_loc
 
     ti = threadIdx%x
     gi = (blockIdx%x - 1)*blockDim%x + ti
 
     if(gi <= nnt_d) then
+      vdlg_nodes_d(:,gi) = 0.
       do k=1,6
         mgi = vertex_neighbors_d(k,gi)
         if(mgi > 0) then
-          vdlg_nodes_d(:,gi) = vdlg_d(:,mgi)*surf_d(mgi)
-          area = area +surf_d(mgi)
+          vdlg_nodes_d(:,gi) = vdlg_nodes_d(:,gi) + vdlg_d(:,mgi)*surf_d(mgi)
+          area_loc = area_loc + surf_d(mgi)
         end if
       end do
-      vdlg_nodes_d(:,gi) = vdlg_nodes_d(:,gi)/area
+      if(area_loc > 1e-12) vdlg_nodes_d(:,gi) = vdlg_nodes_d(:,gi)/area_loc
     end if
   end subroutine update_sol_nodes
 end module pre_post_traitement

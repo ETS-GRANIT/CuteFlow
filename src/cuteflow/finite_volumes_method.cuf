@@ -141,6 +141,16 @@ contains
         call MPI_WAITALL(size(reqrecv),reqrecv,recvstat,mpi_ierr)
       end if
 
+
+      !!Test to vertex and back
+      ! ierr = cudaDeviceSynchronize()
+      ! call MPI_BARRIER(MPI_COMM_WORLD,mpi_ierr)
+      ! ierr = cudaDeviceSynchronize()
+      ! call update_sol_nodes<<<grid_nodes, tblock_nodes>>> 
+      ! ierr = cudaDeviceSynchronize()
+      ! call update_sol_elems<<<grid, tblock>>> 
+
+
       ierr = cudaMemcpyAsync(vdlg0_d, vdlg_d, ndln*nelt, stream1)
 
       tc = tc + dt
@@ -170,32 +180,6 @@ contains
     if(sortie_finale_bluekenue) call bluekenue_export
 
   end subroutine solve_finite_volumes
-
-  attributes(global) subroutine update_sol_nodes
-    use precision_kind
-    use global_data_device
-
-    implicit none
-
-    integer :: ti, gi
-
-    integer :: mgi, k
-    real(fp_kind) :: area=0.
-
-    ti = threadIdx%x
-    gi = (blockIdx%x - 1)*blockDim%x + ti
-
-    if(gi <= nnt_d) then
-      do k=1,6
-        mgi = vertex_neighbors_d(k,gi)
-        if(mgi > 0) then
-          vdlg_nodes_d(:,gi) = vdlg_d(:,mgi)*surf_d(mgi)
-          area = area +surf_d(mgi)
-        end if
-      end do
-      vdlg_nodes_d(:,gi) = vdlg_nodes_d(:,gi)/area
-    end if
-  end subroutine update_sol_nodes
 
   attributes(global) subroutine update_sol_with_flux_and_source
     use precision_kind

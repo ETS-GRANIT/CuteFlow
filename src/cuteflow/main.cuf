@@ -73,7 +73,7 @@ program main
   grid   = dim3(ceiling(real(nelt)/real(tblock%x)), 1, 1)
 
   tblock_nodes = dim3(32, 1, 1)
-  grid_nodes   = dim3(ceiling(real(nnt)/real(tblock%x)), 1, 1)
+  grid_nodes   = dim3(ceiling(real(nnt)/real(tblock_nodes%x)), 1, 1)
 
   call set_undefined_boudaries_as_walls<<<grid, tblock>>>
   call cuda_glerror('set_undefined_boundaries_as_walls',1)
