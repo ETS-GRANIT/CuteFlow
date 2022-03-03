@@ -422,26 +422,28 @@ contains
     integer :: ptSetType, n_userdata, n_ptSet, n_userdata2
     integer :: sizes(3*3), sectionType, nBeg, nEnd, eBeg, eEnd, nBdry, flag
     character(200) :: filename, basename, command, zonename, sectionname, boconame
-    character(200) :: userdataname, userdataname2, meshfile_tmp
+    character(200) :: userdataname, userdataname2
 
     real(fp_kind), dimension(:), allocatable :: coord
     integer, dimension(:), allocatable :: conn
 
+    meshfile_out = trim(adjustl("out_"))//trim(adjustl(meshfile))
+    meshfile_nodes_out = trim(adjustl("out_nodes_"))//trim(adjustl(meshfile))
+
     !!Copy meshfile localy and use it for further processing
     if(mpi_process_id==0) then
-      write(command, *) "cp "//trim(adjustl(meshfile_path))//trim(adjustl(meshfile))//&
-        &" out_"//trim(adjustl(meshfile))
-      call system(command)
-      write(command, *) "cp "//trim(adjustl(meshfile_path))//trim(adjustl(meshfile))//&
-        &" out_nodes_"//trim(adjustl(meshfile))
-      call system(command)
+      if(solvisu==1 .or. solvisu==3) then
+        write(command, *) "cp "//trim(adjustl(meshfile_path))//trim(adjustl(meshfile))//&
+          &" "//trim(adjustl(meshfile_out))
+        call system(command)
+        ! write(command, *) "cp "//trim(adjustl(meshfile_path))//trim(adjustl(meshfile))//&
+        !   &" "//trim(adjustl(meshfile_nodes_out))
+        ! call system(command)
+      end if
     end if
     call MPI_BARRIER(MPI_COMM_WORLD,mpi_ierr)
-    meshfile_tmp = meshfile
-    meshfile = trim(adjustl("out_"))//trim(adjustl(meshfile))
-    meshfile_nodes = trim(adjustl("out_nodes_"))//trim(adjustl(meshfile_tmp))
 
-    call cg_open_f(meshfile, CG_MODE_READ, fn, ierr)
+    call cg_open_f(trim(adjustl(meshfile_path))//trim(adjustl(meshfile)), CG_MODE_READ, fn, ierr)
     if (ierr .ne. CG_OK) call cg_error_exit_f
 
     call cg_nbases_f(fn, n_bases, ierr)

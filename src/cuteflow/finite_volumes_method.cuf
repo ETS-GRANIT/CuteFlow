@@ -143,12 +143,12 @@ contains
 
 
       !!Test to vertex and back
-      ierr = cudaDeviceSynchronize()
-      call MPI_BARRIER(MPI_COMM_WORLD,mpi_ierr)
-      ierr = cudaDeviceSynchronize()
-      call update_sol_nodes<<<grid_nodes, tblock_nodes>>> 
-      ierr = cudaDeviceSynchronize()
-      call update_sol_elems<<<grid, tblock>>> 
+      ! ierr = cudaDeviceSynchronize()
+      ! call MPI_BARRIER(MPI_COMM_WORLD,mpi_ierr)
+      ! ierr = cudaDeviceSynchronize()
+      ! call update_sol_nodes<<<grid_nodes, tblock_nodes>>> 
+      ! ierr = cudaDeviceSynchronize()
+      ! call update_sol_elems<<<grid, tblock>>> 
 
 
       ierr = cudaMemcpyAsync(vdlg0_d, vdlg_d, ndln*nelt, stream1)
@@ -210,7 +210,7 @@ contains
       vdlg_d(:,gi) = vdlg0_d(:,gi) + dt_d * res_d(:,gi)
 
       if(vdlg_d(1,gi) <= tolisec_d) then
-        vdlg_d(1,gi) = tolisec_d
+        vdlg_d(1,gi) = 0.
         vdlg_d(2,gi) = 0.
         vdlg_d(3,gi) = 0.
       end if

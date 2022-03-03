@@ -23,8 +23,8 @@ contains
       !CGNS EXPORT
       if(is_cgns==1 .and. (solvisu==1 .or. solvisu==3)) then
         call cgns_export(cptsolvisu)
-        call update_sol_nodes<<<grid_nodes, tblock_nodes>>> 
-        call cgns_nodes_export(cptsolvisu)
+        ! call update_sol_nodes<<<grid_nodes, tblock_nodes>>> 
+        ! call cgns_nodes_export(cptsolvisu)
       end if
 
       !Simple EXPORT
@@ -228,7 +228,7 @@ contains
     !!Read cgns file and goto good location
     call cgp_pio_mode_f(0, ierr)
 
-    call cgp_open_f(meshfile_nodes, CG_MODE_MODIFY, fn, ierr)
+    call cgp_open_f(meshfile_nodes_out, CG_MODE_MODIFY, fn, ierr)
     if (ierr .ne. CG_OK) call cgp_error_exit_f
 
     call cg_nbases_f(fn, n_bases, ierr)
@@ -386,7 +386,7 @@ contains
     !!Read cgns file and goto good location
     call cgp_pio_mode_f(0, ierr)
 
-    call cgp_open_f(meshfile, CG_MODE_MODIFY, fn, ierr)
+    call cgp_open_f(meshfile_out, CG_MODE_MODIFY, fn, ierr)
     if (ierr .ne. CG_OK) call cgp_error_exit_f
 
     call cg_nbases_f(fn, n_bases, ierr)

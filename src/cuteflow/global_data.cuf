@@ -37,7 +37,7 @@ module global_data
 
 
   !! Variables donnees du maillage
-  character(len=60)       :: meshfile, meshfile_path="./", meshfile_nodes
+  character(len=60)       :: meshfile, meshfile_path="./", meshfile_nodes_out, meshfile_out
   integer                 :: elt_bound, nombre_entrees, nombre_sorties
   integer, dimension(20)  :: elts
 

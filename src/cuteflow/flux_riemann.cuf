@@ -232,7 +232,8 @@ contains
               kvoisin_v2_v = 0.
             end if
 
-            if(((kvol_v1 == kvol) .and. (kvol_v2==kvol)) .or. ((kvoisin_v1==kvoisin) .and. (kvoisin_v2==kvoisin))) then
+            ! if(((kvol_v1 == kvol) .and. (kvol_v2==kvol)) .or. ((kvoisin_v1==kvoisin) .and. (kvoisin_v2==kvoisin))) then
+            if(((kvol_v1 == kvol) .or. (kvol_v2==kvol)) .or. ((kvoisin_v1==kvoisin) .or. (kvoisin_v2==kvoisin))) then
 
               hl_upw=hautl
               ul_upw=vitul
