@@ -160,7 +160,6 @@ contains
           !!WAF méthode riadh ata
           call solver_Riemann_riadh(gi,kvoisin,surf_d,norm,vdlg_d,hijet,vitul,vitvl,hjiet,vitur,vitvr,zml,zmr,flux,ln,pp)
         else if (iflux_d>=3) then 
-          !! WAF Loukilli
           !! Order 2 second neighbor
 
           if(iupwind_d==1) then
@@ -232,8 +231,8 @@ contains
               kvoisin_v2_v = 0.
             end if
 
-            ! if(((kvol_v1 == kvol) .and. (kvol_v2==kvol)) .or. ((kvoisin_v1==kvoisin) .and. (kvoisin_v2==kvoisin))) then
-            if(((kvol_v1 == kvol) .or. (kvol_v2==kvol)) .or. ((kvoisin_v1==kvoisin) .or. (kvoisin_v2==kvoisin))) then
+            if(((kvol_v1 == kvol) .and. (kvol_v2==kvol)) .or. ((kvoisin_v1==kvoisin) .and. (kvoisin_v2==kvoisin))) then
+            ! if(((kvol_v1 == kvol) .or. (kvol_v2==kvol)) .or. ((kvoisin_v1==kvoisin) .or. (kvoisin_v2==kvoisin))) then
 
               hl_upw=hautl
               ul_upw=vitul
@@ -431,6 +430,7 @@ contains
             d_mkvoisin = sqrt((coordonnees_d(connectivite_d(kvoisin,1+mod((tjv+2)-1,3)),1) - x_centroid_d(kvoisin))**2+(coordonnees_d(connectivite_d(kvoisin,1+mod((tjv+2)-1,3)),2) - y_centroid_d(kvoisin))**2)
           end if
 
+          !!Reconstruction hydro
           hl_upw = max(0.d0, hl_upw + zml - zij)
           hr_upw = max(0.d0, hr_upw + zmr - zij)
 

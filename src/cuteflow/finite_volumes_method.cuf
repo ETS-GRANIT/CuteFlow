@@ -210,7 +210,8 @@ contains
       vdlg_d(:,gi) = vdlg0_d(:,gi) + dt_d * res_d(:,gi)
 
       if(vdlg_d(1,gi) <= tolisec_d) then
-        vdlg_d(1,gi) = 0.
+        ! vdlg_d(1,gi) = 0.
+        vdlg_d(1,gi) = tolisec_d
         vdlg_d(2,gi) = 0.
         vdlg_d(3,gi) = 0.
       end if
