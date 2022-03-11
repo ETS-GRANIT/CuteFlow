@@ -1,7 +1,7 @@
 module flux_riemann
   implicit none
 contains
-  attributes(global) subroutine compute_flux
+  attributes(global) subroutine compute_flux()
     use precision_kind
     use global_data_device
     implicit none
@@ -26,15 +26,26 @@ contains
     real(fp_kind), dimension(3) :: flux
     real :: cond
 
-    integer                     :: ti,gi, tj, gj, id_entree, tjv
+    integer                     :: ti,gi, ggi, tj, gj, id_entree, tjv, nelt_limit
     real(fp_kind), shared       :: s1(blockdim%x,ns_d)
 
     ti = threadIdx%x
-    gi = (blockIdx%x - 1)*blockDim%x + ti
     tj = threadIdx%y
-    gj=  (blockIdx%y - 1)*blockDim%y + tj
 
-    if(gi <= nelt_d-nelt_fant_recep_d) then
+    if(only_send_cells_d) then
+      nelt_limit = nelt_send_tot_d
+      ggi = (blockIdx%x - 1)*blockDim%x + ti
+      if(ggi<=nelt_limit) then
+        gi = elt_fant_envoi_list_glob_d(ggi)
+        ! print*,ggi,gi,nelt_limit
+      end if
+    else
+      nelt_limit = nelt_d-nelt_fant_recep_d
+      gi = (blockIdx%x - 1)*blockDim%x + ti
+      ggi=gi
+    end if
+
+    if(ggi <= nelt_limit) then
       kvol = gi
       nc1 = tj
       cond = merge(1,0, nc1 == ns_d)

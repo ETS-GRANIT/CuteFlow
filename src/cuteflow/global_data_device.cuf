@@ -40,6 +40,9 @@ module global_data_device
   integer, constant:: nelt_d, nnt_d, ns_d, ndi_d, nombre_entrees_d, nombre_sorties_d, ndo_d, ndw_d, correction_d, prediction_d, nbase_d, nbase_h_d, nbase_eta_d, nbase_eta_tild_d, nbase_hu_d, nbase_hv_d, nbase_u_d, nbase_v_d, maxdimbase_d
   integer, constant :: nelt_fant_recep_d, nelt_fant_envoi_d
   integer, constant:: nelt_entree_d, nelt_sortie_d, n_Q_d, tc_init_d, start_d
+  integer, constant :: nelt_nonsend_d, nelt_send_tot_d
+
+  logical, constant :: only_send_cells_d
 
   real(fp_kind), constant:: cotemin_d, t_reg_perm_d, flux_total_d, debit_n_d, x0_d, vol_tot_entre_d, vol_tot_sorti_d, debit_sortie_d, debit_entree_d, distcote_d
   real(fp_kind), device, allocatable :: cotemin_arr_d(:) 
@@ -51,6 +54,8 @@ module global_data_device
   integer, device, dimension(:,:,:),   allocatable :: boundary_d , upwind_cells_d
   real(fp_kind), device, dimension(:)  ,   allocatable :: manning_nd_d, manning_nelt_d, long_entree_d
   real(fp_kind), device, dimension(:,:),   allocatable :: coo_table_elemwise_d, coordonnees_d !, phi_d, phi_h_d, phi_eta_d 
+
+  integer, device, dimension(:), allocatable :: elt_fant_envoi_list_glob_d
 
   !Device related Variables
   integer, device, allocatable :: io_identifier_d(:)

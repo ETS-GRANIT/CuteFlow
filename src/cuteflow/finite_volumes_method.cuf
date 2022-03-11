@@ -19,6 +19,7 @@ contains
     !*** Variables locales ***
     integer :: stat(MPI_STATUS_SIZE)
     integer :: iter_nodes, iter_entree
+    integer :: i, j, k
 
     real(fp_kind)   :: time_start, time_stop
     integer         :: ierr
@@ -48,6 +49,35 @@ contains
 
     call get_io_index
 
+    if(num_mpi_process > 1 .and. is_cgns==1) then
+      nelt_send_tot = 0
+      nelt_nonsend = nelt
+      do i=1,nelt_fant_envoi_bloc
+        nelt_send_tot = nelt_send_tot + elt_fant_envoi_list(i)%length
+        do j=1,elt_fant_envoi_list(i)%length
+          nelt_nonsend = min(nelt_nonsend, elt_fant_envoi_list(i)%elem_id(j))
+        end do
+      end do
+
+      nelt_send_tot_d = nelt_send_tot
+      nelt_nonsend_d = nelt_nonsend
+
+      allocate(elt_fant_envoi_list_glob(nelt_send_tot))
+      allocate(elt_fant_envoi_list_glob_d(nelt_send_tot))
+
+      k=1
+      do i=1,nelt_fant_envoi_bloc
+        do j=1,elt_fant_envoi_list(i)%length
+          elt_fant_envoi_list_glob(k) = elt_fant_envoi_list(i)%elem_id(j)
+          k=k+1
+        end do
+      end do
+
+      elt_fant_envoi_list_glob_d = elt_fant_envoi_list_glob
+    end if
+
+    print*,"premier elem send ", nelt_nonsend, nelt_send_tot, nelt
+
     tblock = dim3(32, 1, 1)
     grid   = dim3(ceiling(real(nelt)/real(tblock%x)), 1, 1)
     grid_halved   = dim3(ceiling(real(nelt)/real(2*tblock%x)), 1, 1)
@@ -63,6 +93,18 @@ contains
 
     tblock_usc = dim3(32, 1, 1)
     grid_usc   = dim3(ceiling(real(nmax_ptset)/real(tblock_usc%x)), nelt_fant_envoi_bloc, 1)
+
+    tblock_send = dim3(32, 1, 1)
+    grid_send   = dim3(ceiling(real(nelt_send_tot)/real(tblock_send%x)), 1, 1)
+
+    tblock_nonsend = dim3(32, 1, 1)
+    grid_nonsend   = dim3(ceiling(real(nelt_nonsend)/real(tblock_nonsend%x)), 1, 1)
+
+    tblock_3y_send = dim3(8, ns, 1)
+    grid_3y_send   = dim3(ceiling(real(nelt_send_tot)/real(tblock_3y_send%x)), 1, 1)
+
+    tblock_3y_nonsend = dim3(8, ns, 1)
+    grid_3y_nonsend   = dim3(ceiling(real(nelt_nonsend)/real(tblock_3y_nonsend%x)), 1, 1)
 
 
     !!Initial dt exchange
@@ -87,9 +129,65 @@ contains
       debit_sortie  = 0.d0
 
       if(iupwind==3) call update_sol_nodes<<<grid_nodes, tblock_nodes, 0, stream1>>> 
-      call compute_flux<<<grid_3y, tblock_3y, ns*tblock_3y%x*sizeof(1.0d0), stream1>>>()
 
-      call compute_source_terms<<<grid, tblock, 0, stream2>>>()
+      !If mesh large enough, optimise computations and communications overlapp
+      if(is_cgns==1 .and. (nelt>20000 .and. num_mpi_process>1)) then
+      ! if(.FALSE.) then
+      ! if(.TRUE.) then
+        !!Phase 1 computation on the send cells only
+        only_send_cells=.TRUE.
+        only_send_cells_d=only_send_cells
+        call compute_flux<<<grid_3y_send, tblock_3y_send, ns*tblock_3y_send%x*sizeof(1.0d0), stream1>>>()
+        call compute_source_terms<<<grid_send, tblock_send, 0, stream2>>>()
+        ierr = cudaStreamSynchronize(stream1)
+        call update_sol_with_flux_and_source<<<grid_send, tblock_send, 0, stream2>>>()
+
+        !!Memory exchange is started
+        if(num_mpi_process>1 .and. is_cgns==1) then
+          call update_send_cells<<<grid_usc, tblock_usc, 0, stream2>>>()
+        end if
+
+        !!  Echange sur GPU directement bloc
+        if(num_mpi_process>1) then
+          if(is_cgns) then
+            ierr = cudastreamsynchronize(stream2)
+            call gpu_echange_cgns(vdlg_d, ndln)
+          else
+            call gpu_echange_fant_bloc_async(vdlg_d, ndln)
+          end if
+        end if
+
+        !!Phase 2 computation on the cells that are not send cells
+        only_send_cells=.FALSE.
+        only_send_cells_d=only_send_cells
+        call compute_flux<<<grid_3y_nonsend, tblock_3y_nonsend, ns*tblock_3y_nonsend%x*sizeof(1.0d0), stream1>>>()
+        call compute_source_terms<<<grid_nonsend, tblock_nonsend, 0, stream2>>>()
+        ierr = cudaStreamSynchronize(stream1)
+        call update_sol_with_flux_and_source<<<grid_nonsend, tblock_nonsend, 0, stream2>>>()
+
+      else
+        only_send_cells=.FALSE.
+        only_send_cells_d=only_send_cells
+        call compute_flux<<<grid_3y, tblock_3y, ns*tblock_3y%x*sizeof(1.0d0), stream1>>>()
+        call compute_source_terms<<<grid, tblock, 0, stream2>>>()
+        ierr = cudaStreamSynchronize(stream1)
+        call update_sol_with_flux_and_source<<<grid, tblock, 0, stream2>>>()
+
+        !!Memory exchange is started
+        if(num_mpi_process>1 .and. is_cgns==1) then
+          call update_send_cells<<<grid_usc, tblock_usc, 0, stream2>>>()
+        end if
+
+        !!  Echange sur GPU directement bloc
+        if(num_mpi_process>1) then
+          if(is_cgns) then
+            ierr = cudastreamsynchronize(stream2)
+            call gpu_echange_cgns(vdlg_d, ndln)
+          else
+            call gpu_echange_fant_bloc_async(vdlg_d, ndln)
+          end if
+        end if
+      end if
 
       !Compute outflow
       if(ndo>1) then
@@ -116,23 +214,6 @@ contains
         call MPI_ALLREDUCE(MPI_IN_PLACE,debit_sortie,1,fp_kind_mpi,MPI_SUM,MPI_COMM_WORLD, mpi_ierr)
       end if
 
-      ierr = cudaStreamSynchronize(stream1)
-      call update_sol_with_flux_and_source<<<grid, tblock, 0, stream2>>>()
-
-      if(num_mpi_process>1 .and. is_cgns==1) then
-        call update_send_cells<<<grid_usc, tblock_usc, 0, stream2>>>()
-      end if
-
-      !!  Echange sur GPU directement bloc
-      if(num_mpi_process>1) then
-        if(is_cgns) then
-          ierr = cudastreamsynchronize(stream2)
-          call gpu_echange_cgns(vdlg_d, ndln)
-        else
-          call gpu_echange_fant_bloc_async(vdlg_d, ndln)
-        end if
-      end if
-
       call compute_time_step(stream2)
 
       !!Attendre fin de l'échange mémoire de vdlg
@@ -141,7 +222,6 @@ contains
         call MPI_WAITALL(size(reqrecv),reqrecv,recvstat,mpi_ierr)
       end if
 
-
       !!Test to vertex and back
       ! ierr = cudaDeviceSynchronize()
       ! call MPI_BARRIER(MPI_COMM_WORLD,mpi_ierr)
@@ -149,7 +229,6 @@ contains
       ! call update_sol_nodes<<<grid_nodes, tblock_nodes>>> 
       ! ierr = cudaDeviceSynchronize()
       ! call update_sol_elems<<<grid, tblock>>> 
-
 
       ierr = cudaMemcpyAsync(vdlg0_d, vdlg_d, ndln*nelt, stream1)
 
@@ -187,13 +266,24 @@ contains
 
     implicit none
 
-    integer :: ti, gi
+    integer :: ti, gi, ggi,nelt_limit
     real(fp_kind) :: resini(3)
 
     ti = threadIdx%x
-    gi = (blockIdx%x - 1)*blockDim%x + ti
 
-    if(gi <= nelt_d-nelt_fant_recep_d) then
+    if(only_send_cells_d) then
+      nelt_limit = nelt_send_tot_d
+      ggi = (blockIdx%x - 1)*blockDim%x + ti
+      if(ggi<=nelt_limit) then
+        gi = elt_fant_envoi_list_glob_d(ggi)
+      end if
+    else
+      nelt_limit = nelt_d-nelt_fant_recep_d
+      gi = (blockIdx%x - 1)*blockDim%x + ti
+      ggi=gi
+    end if
+
+    if(ggi <= nelt_limit) then
       if ( friction_d == 1) then
         if ( fricimplic_d == 1 .or. fricimplic_d == 2 ) then
           resini = ( sourcbath_d(:,gi) + sourcfric_d(:,gi) - resc_d(:,gi) ) / surf_d(gi)

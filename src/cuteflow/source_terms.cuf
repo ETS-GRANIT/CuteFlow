@@ -14,12 +14,23 @@ contains
     real(fp_kind), dimension(2)           :: norm
     integer                               :: nc1, nc2, nc3, kvol, kvoisin
     integer :: cond
-    integer :: ti,gi
+    integer :: ti,gi,ggi, nelt_limit
 
     ti = threadIdx%x
-    gi = (blockIdx%x - 1)*blockDim%x + ti
 
-    if (gi <= nelt_d-nelt_fant_recep_d) then
+    if(only_send_cells_d) then
+      nelt_limit = nelt_send_tot_d
+      ggi = (blockIdx%x - 1)*blockDim%x + ti
+      if(ggi<=nelt_limit) then
+        gi = elt_fant_envoi_list_glob_d(ggi)
+      end if
+    else
+      nelt_limit = nelt_d-nelt_fant_recep_d
+      gi = (blockIdx%x - 1)*blockDim%x + ti
+      ggi=gi
+    end if
+
+    if (ggi <= nelt_limit) then
       sourcfric_d(:,gi) = 0.d0
       q1 = vdlg_d(1,gi)
       q2 = vdlg_d(2,gi)

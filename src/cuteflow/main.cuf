@@ -148,7 +148,7 @@ program main
   write(*,*) 'tol                 =', tol
   write(*,*) 'tolisec             =', tolisec
   write(*,*) 'tolaffiche          =', tolaffiche
-  if(mpi_process_id==0) write(*,*) "nombre d'elements totaux = ",nelt_global_non_fant
+  if(mpi_process_id==0) write(*,*) "nombre d'elements totaux = ",nelt
   write(*,*) 'freqaffich          =', freqaffich
   write(*,*) 'nombre entree       =', nombre_entrees
   do af_input=1,nombre_entrees
