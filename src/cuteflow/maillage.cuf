@@ -102,19 +102,19 @@ contains
 
 
     !! Calcul des longueurs des entrées
-    long_entree = 0.
-    if(ndi > 0) then 
-      call calcul_long_entree
+    if(nombre_entrees > 0) then
+      long_entree = 0.
+      if(ndi > 0) then 
+        call calcul_long_entree
+        call compute_input_elems
+        surf_entree = 0.
+        surf_entree_d = surf_entree
+        zero_entree_d = surf_entree
+      end if
+
+      call mpi_allreduce(mpi_in_place,long_entree,nombre_entrees,fp_kind_mpi,mpi_sum,mpi_comm_world, mpi_ierr)
+      long_entree_d=long_entree
     end if
-
-    call MPI_BARRIER(MPI_COMM_WORLD,mpi_ierr)
-    print*,mpi_process_id,"avant reduce entree"
-
-    call mpi_allreduce(mpi_in_place,long_entree,nombre_entrees,fp_kind_mpi,mpi_sum,mpi_comm_world, mpi_ierr)
-    long_entree_d=long_entree
-
-    call MPI_BARRIER(MPI_COMM_WORLD,mpi_ierr)
-    print*,mpi_process_id,"apres reduce entree"
 
     !! calculation of the elementwise coordinates table
     allocate(coo_table_elemwise(nelt,3*ns) , coo_table_elemwise_d(nelt,3*ns))
@@ -188,6 +188,8 @@ contains
     read(lu_fich,nml=donnees_namelist)
     close(lu_fich)
 
+    inlet = trim(adjustl(inlet))
+
     !! Ajout du numéro de process MPI en préfixe des fichiers de maillage et de solution initiale
     if(num_mpi_process>1 .and. is_cgns==0) then
       meshfile = trim(mpi_process_id_string)//'_'//trim(meshfile)
@@ -252,6 +254,9 @@ contains
       read(lec_mesh,*) ndi
       allocate(long_entree(1))
       allocate(long_entree_d(1))
+      allocate(surf_entree_d(1))
+      allocate(zero_entree_d(1))
+      allocate(surf_entree(1))
       if (ndi>0) then
         allocate(ndinput(ndi))
         allocate(numero_ndinput(ndi))
@@ -266,6 +271,9 @@ contains
       read(lec_mesh,*) ndi, nombre_entrees
       allocate(long_entree(nombre_entrees))
       allocate(long_entree_d(nombre_entrees))
+      allocate(surf_entree_d(nombre_entrees))
+      allocate(zero_entree_d(nombre_entrees))
+      allocate(surf_entree(nombre_entrees))
       if (ndi>0) then
         allocate(ndinput(ndi))
         allocate(numero_ndinput(ndi))
@@ -553,7 +561,9 @@ contains
     print*, "INPUT " , nombre_entrees, ndi
     if(nombre_entrees>0) then
       allocate(long_entree(nombre_entrees))
-      allocate(long_entree_d(nombre_entrees))
+      allocate(surf_entree_d(nombre_entrees))
+      allocate(zero_entree_d(nombre_entrees))
+      allocate(surf_entree(nombre_entrees))
       if(ndi>0) then
         allocate(ndinput(ndi))
         allocate(numero_ndinput(ndi))
@@ -1330,6 +1340,96 @@ contains
       zm_d(gi) = ( d1*z1 + d2*z2 + d3*z3 ) / ( d1 + d2 + d3 ) ! planimetrique
     endif
   end subroutine compute_surface_and_bathy
+
+  subroutine compute_input_elems
+    use precision_kind
+    use global_data
+    use global_data_device
+    implicit none
+  
+    integer :: i, kvol, j, k
+
+    nelt_input = 0
+    do kvol=1,nelt-nelt_fant_recep
+      do j=1,ns
+        if(boundary(kvol, j,1) == -1) then !!entree
+          nelt_input = nelt_input+1
+        end if
+      end do
+    end do
+
+    nelt_input_d=nelt_input
+
+    allocate(elem_input(nelt_input))
+    allocate(elem_input_d(nelt_input))
+
+    k=1
+    do kvol=1,nelt-nelt_fant_recep
+      do j=1,ns
+        if(boundary(kvol, j,1) == -1) then !!entree
+          elem_input(k) = kvol
+          k = k+1
+        end if
+      end do
+    end do
+
+    elem_input_d=elem_input
+  end subroutine compute_input_elems
+    
+  attributes(global) subroutine calcul_surf_entree
+    use precision_kind
+    use global_data_device
+    use cudafor
+    implicit none
+
+    integer :: gi, ti, tj
+    real(fp_kind), shared       :: s(blockDim%x*sizeof(surf_entree_d(1)))
+
+    integer k, kvol, kfac, n1, n2, id_entree, ientree, i, ierr_d
+    integer :: id
+
+    ti = threadidx%x
+    gi = (blockidx%x - 1)*blockdim%x + ti
+
+    do id=1,nombre_entrees_d
+      s(ti) = 0
+      call syncthreads()
+      if(gi<nelt_d-nelt_fant_recep_d)then
+        kvol = elem_input_d(gi)
+        do kfac=1,ns_d
+          n1 = connectivite_d(kvol,kfac)
+          if ( kfac < ns_d ) then
+            n2 = connectivite_d(kvol,kfac+1)
+          else
+            n2 = connectivite_d(kvol,1)
+          endif
+
+          if(boundary_d(kvol,kfac,1) == -1) then
+            id_entree = boundary_d(kvol,kfac,2)
+            if(id_entree==id) then 
+              s(ti) = sqrt((coordonnees_d(n1,1)-coordonnees_d(n2,1))**2+(coordonnees_d(n1,2)-coordonnees_d(n2,2))**2)*vdlg_d(1,kvol)
+            end if
+          end if
+        end do
+      end if
+
+      call syncthreads()
+      i = blockdim%x/2
+      do while(i>=1)
+        if(ti <= i) then
+          s(ti) = s(ti)+s(ti+i)
+        end if
+        i = i/2
+        call syncthreads()
+      end do
+
+      call syncthreads()
+      if(ti==1) then
+        ierr_d = atomicadd(surf_entree_d(id),s(1))
+      end if
+      call syncthreads()
+    end do
+  end subroutine calcul_surf_entree
 
   subroutine calcul_long_entree
     use precision_kind

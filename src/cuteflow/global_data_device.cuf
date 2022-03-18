@@ -49,10 +49,12 @@ module global_data_device
   real(fp_kind), constant:: h0_d, coef_bol_d  ! Pour le problème du bol parabolique(For the problem of the parabolic bowl)
 
   integer, device, dimension(:)  ,   allocatable :: ndinput_d, numero_ndinput_d, ndoutput_d, numero_ndoutput_d, ndwall_d !, i_dry_wet_d
+  integer, device :: nelt_input_d
+  integer, device, dimension(:), allocatable :: elem_input_d
   integer, device, dimension(:, :)  ,   allocatable :: elt_fant_recep_d, elt_fant_envoi_d
   integer, device, dimension(:,:),   allocatable :: connectivite_d, vertex_neighbors_d
   integer, device, dimension(:,:,:),   allocatable :: boundary_d , upwind_cells_d
-  real(fp_kind), device, dimension(:)  ,   allocatable :: manning_nd_d, manning_nelt_d, long_entree_d
+  real(fp_kind), device, dimension(:)  ,   allocatable :: manning_nd_d, manning_nelt_d, long_entree_d, surf_entree_d, zero_entree_d
   real(fp_kind), device, dimension(:,:),   allocatable :: coo_table_elemwise_d, coordonnees_d !, phi_d, phi_h_d, phi_eta_d 
 
   integer, device, dimension(:), allocatable :: elt_fant_envoi_list_glob_d

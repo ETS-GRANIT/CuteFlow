@@ -111,12 +111,23 @@ contains
           flux(1) = hautl * vitul
           flux(2) = norm(1) * ( hautl * vitul**2 + gp_d * hautl**2/2. ) - norm(2) * hautl * vitul * vitvl
           flux(3) = norm(2) * ( hautl * vitul**2 + gp_d * hautl**2/2. ) + norm(1) * hautl * vitul * vitvl
-        elseif ( inlet_d == 2 ) then   ! inlet_d = 2 = Entree avec debit
+        elseif ( inlet_d == 2 ) then   ! inlet_d = inflow = Entree avec debit forcé
           debitnorm = -debitglob_d(id_entree) / long_entree_d(id_entree)
           flux(1) = debitnorm
           flux(2) = norm(1) * ( debitnorm**2/hautl  + gp_d * hautl**2/2. )
           flux(3) = norm(2) * ( debitnorm**2/hautl  + gp_d * hautl**2/2. )
           debit_entree_arr_d(io_identifier_d(gi),1) = (-debitnorm)*ln    
+          debit_entree_arr_d(io_identifier_d(gi),2) = id_entree
+        elseif ( inlet_d == 3 ) then   ! inlet_d = phys_inflow = Entree avec debit physique
+          if(surf_entree_d(id_entree) > 1e-8) then
+            debitnorm = -debitglob_d(id_entree) * hautl/surf_entree_d(id_entree)
+          else
+            debitnorm = 0.
+          end if
+          flux(1) = debitnorm
+          flux(2) = norm(1) * ( debitnorm**2/hautl  + gp_d * hautl**2/2. )
+          flux(3) = norm(2) * ( debitnorm**2/hautl  + gp_d * hautl**2/2. )
+          debit_entree_arr_d(io_identifier_d(gi),1) = (-debitnorm)*ln
           debit_entree_arr_d(io_identifier_d(gi),2) = id_entree
         else
           write(*,*) 'donnee inlet_d non convenable'
@@ -243,7 +254,7 @@ contains
             end if
 
             if(((kvol_v1 == kvol) .and. (kvol_v2==kvol)) .or. ((kvoisin_v1==kvoisin) .and. (kvoisin_v2==kvoisin))) then
-            ! if(((kvol_v1 == kvol) .or. (kvol_v2==kvol)) .or. ((kvoisin_v1==kvoisin) .or. (kvoisin_v2==kvoisin))) then
+              ! if(((kvol_v1 == kvol) .or. (kvol_v2==kvol)) .or. ((kvoisin_v1==kvoisin) .or. (kvoisin_v2==kvoisin))) then
 
               hl_upw=hautl
               ul_upw=vitul
@@ -429,7 +440,7 @@ contains
             end if
 
           else if(iupwind_d==3) then
-              ! kupw1 = vertex_neighbors_d(i,connectivite_d(kvol,1+mod((nc1+2)-1,3))) 
+            ! kupw1 = vertex_neighbors_d(i,connectivite_d(kvol,1+mod((nc1+2)-1,3))) 
             hl_upw = vdlg_nodes_d(1,connectivite_d(kvol,1+mod((nc1+2)-1,3)))
             ul_upw = vdlg_nodes_d(2,connectivite_d(kvol,1+mod((nc1+2)-1,3)))*norm(1) + vdlg_nodes_d(3,connectivite_d(kvol,1+mod((nc1+2)-1,3)))*norm(2)
             vl_upw = vdlg_nodes_d(3,connectivite_d(kvol,1+mod((nc1+2)-1,3)))*norm(1) - vdlg_nodes_d(2,connectivite_d(kvol,1+mod((nc1+2)-1,3)))*norm(2)

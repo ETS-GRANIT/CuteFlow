@@ -47,6 +47,9 @@ contains
     else if(inlet == 'inflow') then
       tempinlet = 2
       inlet_d = tempinlet
+    else if(inlet == 'phys_inflow') then
+      tempinlet = 3
+      inlet_d = tempinlet
     endif
 
     ! loi_debitglob_d = loi_debitglob

@@ -52,7 +52,7 @@ module global_data
   real(fp_kind)             :: x1eqbar, x2eqbar, y1eqbar, y2eqbar
 
   !! Variables donnees de simulation
-  character(len=6)    :: inlet
+  character(len=30)    :: inlet
   character(len=30)   :: loi_debitglob
   integer :: iflux, ilimiteur=1, iupwind=1, fricimplic=1, debit_var  
   integer :: freqaffich, solrestart 
@@ -141,6 +141,9 @@ module global_data
   real(fp_kind), dimension(:), allocatable             :: tsolvisu, long_entree, cotemin_arr 
   character(len=32), dimension(:), allocatable :: solname_visu
   integer, dimension(:)  ,   allocatable :: ndinput, ndoutput, ndwall, i_dry_wet, nbr_nds_coupes, numero_ndinput, numero_ndoutput
+  integer :: nelt_input
+  integer, dimension(:), allocatable :: elem_input
+  real(fp_kind), dimension(:), allocatable :: surf_entree
   ! integer, dimension(:,:), allocatable :: elt_fant_recep, elt_fant_envoi
   integer, dimension(:,:), allocatable :: elt_fant_recep_bloc, elt_fant_envoi_bloc
   integer, dimension(:,:),   allocatable :: connectivite, ij_wet_dry, ij_dry_wet, nds_coupes, vertex_neighbors
@@ -188,4 +191,5 @@ module global_data
   type(dim3)      :: block_copy, grid_copy , grid_halved, grid_reduc, tblock_reduc, grid_usc, tblock_usc
   type(dim3)      :: grid_send, tblock_send, grid_nonsend, tblock_nonsend
   type(dim3)      :: grid_3y_nonsend, tblock_3y_nonsend, grid_3y_send, tblock_3y_send
+  type(dim3)      :: grid_surf_entree, tblock_surf_entree
 end module global_data

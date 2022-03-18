@@ -94,7 +94,6 @@ contains
     end if
 
     call syncthreads()
-
     i = blockdim%x/2
     do while(i>=1)
       if(ti <= i) then
