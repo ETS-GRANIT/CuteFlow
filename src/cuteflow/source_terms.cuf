@@ -32,9 +32,9 @@ contains
 
     if (ggi <= nelt_limit) then
       sourcfric_d(:,gi) = 0.d0
-      q1 = vdlg_d(1,gi)
-      q2 = vdlg_d(2,gi)
-      q3 = vdlg_d(3,gi)
+      q1 = vdlg0_d(1,gi)
+      q2 = vdlg0_d(2,gi)
+      q3 = vdlg0_d(3,gi)
       area = surf_d(gi)
       normQ   = sqrt( q2**2 + q3**2 )
 

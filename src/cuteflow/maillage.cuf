@@ -726,7 +726,7 @@ contains
           call cg_ptset_read_f(elt_fant_recep_range(j)%start, ierr)
           if (ierr .ne. CG_OK) call cg_error_exit_f
 
-          if((nelt - elt_fant_recep_range(j)%start ) > nelt_fant_recep) nelt_fant_recep = nelt-elt_fant_recep_range(j)%start
+          if((nelt - elt_fant_recep_range(j)%start + 1) > nelt_fant_recep) nelt_fant_recep = nelt-elt_fant_recep_range(j)%start + 1
 
           print*, mpi_process_id, j, " ElemsToRecv", elt_fant_recep_range(j)%length, elt_fant_recep_range(j)%proc, elt_fant_recep_range(j)%start
 
@@ -1394,7 +1394,7 @@ contains
     do id=1,nombre_entrees_d
       s(ti) = 0
       call syncthreads()
-      if(gi<nelt_d-nelt_fant_recep_d)then
+      if(gi<=nelt_d-nelt_fant_recep_d)then
         kvol = elem_input_d(gi)
         do kfac=1,ns_d
           n1 = connectivite_d(kvol,kfac)

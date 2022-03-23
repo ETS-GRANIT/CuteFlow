@@ -80,7 +80,7 @@ contains
       id_entree = boundary_d(gi,nc1,2)
 
       if(nc1 == 1) then 
-        s1(ti,1) = vdlg_d(1,gi)
+        s1(ti,1) = vdlg0_d(1,gi)
         s1(ti,2) = zm_d(gi)
       endif
 
@@ -92,8 +92,8 @@ contains
       call syncthreads()
 
       if(nc1 == 1) then 
-        s1(ti,1) = vdlg_d(2,gi)
-        s1(ti,2) = vdlg_d(3,gi)
+        s1(ti,1) = vdlg0_d(2,gi)
+        s1(ti,2) = vdlg0_d(3,gi)
       endif
 
       call syncthreads()
@@ -164,7 +164,7 @@ contains
       endif
 
       if  ( kvoisin > 0. ) then   ! *** kvol fait frontiere avec kvoisin ***
-        hautr = vdlg_d(1,kvoisin)  !this is inefficient global memory access, put vdlg_d in shared? possible?
+        hautr = vdlg0_d(1,kvoisin)  !this is inefficient global memory access, put vdlg0_d in shared? possible?
         zmr = zm_d(kvoisin)        !this is also inefficient global memory access
 
         zij = max(zml,zmr)
@@ -174,8 +174,8 @@ contains
         hjiet = hautr + zmr - zij
         hjiet = max(0.0D0, hjiet)
 
-        hur   = vdlg_d(2,kvoisin)  ! this is very  inefficient global memory access, can be done may be by shared memory
-        hvr   = vdlg_d(3,kvoisin)  ! this is very  inefficient global memory access, can be done may be by shared memory
+        hur   = vdlg0_d(2,kvoisin)  ! this is very  inefficient global memory access, can be done may be by shared memory
+        hvr   = vdlg0_d(3,kvoisin)  ! this is very  inefficient global memory access, can be done may be by shared memory
 
         if(hautr>tolisec_d) then
           vitur = ( hur * norm(1) + hvr * norm(2) ) / hautr
@@ -203,7 +203,7 @@ contains
             vitvr = 0.
           end if
 
-          call solver_Riemann_hllc(gi,kvoisin,surf_d,norm,vdlg_d,hijet,vitul,vitvl,hjiet,vitur,vitvr,zml,zmr,flux,ln,pp)
+          call solver_Riemann_hllc(gi,kvoisin,surf_d,norm,vdlg0_d,hijet,vitul,vitvl,hjiet,vitur,vitvr,zml,zmr,flux,ln,pp)
         else if(iflux_d==2) then 
           !!WAF méthode riadh ata
           if(hijet<tolisec_d) then
@@ -218,7 +218,7 @@ contains
             vitvr = 0.
           end if
 
-          call solver_Riemann_riadh(gi,kvoisin,surf_d,norm,vdlg_d,hijet,vitul,vitvl,hjiet,vitur,vitvr,zml,zmr,flux,ln,pp)
+          call solver_Riemann_riadh(gi,kvoisin,surf_d,norm,vdlg0_d,hijet,vitul,vitvl,hjiet,vitur,vitvr,zml,zmr,flux,ln,pp)
         else if (iflux_d>=3) then 
           !! Order 2 second neighbor
 
@@ -229,20 +229,20 @@ contains
             kvol_v1 = upwind_cells_d(1,tj,kvol)
             kvol_v2 = upwind_cells_d(2,tj,kvol)
 
-            kvol_v1_h = vdlg_d(1,kvol_v1)
+            kvol_v1_h = vdlg0_d(1,kvol_v1)
             if(kvol_v1_h>tolisec_d) then
-              kvol_v1_u = (vdlg_d(2,kvol_v1) * norm(1) + vdlg_d(3,kvol_v1) * norm(2))/kvol_v1_h
-              kvol_v1_v = (vdlg_d(3,kvol_v1) * norm(1) - vdlg_d(2,kvol_v1) * norm(2))/kvol_v1_h
+              kvol_v1_u = (vdlg0_d(2,kvol_v1) * norm(1) + vdlg0_d(3,kvol_v1) * norm(2))/kvol_v1_h
+              kvol_v1_v = (vdlg0_d(3,kvol_v1) * norm(1) - vdlg0_d(2,kvol_v1) * norm(2))/kvol_v1_h
             else
               kvol_v1_h = tolisec_d
               kvol_v1_u = 0.
               kvol_v1_v = 0.
             end if
 
-            kvol_v2_h = vdlg_d(1,kvol_v2)
+            kvol_v2_h = vdlg0_d(1,kvol_v2)
             if(kvol_v2_h>tolisec_d) then
-              kvol_v2_u = (vdlg_d(2,kvol_v2) * norm(1) + vdlg_d(3,kvol_v2) * norm(2))/kvol_v2_h
-              kvol_v2_v = (vdlg_d(3,kvol_v2) * norm(1) - vdlg_d(2,kvol_v2) * norm(2))/kvol_v2_h
+              kvol_v2_u = (vdlg0_d(2,kvol_v2) * norm(1) + vdlg0_d(3,kvol_v2) * norm(2))/kvol_v2_h
+              kvol_v2_v = (vdlg0_d(3,kvol_v2) * norm(1) - vdlg0_d(2,kvol_v2) * norm(2))/kvol_v2_h
             else
               kvol_v2_h = tolisec_d
               kvol_v2_u = 0.
@@ -271,20 +271,20 @@ contains
             kvoisin_v1 = upwind_cells_d(1,tjv,kvoisin)
             kvoisin_v2 = upwind_cells_d(2,tjv,kvoisin)
 
-            kvoisin_v1_h = vdlg_d(1,kvoisin_v1)
+            kvoisin_v1_h = vdlg0_d(1,kvoisin_v1)
             if(kvoisin_v1_h>tolisec_d) then
-              kvoisin_v1_u = (vdlg_d(2,kvoisin_v1) * norm(1) + vdlg_d(3,kvoisin_v1) * norm(2))/kvoisin_v1_h
-              kvoisin_v1_v = (vdlg_d(3,kvoisin_v1) * norm(1) - vdlg_d(2,kvoisin_v1) * norm(2))/kvoisin_v1_h
+              kvoisin_v1_u = (vdlg0_d(2,kvoisin_v1) * norm(1) + vdlg0_d(3,kvoisin_v1) * norm(2))/kvoisin_v1_h
+              kvoisin_v1_v = (vdlg0_d(3,kvoisin_v1) * norm(1) - vdlg0_d(2,kvoisin_v1) * norm(2))/kvoisin_v1_h
             else
               kvoisin_v1_h = tolisec_d
               kvoisin_v1_u = 0.
               kvoisin_v1_v = 0.
             end if
 
-            kvoisin_v2_h = vdlg_d(1,kvoisin_v2)
+            kvoisin_v2_h = vdlg0_d(1,kvoisin_v2)
             if(kvoisin_v2_h>tolisec_d) then
-              kvoisin_v2_u = (vdlg_d(2,kvoisin_v2) * norm(1) + vdlg_d(3,kvoisin_v2) * norm(2))/kvoisin_v2_h
-              kvoisin_v2_v = (vdlg_d(3,kvoisin_v2) * norm(1) - vdlg_d(2,kvoisin_v2) * norm(2))/kvoisin_v2_h
+              kvoisin_v2_u = (vdlg0_d(2,kvoisin_v2) * norm(1) + vdlg0_d(3,kvoisin_v2) * norm(2))/kvoisin_v2_h
+              kvoisin_v2_v = (vdlg0_d(3,kvoisin_v2) * norm(1) - vdlg0_d(2,kvoisin_v2) * norm(2))/kvoisin_v2_h
             else
               kvoisin_v2_h = tolisec_d
               kvoisin_v2_u = 0.
@@ -414,13 +414,13 @@ contains
                   d_kvol_v1 = sqrt((x_centroid_d(kupw1)-x_centroid_d(kvol))**2 + (y_centroid_d(kupw1)-y_centroid_d(kvol))**2)
                   d_kvol_sum = d_kvol_sum + d_kvol_v1
 
-                  if(vdlg_d(1,kupw1) > tolisec_d) then
-                    ! hl_upw = hl_upw + vdlg_d(1,kupw1)*surf_d(kupw1)
-                    ! ul_upw = ul_upw + (vdlg_d(2,kupw1) * norm(1) + vdlg_d(3,kupw1) * norm(2))*surf_d(kupw1)/vdlg_d(1,kupw1)
-                    ! vl_upw = vl_upw + (vdlg_d(3,kupw1) * norm(1) - vdlg_d(2,kupw1) * norm(2))*surf_d(kupw1)/vdlg_d(1,kupw1)
-                    hl_upw = hl_upw + vdlg_d(1,kupw1)*d_kvol_v1
-                    ul_upw = ul_upw + (vdlg_d(2,kupw1) * norm(1) + vdlg_d(3,kupw1) * norm(2))*d_kvol_v1/vdlg_d(1,kupw1)
-                    vl_upw = vl_upw + (vdlg_d(3,kupw1) * norm(1) - vdlg_d(2,kupw1) * norm(2))*d_kvol_v1/vdlg_d(1,kupw1)
+                  if(vdlg0_d(1,kupw1) > tolisec_d) then
+                    ! hl_upw = hl_upw + vdlg0_d(1,kupw1)*surf_d(kupw1)
+                    ! ul_upw = ul_upw + (vdlg0_d(2,kupw1) * norm(1) + vdlg0_d(3,kupw1) * norm(2))*surf_d(kupw1)/vdlg0_d(1,kupw1)
+                    ! vl_upw = vl_upw + (vdlg0_d(3,kupw1) * norm(1) - vdlg0_d(2,kupw1) * norm(2))*surf_d(kupw1)/vdlg0_d(1,kupw1)
+                    hl_upw = hl_upw + vdlg0_d(1,kupw1)*d_kvol_v1
+                    ul_upw = ul_upw + (vdlg0_d(2,kupw1) * norm(1) + vdlg0_d(3,kupw1) * norm(2))*d_kvol_v1/vdlg0_d(1,kupw1)
+                    vl_upw = vl_upw + (vdlg0_d(3,kupw1) * norm(1) - vdlg0_d(2,kupw1) * norm(2))*d_kvol_v1/vdlg0_d(1,kupw1)
                   end if
 
                   zml_upw = zml_upw + d_kvol_v1*zm_d(kupw1)
@@ -440,13 +440,13 @@ contains
                   d_kvoisin_v1 = sqrt((x_centroid_d(kupw2)-x_centroid_d(kvoisin))**2 + (y_centroid_d(kupw2)-y_centroid_d(kvoisin))**2)
                   d_kvoisin_sum = d_kvoisin_sum + d_kvoisin_v1
 
-                  if(vdlg_d(1,kupw2) > tolisec_d) then
-                    ! hr_upw = hr_upw + vdlg_d(1,kupw2)*surf_d(kupw2)
-                    ! ur_upw = ur_upw + (vdlg_d(2,kupw2) * norm(1) + vdlg_d(3,kupw2) * norm(2))*surf_d(kupw2)/vdlg_d(1,kupw2)
-                    ! vr_upw = vr_upw + (vdlg_d(3,kupw2) * norm(1) - vdlg_d(2,kupw2) * norm(2))*surf_d(kupw2)/vdlg_d(1,kupw2)
-                    hr_upw = hr_upw + vdlg_d(1,kupw2)*d_kvoisin_v1
-                    ur_upw = ur_upw + (vdlg_d(2,kupw2) * norm(1) + vdlg_d(3,kupw2) * norm(2))*d_kvoisin_v1/vdlg_d(1,kupw2)
-                    vr_upw = vr_upw + (vdlg_d(3,kupw2) * norm(1) - vdlg_d(2,kupw2) * norm(2))*d_kvoisin_v1/vdlg_d(1,kupw2)
+                  if(vdlg0_d(1,kupw2) > tolisec_d) then
+                    ! hr_upw = hr_upw + vdlg0_d(1,kupw2)*surf_d(kupw2)
+                    ! ur_upw = ur_upw + (vdlg0_d(2,kupw2) * norm(1) + vdlg0_d(3,kupw2) * norm(2))*surf_d(kupw2)/vdlg0_d(1,kupw2)
+                    ! vr_upw = vr_upw + (vdlg0_d(3,kupw2) * norm(1) - vdlg0_d(2,kupw2) * norm(2))*surf_d(kupw2)/vdlg0_d(1,kupw2)
+                    hr_upw = hr_upw + vdlg0_d(1,kupw2)*d_kvoisin_v1
+                    ur_upw = ur_upw + (vdlg0_d(2,kupw2) * norm(1) + vdlg0_d(3,kupw2) * norm(2))*d_kvoisin_v1/vdlg0_d(1,kupw2)
+                    vr_upw = vr_upw + (vdlg0_d(3,kupw2) * norm(1) - vdlg0_d(2,kupw2) * norm(2))*d_kvoisin_v1/vdlg0_d(1,kupw2)
                   end if
 
                   zmr_upw = zmr_upw + d_kvoisin_v1*zm_d(kupw2)
@@ -540,9 +540,9 @@ contains
           end if
 
           if(iflux_d==3) then
-            call solver_Riemann_waf(gi,kvoisin,surf_d,norm,vdlg_d,hijet,vitul,vitvl,hjiet,vitur,vitvr,zml,zmr,hl_upw,ul_upw,vl_upw,hr_upw,ur_upw,vr_upw,d_mrl,d_mkvol,d_mkvoisin,flux,ln,pp)
+            call solver_Riemann_waf(gi,kvoisin,surf_d,norm,vdlg0_d,hijet,vitul,vitvl,hjiet,vitur,vitvr,zml,zmr,hl_upw,ul_upw,vl_upw,hr_upw,ur_upw,vr_upw,d_mrl,d_mkvol,d_mkvoisin,flux,ln,pp)
           else if(iflux_d==4) then
-            call solver_Riemann_muscl(gi,kvoisin,surf_d,norm,vdlg_d,hijet,vitul,vitvl,hjiet,vitur,vitvr,zml,zmr,hl_upw,ul_upw,vl_upw,hr_upw,ur_upw,vr_upw,d_mrl,d_mkvol,d_mkvoisin,flux,ln,pp)
+            call solver_Riemann_muscl(gi,kvoisin,surf_d,norm,vdlg0_d,hijet,vitul,vitvl,hjiet,vitur,vitvr,zml,zmr,hl_upw,ul_upw,vl_upw,hr_upw,ur_upw,vr_upw,d_mrl,d_mkvol,d_mkvoisin,flux,ln,pp)
           end if
         end if ! de choix schéma iflux
 
