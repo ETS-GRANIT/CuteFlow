@@ -192,4 +192,8 @@ module global_data
   type(dim3)      :: grid_send, tblock_send, grid_nonsend, tblock_nonsend
   type(dim3)      :: grid_3y_nonsend, tblock_3y_nonsend, grid_3y_send, tblock_3y_send
   type(dim3)      :: grid_surf_entree, tblock_surf_entree
+
+
+  !!Vars for file write cgns
+  integer :: my_zone_cgw, fn_cgw, base_cgw, n_zones_cgw
 end module global_data
