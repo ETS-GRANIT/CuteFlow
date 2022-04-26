@@ -1,1 +1,3 @@
-module --force purge;module load nixpkgs/16.09  intel/2018.3  openmpi/3.1.4 paraview-offscreen/5.5.2; srun pvserver --mesa --force-offscreen-rendering
+module --force purge;\
+  module load StdEnv/2020 gcc/9.3.0 openmpi/4.0.3 paraview-offscreen/5.10.0;\
+  srun pvserver
