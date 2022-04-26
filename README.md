@@ -3,6 +3,8 @@ Project contenant le code de CuteFlow ainsi que les codes de pre-traitements ass
 
 ![GitHub Logo](images/sentinel2dom2.jpg)
 
+![Milles_Iles_coude](animations/mille_iles_coude/mille_iles_coude.gif)
+
 # <h2> Structure du project
 Un guide d'utilisation détaillé peut être trouvé sous <strong>docs/</strong>.  
 
