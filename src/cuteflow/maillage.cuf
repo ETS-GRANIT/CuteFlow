@@ -196,7 +196,7 @@ contains
       fich_sol_init = trim(mpi_process_id_string)//'_'//trim(fich_sol_init)
     else
       meshfile = trim(meshfile)
-      fich_sol_init = trim(mpi_process_id_string)//'_'//trim(fich_sol_init)
+      fich_sol_init = trim(fich_sol_init)
     end if
 
   end subroutine lec_donnees
