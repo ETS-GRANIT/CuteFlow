@@ -191,11 +191,14 @@ contains
     inlet = trim(adjustl(inlet))
 
     !! Ajout du numéro de process MPI en préfixe des fichiers de maillage et de solution initiale
-    if(num_mpi_process>1 .and. is_cgns==0) then
-      meshfile = trim(mpi_process_id_string)//'_'//trim(meshfile)
+    if(num_mpi_process>1) then
+      if(is_cgns==0) then
+        meshfile = trim(mpi_process_id_string)//'_'//trim(meshfile)
+      else
+        meshfile = trim(meshfile)
+      end if
       fich_sol_init = trim(mpi_process_id_string)//'_'//trim(fich_sol_init)
     else
-      meshfile = trim(meshfile)
       fich_sol_init = trim(fich_sol_init)
     end if
 
