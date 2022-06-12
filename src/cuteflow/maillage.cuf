@@ -738,6 +738,19 @@ contains
         end do
         call cg_goto_f(fn, base, ierr, zonename, 0, "end")
         if (ierr .ne. CG_OK) call cg_error_exit_f
+
+      else if(userdataname == "Manning") then
+        if(is_override_manning==1) then
+          print*,"MANNING DETECTED IN MESH FILE BUT WILL NOT BE USED"
+        else
+          print*,"MANNING DETECTED IN MESH FILE WILL BE USED"
+          call cg_goto_f(fn, base, ierr, zonename, 0, userdataname, 0, "end")
+          if (ierr .ne. CG_OK) call cg_error_exit_f
+          call cg_array_read_f(1, manning_nelt, ierr)
+          if (ierr .ne. CG_OK) call cg_error_exit_f
+        end if
+        call cg_goto_f(fn, base, ierr, zonename, 0, "end")
+        if (ierr .ne. CG_OK) call cg_error_exit_f
       end if
     end do
     ! if(cg_goto(index_file, index_base, zss.str().c_str(), 0, "end")) cg_error_exit();
