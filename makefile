@@ -11,7 +11,7 @@ CUTEFILES = precision_kind.cuf mpi_select_gpu.cuf file_id.cuf global_data.cuf gl
 
 CUTEFILESPREF = $(addprefix ${SRC}/cuteflow/, ${CUTEFILES})
 
-BINFILES = cuteflow conversion_maillage_PD refine_mesh merge_bluekenue split_mesh split_solution merge_solutions
+BINFILES = cuteflow conversion_maillage_PD refine_mesh merge_bluekenue split_mesh split_solution merge_solutions cute_to_cgns
 BINFILESPREF = $(addprefix ${BIN}/, ${BINFILES})
 
 all: ${BINFILESPREF}
@@ -31,6 +31,10 @@ ${BIN}/refine_mesh : ${SRC}/refine_mesh/refine_mesh.cpp
 ${BIN}/merge_bluekenue : ${SRC}/merge_bluekenue/merge_bluekenue.cpp
 	module load gcc;\
 	g++ -std=c++11 -o $@ ${SRC}/merge_bluekenue/merge_bluekenue.cpp
+
+${BIN}/cute_to_cgns : ${SRC}/cute_to_cgns/cute_to_cgns.cpp
+	module load gcc cgns/4.1.2;\
+	g++ -std=c++11 -o $@ ${SRC}/cute_to_cgns/cute_to_cgns.cpp -lcgns
 
 ${BIN}/split_mesh : ${SRC}/split_mesh/split_mesh.cpp
 	module load gcc metis;\
