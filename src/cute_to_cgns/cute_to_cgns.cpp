@@ -8,7 +8,6 @@
 #include <iomanip>  // std::setprecision()
 #include <cstdlib>
 
-
 #if CGNSVERSION < 3100
 # define cgsizet int
 #else
@@ -16,7 +15,6 @@
 # error enumeration scoping needs to be off
 # endif
 #endif
-
 
 int main(int argc, char* argv[]){
   int index_file, index_base;
@@ -51,7 +49,6 @@ int main(int argc, char* argv[]){
     /* infile >> id1 >> x[i] >> y[i] >> z[i] ; */
   }
 
-  int ii=0;
   int s1,s2,s3;
   double x1,y1,x2,y2,x3,y3,s,a,b,c,area;
 
@@ -61,32 +58,6 @@ int main(int argc, char* argv[]){
   cgsize_t *elems = new cgsize_t[nelems*3];
   for(int i=0; i<nelems; i++){
     infile >> id1 >> elems[3*i] >> elems[3*i+1] >> elems[3*i+2] >> d1;
-    ii++;
-
-
-    /* infile >> id1 >> s1 >> s2 >> s3 >> d1; */
-    /* x1 = x[s1]; */
-    /* y1 = y[s1]; */
-    /* x2 = x[s2]; */
-    /* y2 = y[s2]; */
-    /* x3 = x[s3]; */
-    /* y3 = y[s3]; */
-    /* a = sqrt(pow(x2-x1,2) + pow(y2-y1,2)); */
-    /* b = sqrt(pow(x3-x2,2) + pow(y3-y2,2)); */
-    /* c = sqrt(pow(x1-x3,2) + pow(y1-y3,2)); */
-    /* s = 0.5*(a+b+c); */
-    /* area = sqrt(s*(s-a)*(s-b)*(s-c)); */
-    /* if(area > 1e-10){ */
-    /*   elems[3*ii] = s1; */
-    /*   elems[3*ii+1] = s2; */
-    /*   elems[3*ii+2] = s3; */
-    /*   ii++; */
-    /* } */
-  }
-
-  cgsize_t *elems_pure = new cgsize_t[ii*3];
-  for(int i=0; i<3*ii; i++){
-    elems_pure[i] = elems[i];
   }
 
   getline(infile,line); //Blank
@@ -117,7 +88,6 @@ int main(int argc, char* argv[]){
       infile >> inflow_nodes[i] >> i_input;
       inflow_nodes_multi[(i_input-1)*ninflow+ninflow_per_input[i_input-1]] = inflow_nodes[i];
       ninflow_per_input[i_input-1] += 1;
-
     }
   }
 
@@ -146,10 +116,7 @@ int main(int argc, char* argv[]){
   std::cout << nnodes << " " << nelems << " " << ninflow << " " << noutflow << " " << nwall << std::endl;
 
   int index_coord, index_zone, index_section, index_bc;
-  /* cgsize_t nstart(1), nend(nelems); */
-  cgsize_t nstart(1), nend(ii);
-
-  std::cout << nelems-ii << " elements enlevés" << std::endl;
+  cgsize_t nstart(1), nend(nelems);
 
   const char *zonename;
   std::stringstream zss;
@@ -164,7 +131,6 @@ int main(int argc, char* argv[]){
   cg_coord_write(index_file,index_base,index_zone,CGNS_ENUMV(RealDouble),"CoordinateX",x,&index_coord);
   cg_coord_write(index_file,index_base,index_zone,CGNS_ENUMV(RealDouble),"CoordinateY",y,&index_coord);
   cg_coord_write(index_file,index_base,index_zone,CGNS_ENUMV(RealDouble),"CoordinateZ",z,&index_coord);
-  /* cg_section_write(index_file,index_base,index_zone,"Elements",CGNS_ENUMV(TRI_3),nstart,nend,0,elems,&index_section); */
   cg_section_write(index_file,index_base,index_zone,"Elements",CGNS_ENUMV(TRI_3),nstart,nend,0,elems_pure,&index_section);
 
   if(multi_entree==0){
@@ -180,7 +146,6 @@ int main(int argc, char* argv[]){
       std::stringstream in_name;
       in_name << "Inflow nodes " << i;
       std::cout << ninflow_per_input[i] << " " << ss << std::endl;
-      /* cg_boco_write(index_file,index_base,index_zone,in_name.str().c_str(),CGNS_ENUMV(BCInflow),CGNS_ENUMV(PointList),ninflow_per_input[i],&inflow_nodes[ss],&index_bc); // BCInflow = 9 */
       cg_boco_write(index_file,index_base,index_zone,in_name.str().c_str(),CGNS_ENUMV(BCInflow),CGNS_ENUMV(PointList),ninflow_per_input[i],&inflow_nodes_multi[i*ninflow],&index_bc); // BCInflow = 9
       ss+=ninflow_per_input[i];
     }
@@ -189,7 +154,7 @@ int main(int argc, char* argv[]){
   if(noutflow > 0){
     cg_boco_write(index_file,index_base,index_zone,"Outflow nodes",CGNS_ENUMV(BCOutflow),CGNS_ENUMV(PointList),noutflow,outflow_nodes,&index_bc);
   }
-  //BCOutflow = 13
+
   if(nwall > 0){
     cg_boco_write(index_file,index_base,index_zone,"Wall nodes",CGNS_ENUMV(BCWall),CGNS_ENUMV(PointList),nwall,wall_nodes,&index_bc);
   }
