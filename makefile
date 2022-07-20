@@ -20,33 +20,9 @@ ${BIN}/cuteflow : ${CUTEFILESPREF}
 	module load StdEnv/2020 nvhpc/20.7 cuda/11.0 openmpi/4 cgns/4.1.2;\
 	${CUTECOMPILER} ${CUTEFLAGS} ${CUTEFILESPREF} -o $@ -lcgns
 
-${BIN}/conversion_maillage_PD : ${SRC}/conversion_maillage_PD/conversion_maillage_PD.cpp
-	module load gcc;\
-	g++ -std=c++11 -o $@ ${SRC}/conversion_maillage_PD/conversion_maillage_PD.cpp
-
-${BIN}/refine_mesh : ${SRC}/refine_mesh/refine_mesh.cpp
-	module load gcc;\
-	g++ -std=c++11 -o $@ ${SRC}/refine_mesh/refine_mesh.cpp
-
-${BIN}/merge_bluekenue : ${SRC}/merge_bluekenue/merge_bluekenue.cpp
-	module load gcc;\
-	g++ -std=c++11 -o $@ ${SRC}/merge_bluekenue/merge_bluekenue.cpp
-
-${BIN}/cute_to_cgns : ${SRC}/cute_to_cgns/cute_to_cgns.cpp
-	module load gcc cgns/4.1.2;\
-	g++ -std=c++11 -o $@ ${SRC}/cute_to_cgns/cute_to_cgns.cpp -lcgns
-
-${BIN}/split_mesh : ${SRC}/split_mesh/split_mesh.cpp
-	module load gcc metis;\
-	g++ -std=c++11 -I /cvmfs/soft.computecanada.ca/easybuild/software/2017/avx2/Compiler/gcc5.4/metis/5.1.0/include -L libmetis.a -lmetis -o $@ ${SRC}/split_mesh/split_mesh.cpp
-
-${BIN}/split_solution : ${SRC}/split_solution/split_solution.cpp
-	module load gcc;\
-	g++ -std=c++11 -o $@ ${SRC}/split_solution/split_solution.cpp
-
-${BIN}/merge_solutions : ${SRC}/merge_solutions/merge_solutions.cpp
-	module load gcc;\
-	g++ -std=c++11 -o $@ ${SRC}/merge_solutions/merge_solutions.cpp
+# ${BIN}/cute_to_cgns : ${SRC}/cute_to_cgns/cute_to_cgns.cpp
+# 	module load gcc cgns/4.1.2;\
+# 	g++ -std=c++11 -o $@ ${SRC}/cute_to_cgns/cute_to_cgns.cpp -lcgns
 
 clean:
 	-rm -f *.o *.mod *~
