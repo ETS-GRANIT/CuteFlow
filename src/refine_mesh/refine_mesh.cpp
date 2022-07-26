@@ -10,7 +10,7 @@
 
 using namespace std;
 
-void ecriture(bool multi_sortie, bool multi_entree, string fileName, vector<vector<long double> > &nodes, vector<vector<long double> > &elems, vector<int> &new_entreNodes, vector<int> &new_numEntreNodes, vector<int> &new_sortieNodes, vector<int> &new_numSortieNodes, vector<int> &new_wallNodes, int &nombreEntre, int &nombreSortie){
+void ecriture(bool multi_sortie, bool multi_entree, string fileName, vector<vector<long double> > &nodes, vector<vector<long double> > &elems, vector<int> &new_entreNodes, vector<int> &new_numEntreNodes, vector<int> &new_sortieNodes, vector<int> &new_numSortieNodes, int &nombreEntre, int &nombreSortie){
 
 
   int i, nNodes, nElems;
@@ -21,13 +21,13 @@ void ecriture(bool multi_sortie, bool multi_entree, string fileName, vector<vect
   //ss << "out_mesh." << n << ".txt";
   ss << "Refined_" << fileName;
   out_mesh.open(ss.str());
-  ss.str("");
   out_mesh << fixed ;
   out_mesh.precision(8);
   out_mesh << "Table de coordonnees" << endl;
   out_mesh << nNodes << endl;
 
-  std::cout << nElems << std::endl;
+  std::cout << "Ecriture du nouveau fichier de maillage '" << ss.str() << "' contenant " << nElems << " éléments" << std::endl;
+  ss.str("");
 
   i=0;
   while(i<nNodes){
@@ -76,21 +76,11 @@ void ecriture(bool multi_sortie, bool multi_entree, string fileName, vector<vect
       i++; 
     }
   }
-
-  out_mesh << "Noeuds de murs" << endl;
-  out_mesh << new_wallNodes.size() << endl;
-  i=0;
-  while(i<new_wallNodes.size()){
-    out_mesh << new_wallNodes[i] << endl ;
-    i++; 
-  }
-
   out_mesh.close();
 }
-/* refine(nodes, elems, entreNodes, numEntreNodes, sortieNodes, numSortieNodes, wallNodes, boundTag, new_nodes, new_elems, new_entreNodes, new_numEntreNodes, new_sortieNodes, new_numSortieNodes, new_wallNodes); */
-void refine(vector<vector<long double> > &nodes, vector<vector<long double> > &elems, vector<int> &entreNodes, vector<int> &numEntreNodes, vector<int> &sortieNodes, vector<int> &numSortieNodes, vector<int> &wallNodes, vector<vector<int> > &boundTag, vector<vector<long double> > &new_nodes, vector<vector<long double> > &new_elems, vector<int> &new_entreNodes, vector<int> &new_numEntreNodes, vector<int> &new_sortieNodes, vector<int> &new_numSortieNodes, vector<int> &new_wallNodes, double tol){
 
-  /* int ns = 2*nodes.size()+1; */
+void refine(vector<vector<long double> > &nodes, vector<vector<long double> > &elems, vector<int> &entreNodes, vector<int> &numEntreNodes, vector<int> &sortieNodes, vector<int> &numSortieNodes, vector<vector<int> > &boundTag, vector<vector<long double> > &new_nodes, vector<vector<long double> > &new_elems, vector<int> &new_entreNodes, vector<int> &new_numEntreNodes, vector<int> &new_sortieNodes, vector<int> &new_numSortieNodes, double tol){
+
   unsigned long long int ns = nodes.size();
   unsigned long long int s1, s2, s3;
   long double s, r, l12, l23, l31;
@@ -267,8 +257,6 @@ void refine(vector<vector<long double> > &nodes, vector<vector<long double> > &e
 
     }
 
-    /* cout << "elems " << i << endl; */
-
     //Ajout des nouveaux éléments
     if(ajout[i]){
       v[0] = new_elems.size()+1;
@@ -308,7 +296,7 @@ void refine(vector<vector<long double> > &nodes, vector<vector<long double> > &e
     /*   new_elems.push_back(v); */
     /* } */
 
-    //Gestion des entree sorties mur
+    //Gestion des entree sorties
     if(is1){
       if(boundTag[s1][0] == -1){
         new_entreNodes.push_back(ns1+1);
@@ -317,9 +305,6 @@ void refine(vector<vector<long double> > &nodes, vector<vector<long double> > &e
       if(boundTag[s1][0] == -2){
         new_sortieNodes.push_back(ns1+1);
         new_numSortieNodes.push_back(boundTag[s1][1]);
-      }
-      if(boundTag[s1][0] == -3){
-        new_wallNodes.push_back(ns1+1);
       }
     }
 
@@ -332,9 +317,6 @@ void refine(vector<vector<long double> > &nodes, vector<vector<long double> > &e
         new_sortieNodes.push_back(ns2+1);
         new_numSortieNodes.push_back(boundTag[s2][1]);
       }
-      if(boundTag[s2][0] == -3){
-        new_wallNodes.push_back(ns2+1);
-      }
     }
 
     if(is3){
@@ -345,9 +327,6 @@ void refine(vector<vector<long double> > &nodes, vector<vector<long double> > &e
       if(boundTag[s3][0] == -2){
         new_sortieNodes.push_back(ns3+1);
         new_numSortieNodes.push_back(boundTag[s3][1]);
-      }
-      if(boundTag[s3][0] == -3){
-        new_wallNodes.push_back(ns3+1);
       }
     }
 
@@ -361,9 +340,6 @@ void refine(vector<vector<long double> > &nodes, vector<vector<long double> > &e
           new_sortieNodes.push_back(ns12+1);
           new_numSortieNodes.push_back(boundTag[s1][1]);
         }
-        if(boundTag[s1][0] == -3 and boundTag[s2][0] == -3){
-          new_wallNodes.push_back(ns12+1);
-        }
       }
 
       if(is23){
@@ -375,9 +351,6 @@ void refine(vector<vector<long double> > &nodes, vector<vector<long double> > &e
           new_sortieNodes.push_back(ns23+1);
           new_numSortieNodes.push_back(boundTag[s2][1]);
         }
-        if(boundTag[s2][0] == -3 and boundTag[s3][0] == -3){
-          new_wallNodes.push_back(ns23+1);
-        }
       }
 
       if(is31){
@@ -388,9 +361,6 @@ void refine(vector<vector<long double> > &nodes, vector<vector<long double> > &e
         if(boundTag[s3][0] == -2 and boundTag[s1][0] == -2){
           new_sortieNodes.push_back(ns31+1);
           new_numSortieNodes.push_back(boundTag[s3][1]);
-        }
-        if(boundTag[s3][0] == -3 and boundTag[s1][0] == -3){
-          new_wallNodes.push_back(ns31+1);
         }
       }
     }
@@ -573,9 +543,9 @@ void refine(vector<vector<long double> > &nodes, vector<vector<long double> > &e
 
 }
 
-void lecture(bool multi_entree, bool multi_sortie, ifstream &mesh, vector<vector<long double> > &nodes, vector<vector<long double> > &elems, vector<int> &entreNodes, vector<int> &numEntreNodes, vector<int> &sortieNodes, vector<int> &numSortieNodes, vector<int> &wallNodes, int &nombreEntre, int &nombreSortie, vector<vector<int> > &boundTag){
+void lecture(bool multi_entree, bool multi_sortie, ifstream &mesh, vector<vector<long double> > &nodes, vector<vector<long double> > &elems, vector<int> &entreNodes, vector<int> &numEntreNodes, vector<int> &sortieNodes, vector<int> &numSortieNodes, int &nombreEntre, int &nombreSortie, vector<vector<int> > &boundTag){
 
-  int i, nNodes, nElems, nSortie, nEntre, nWall;
+  int i, nNodes, nElems, nSortie, nEntre;
   string str;
   vector<long double> v(5);
 
@@ -670,18 +640,6 @@ void lecture(bool multi_entree, bool multi_sortie, ifstream &mesh, vector<vector
       i++;
     }
   }
-  getline(mesh, str);
-  getline(mesh, str);
-  mesh >> nWall;
-  cout << "Lecture noeuds wall " << nWall << endl;
-  i=0;
-  while(i<nWall){
-    mesh >> dum;
-    wallNodes.push_back(dum);
-    boundTag[dum][0] = -3; //tag -1 pour mur
-    i++;
-  }
-
   cout << "Lecture elem finie, nNodes:" << nNodes << " nElems:" << nElems << endl;
 }
 
@@ -694,7 +652,7 @@ int main(int argc, char* argv[]){
   double tol;
 
   if(argc < 4){
-    cout << "Utilisation : ./split_mesh fichier_de_maillage multi_entrees multi_sortiestol=0." << endl;
+    cout << "Utilisation : ./split_mesh fichier_de_maillage multi_entrees multi_sorties tol=0." << endl;
     cout << "multi_entree=1 uniquement si le maillage a découper posséde plusieurs entrées" << endl;
     cout << "multi_sortie=1 uniquement si le maillage a découper posséde plusieurs sorties" << endl;
     return(0);
@@ -707,8 +665,8 @@ int main(int argc, char* argv[]){
     tol = atof(argv[4]);
   }
 
-  vector<int> entreNodes, sortieNodes, wallNodes, numEntreNodes, numSortieNodes;
-  vector<int> new_entreNodes, new_sortieNodes, new_wallNodes, new_numEntreNodes, new_numSortieNodes;
+  vector<int> entreNodes, sortieNodes, numEntreNodes, numSortieNodes;
+  vector<int> new_entreNodes, new_sortieNodes, new_numEntreNodes, new_numSortieNodes;
   vector<vector<int> > boundTag;
   vector<vector<long double> > nodes, elems, new_nodes, new_elems;
 
@@ -716,11 +674,9 @@ int main(int argc, char* argv[]){
 
   cout << fixed;
 
-  //void lecture(bool multi_entree, bool multi_sortie, ifstream &mesh, vector<vector<long double> > &nodes, vector<vector<long double> > &elems, vector<int> &entreNodes, vector<int> &numEntreNodes, vector<int> &sortieNodes, vector<int> &numSortieNodes, vector<int> &wallNodes, int &nombreEntre, int &nombreSortie, vector<int> &boundTag){
-  lecture(multi_entree, multi_sortie, mesh, nodes, elems, entreNodes, numEntreNodes, sortieNodes, numSortieNodes, wallNodes, nombreEntre, nombreSortie, boundTag);
+  lecture(multi_entree, multi_sortie, mesh, nodes, elems, entreNodes, numEntreNodes, sortieNodes, numSortieNodes, nombreEntre, nombreSortie, boundTag);
 
-  refine(nodes, elems, entreNodes, numEntreNodes, sortieNodes, numSortieNodes, wallNodes, boundTag, new_nodes, new_elems, new_entreNodes, new_numEntreNodes, new_sortieNodes, new_numSortieNodes, new_wallNodes, tol);
+  refine(nodes, elems, entreNodes, numEntreNodes, sortieNodes, numSortieNodes, boundTag, new_nodes, new_elems, new_entreNodes, new_numEntreNodes, new_sortieNodes, new_numSortieNodes, tol);
 
-
-  ecriture(multi_sortie, multi_entree, fileName, new_nodes, new_elems, new_entreNodes, new_numEntreNodes, new_sortieNodes, new_numSortieNodes, new_wallNodes, nombreEntre, nombreSortie);
+  ecriture(multi_sortie, multi_entree, fileName, new_nodes, new_elems, new_entreNodes, new_numEntreNodes, new_sortieNodes, new_numSortieNodes, nombreEntre, nombreSortie);
 }
