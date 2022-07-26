@@ -22,7 +22,11 @@ ${BIN}/cuteflow : ${CUTEFILESPREF}
 
 # ${BIN}/cute_to_cgns : ${SRC}/cute_to_cgns/cute_to_cgns.cpp
 # 	module load gcc cgns/4.1.2;\
-# 	g++ -std=c++11 -o $@ ${SRC}/cute_to_cgns/cute_to_cgns.cpp -lcgns
+# 	g++ -std=c++11 -O3 -o $@ ${SRC}/cute_to_cgns/cute_to_cgns.cpp -lcgns
+
+# ${BIN}/refine_mesh : ${SRC}/refine_mesh/refine_mesh.cpp
+# 	module load gcc;\
+# 	g++ -std=c++11 -O3 -o $@ ${SRC}/refine_mesh/refine_mesh.cpp
 
 clean:
 	-rm -f *.o *.mod *~
