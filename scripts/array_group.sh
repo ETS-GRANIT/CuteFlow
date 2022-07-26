@@ -4,7 +4,7 @@
 #SBATCH --gres=gpu:p100:2
 #SBATCH --mem=4000M
 #SBATCH --time=0-00:10
-#SBATCH --account=def-soulaima
+#SBATCH --account=rrg-soulaima-ac
 #SBATCH --array=1-5
 
 cd multi_${SLURM_ARRAY_TASK_ID}
