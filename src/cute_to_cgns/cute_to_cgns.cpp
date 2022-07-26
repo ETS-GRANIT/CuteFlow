@@ -131,7 +131,7 @@ int main(int argc, char* argv[]){
   cg_coord_write(index_file,index_base,index_zone,CGNS_ENUMV(RealDouble),"CoordinateX",x,&index_coord);
   cg_coord_write(index_file,index_base,index_zone,CGNS_ENUMV(RealDouble),"CoordinateY",y,&index_coord);
   cg_coord_write(index_file,index_base,index_zone,CGNS_ENUMV(RealDouble),"CoordinateZ",z,&index_coord);
-  cg_section_write(index_file,index_base,index_zone,"Elements",CGNS_ENUMV(TRI_3),nstart,nend,0,elems_pure,&index_section);
+  cg_section_write(index_file,index_base,index_zone,"Elements",CGNS_ENUMV(TRI_3),nstart,nend,0,elems,&index_section);
 
   if(multi_entree==0){
     /* SIMPLE ENTREE */
