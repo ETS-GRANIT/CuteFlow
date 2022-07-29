@@ -652,7 +652,7 @@ int main(int argc, char* argv[]){
   double tol;
 
   if(argc < 4){
-    cout << "Utilisation : ./split_mesh fichier_de_maillage multi_entrees multi_sorties tol=0." << endl;
+    cout << "Utilisation : ./refine_mesh fichier_de_maillage multi_entrees multi_sorties tol=0." << endl;
     cout << "multi_entree=1 uniquement si le maillage a découper posséde plusieurs entrées" << endl;
     cout << "multi_sortie=1 uniquement si le maillage a découper posséde plusieurs sorties" << endl;
     return(0);
