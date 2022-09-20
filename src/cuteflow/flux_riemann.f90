@@ -1,0 +1,1283 @@
+module flux_riemann
+  implicit none
+contains
+  subroutine compute_flux()
+    use precision_kind
+    use global_data
+    implicit none
+
+    integer                     :: i, nc1, nc2, kvoisin, dl,pp, nc3, kvol, kv
+    real(fp_kind)               :: x1, x2, y1, y2, ln, x3, y3
+    real(fp_kind)               :: hautl,vitul,vitvl,hautr,vitur,vitvr,zml,zmr,hul, hvl, hur, hvr, hijet, hjiet, zij, zml_upw, zmr_upw
+    real(fp_kind)               :: delta_zml, delta_zmr
+    integer                     :: kvol_v1, kvol_v2, kvoisin_v1, kvoisin_v2, kupw1, kupw2
+    integer                     :: n_upw1, n_upw2
+    real(fp_kind)               :: kvol_v1_h, kvol_v1_u, kvol_v1_v
+    real(fp_kind)               :: kvol_v2_h, kvol_v2_u, kvol_v2_v
+    real(fp_kind)               :: kvoisin_v1_h, kvoisin_v1_u, kvoisin_v1_v
+    real(fp_kind)               :: kvoisin_v2_h, kvoisin_v2_u, kvoisin_v2_v
+    real(fp_kind)               :: hl_upw, ul_upw, vl_upw, hr_upw, ur_upw, vr_upw
+    real(fp_kind)               :: kupw1_area, kupw2_area
+    real(fp_kind)               :: debitnorm, orient
+    real(fp_kind)               :: d_kvol_v1, d_kvol_v2, d_kvoisin_v1, d_kvoisin_v2
+    real(fp_kind)               :: d_mkvol, d_mkvoisin, d_mrl
+    real(fp_kind)               :: kupw1_invd, kupw2_invd
+    real(fp_kind)               :: bary_kvolup_x, bary_kvolup_y, bary_kvoisinup_x, bary_kvoisinup_y, d_kvoisin_sum, d_kvol_sum
+    real(fp_kind), dimension(2) :: norm
+    real(fp_kind), dimension(3) :: flux
+    real :: cond
+
+    integer                     :: ti,gi, tj, gj, id_entree, tjv, nelt_limit
+
+    do gi=1,nelt
+
+      resc(1,gi)=0.0D0
+      resc(2,gi)=0.0D0
+      resc(3,gi)=0.0D0
+
+      do tj=1,ns
+        kvol = gi
+        nc1 = tj
+        cond = merge(1,0, nc1 == ns)
+        nc2 = int((nc1 - ns + 1)*cond + (nc1 + 1)*(1-cond))
+        cond = merge(1,0, nc2 == ns)
+        nc3 = int((nc2 - ns + 1)*cond + (nc2 + 1)*(1-cond))
+
+        x1 = coo_table_elemwise(gi, 3*nc1-2)
+        y1 = coo_table_elemwise(gi, 3*nc1-1)
+
+        x2 = coo_table_elemwise(gi, 3*nc2-2)
+        y2 = coo_table_elemwise(gi, 3*nc2-1) 
+
+        x3 = coo_table_elemwise(gi, 3*nc3-2)
+        y3 = coo_table_elemwise(gi, 3*nc3-1) 
+
+        ln = sqrt( (x2 - x1)**2 + (y2 - y1)**2 )
+
+        norm(1) = ( y2 - y1 ) / ln
+        norm(2) = ( x1 - x2 ) / ln
+
+        orient = norm(1)*((x1+x2)/2.-(x1+x2+x3)/3.) + norm(2)*((y1+y2)/2.-(y1+y2+y3)/3.)
+        if(orient < 0.) then
+          norm(1) = ( y1 - y2 ) / ln
+          norm(2) = ( x2 - x1 ) / ln
+        end if
+
+        ! *** initialisation du flux ***
+        flux     = 0.d0
+        kvoisin = boundary(gi,nc1,1)
+        id_entree = boundary(gi,nc1,2)
+
+        hautl  = vdlg0(1,gi)
+        zml    = zm(gi)
+        hul    = vdlg0(2,gi)
+        hvl    = vdlg0(3,gi)
+
+        if(hautl>tolisec) then
+          vitul = (hul * norm(1) + hvl * norm(2) ) / hautl
+          vitvl = (hvl * norm(1) - hul * norm(2) ) / hautl
+        else
+          hautl = tolisec
+          vitul = 0.
+          vitvl = 0.
+        end if
+
+        ! *** application des conditions aux limites si kvol est frontier ***
+        if ( kvoisin == -1 ) then ! *** flux entrant ***
+          if ( inlet_id == 1 ) then       ! inlet = 1 == Entree transmissive
+            flux(1) = hautl * vitul
+            flux(2) = norm(1) * ( hautl * vitul**2 + gp * hautl**2/2. ) - norm(2) * hautl * vitul * vitvl
+            flux(3) = norm(2) * ( hautl * vitul**2 + gp * hautl**2/2. ) + norm(1) * hautl * vitul * vitvl
+          elseif ( inlet_id == 2 ) then   ! inlet_id = inflow = Entree avec debit forcé
+            debitnorm = -debitglob(id_entree) / long_entree(id_entree)
+            flux(1) = debitnorm
+            flux(2) = norm(1) * ( debitnorm**2/hautl  + gp * hautl**2/2. )
+            flux(3) = norm(2) * ( debitnorm**2/hautl  + gp * hautl**2/2. )
+            debit_entree_arr(io_identifier(gi),1) = (-debitnorm)*ln    
+            debit_entree_arr(io_identifier(gi),2) = id_entree
+          elseif ( inlet_id == 3 ) then   ! inlet = phys_inflow = Entree avec debit physique
+            if(surf_entree(id_entree) > 1e-8) then
+              debitnorm = -debitglob(id_entree) * hautl/surf_entree(id_entree)
+            else
+              debitnorm = 0.
+            end if
+            flux(1) = debitnorm
+            flux(2) = norm(1) * ( debitnorm**2/hautl  + gp * hautl**2/2. )
+            flux(3) = norm(2) * ( debitnorm**2/hautl  + gp * hautl**2/2. )
+            debit_entree_arr(io_identifier(gi),1) = (-debitnorm)*ln
+            debit_entree_arr(io_identifier(gi),2) = id_entree
+          else
+            write(*,*) 'donnee inlet non convenable'
+          endif
+        endif
+
+        if ( kvoisin == -2 ) then ! *** flux sortant ***
+          if ( vitul >= 0. .and. vitul/sqrt(gp*hautl) < 1.d0 ) then
+            hautl = h_sortie(id_entree) - zml
+            hautl = max(0.0D0, hautl)
+            flux(1) = hautl * vitul
+            flux(2) = norm(1) * ( hautl * vitul**2 + gp * hautl**2/2. ) - norm(2) * hautl * vitul * vitvl
+            flux(3) = norm(2) * ( hautl * vitul**2 + gp * hautl**2/2. ) + norm(1) * hautl * vitul * vitvl
+          else
+            flux(1) = 0.d0
+            flux(2) = norm(1) * gp * hautl**2/2.
+            flux(3) = norm(2) * gp * hautl**2/2.
+          endif
+
+          debit_sortie_arr(io_identifier(gi))  = flux(1)*ln
+        endif
+
+        if ( kvoisin == -3 ) then  ! *** flux de mur ***
+          flux(1) = 0.d0
+          flux(2) = norm(1) * gp * hautl**2/2.
+          flux(3) = norm(2) * gp * hautl**2/2.
+        endif
+
+        if  ( kvoisin > 0. ) then   ! *** kvol fait frontiere avec kvoisin ***
+          hautr = vdlg0(1,kvoisin)  !this is inefficient global memory access, put vdlg0 in shared? possible?
+          zmr = zm(kvoisin)        !this is also inefficient global memory access
+
+          zij = max(zml,zmr)
+          hijet = hautl + zml - zij
+          hijet = max(0.0D0, hijet)
+
+          hjiet = hautr + zmr - zij
+          hjiet = max(0.0D0, hjiet)
+
+          hur   = vdlg0(2,kvoisin)  ! this is very  inefficient global memory access, can be done may be by shared memory
+          hvr   = vdlg0(3,kvoisin)  ! this is very  inefficient global memory access, can be done may be by shared memory
+
+          if(hautr>tolisec) then
+            vitur = ( hur * norm(1) + hvr * norm(2) ) / hautr
+            vitvr = ( hvr * norm(1) - hur * norm(2) ) / hautr
+          else
+            hautr = tolisec
+            vitur = 0.
+            vitvr = 0.
+          end if
+
+          d_mrl = sqrt((x_centroid(kvol)-x_centroid(kvoisin))**2 + (y_centroid(kvol)-y_centroid(kvoisin))**2)
+
+          if(iflux==1) then
+            !!HLLC
+
+            if(hijet<tolisec) then
+              hijet = tolisec
+              vitul = 0.
+              vitvl = 0.
+            end if
+
+            if(hjiet<tolisec) then
+              hjiet = tolisec
+              vitur = 0.
+              vitvr = 0.
+            end if
+
+            call solver_Riemann_hllc(gi,kvoisin,norm,hijet,vitul,vitvl,hjiet,vitur,vitvr,zml,zmr,flux,ln,pp)
+          else if(iflux==2) then 
+            !!WAF méthode riadh ata
+            if(hijet<tolisec) then
+              hijet = tolisec
+              vitul = 0.
+              vitvl = 0.
+            end if
+
+            if(hjiet<tolisec) then
+              hjiet = tolisec
+              vitur = 0.
+              vitvr = 0.
+            end if
+
+            call solver_Riemann_riadh(gi,kvoisin,norm,hijet,vitul,vitvl,hjiet,vitur,vitvr,zml,zmr,flux,ln,pp)
+          else if (iflux>=3) then 
+            !! Order 2 second neighbor
+
+            if(iupwind==1) then
+              !! kvol_v1 est le premier voisin de kvol
+              !! kvol_v2 est le second voisin de kvol
+              !! kvoisin est le voisin de kvol à travers l'interface qu'on regarde
+              kvol_v1 = upwind_cells(1,tj,kvol)
+              kvol_v2 = upwind_cells(2,tj,kvol)
+
+              kvol_v1_h = vdlg0(1,kvol_v1)
+              if(kvol_v1_h>tolisec) then
+                kvol_v1_u = (vdlg0(2,kvol_v1) * norm(1) + vdlg0(3,kvol_v1) * norm(2))/kvol_v1_h
+                kvol_v1_v = (vdlg0(3,kvol_v1) * norm(1) - vdlg0(2,kvol_v1) * norm(2))/kvol_v1_h
+              else
+                kvol_v1_h = tolisec
+                kvol_v1_u = 0.
+                kvol_v1_v = 0.
+              end if
+
+              kvol_v2_h = vdlg0(1,kvol_v2)
+              if(kvol_v2_h>tolisec) then
+                kvol_v2_u = (vdlg0(2,kvol_v2) * norm(1) + vdlg0(3,kvol_v2) * norm(2))/kvol_v2_h
+                kvol_v2_v = (vdlg0(3,kvol_v2) * norm(1) - vdlg0(2,kvol_v2) * norm(2))/kvol_v2_h
+              else
+                kvol_v2_h = tolisec
+                kvol_v2_u = 0.
+                kvol_v2_v = 0.
+              end if
+
+
+              !!Cherche quel côte est l'interface du coté de kvoisin
+              if(((connectivite(kvoisin,1) == connectivite(kvol,nc1)) .and. &
+                &(connectivite(kvoisin,2) == connectivite(kvol,nc2))) .or. &
+                &((connectivite(kvoisin,2) == connectivite(kvol,nc1)) .and. &
+                &(connectivite(kvoisin,1) == connectivite(kvol,nc2)))) then
+                tjv = 1
+              else if(((connectivite(kvoisin,2) == connectivite(kvol,nc1)) .and. &
+                &(connectivite(kvoisin,3) == connectivite(kvol,nc2))) .or. &
+                &((connectivite(kvoisin,3) == connectivite(kvol,nc1)) .and. &
+                &(connectivite(kvoisin,2) == connectivite(kvol,nc2)))) then
+                tjv = 2
+              else if(((connectivite(kvoisin,3) == connectivite(kvol,nc1)) .and. &
+                &(connectivite(kvoisin,1) == connectivite(kvol,nc2))) .or. &
+                &((connectivite(kvoisin,1) == connectivite(kvol,nc1)) .and. &
+                &(connectivite(kvoisin,3) == connectivite(kvol,nc2)))) then
+                tjv = 3
+              end if
+
+              kvoisin_v1 = upwind_cells(1,tjv,kvoisin)
+              kvoisin_v2 = upwind_cells(2,tjv,kvoisin)
+
+              kvoisin_v1_h = vdlg0(1,kvoisin_v1)
+              if(kvoisin_v1_h>tolisec) then
+                kvoisin_v1_u = (vdlg0(2,kvoisin_v1) * norm(1) + vdlg0(3,kvoisin_v1) * norm(2))/kvoisin_v1_h
+                kvoisin_v1_v = (vdlg0(3,kvoisin_v1) * norm(1) - vdlg0(2,kvoisin_v1) * norm(2))/kvoisin_v1_h
+              else
+                kvoisin_v1_h = tolisec
+                kvoisin_v1_u = 0.
+                kvoisin_v1_v = 0.
+              end if
+
+              kvoisin_v2_h = vdlg0(1,kvoisin_v2)
+              if(kvoisin_v2_h>tolisec) then
+                kvoisin_v2_u = (vdlg0(2,kvoisin_v2) * norm(1) + vdlg0(3,kvoisin_v2) * norm(2))/kvoisin_v2_h
+                kvoisin_v2_v = (vdlg0(3,kvoisin_v2) * norm(1) - vdlg0(2,kvoisin_v2) * norm(2))/kvoisin_v2_h
+              else
+                kvoisin_v2_h = tolisec
+                kvoisin_v2_u = 0.
+                kvoisin_v2_v = 0.
+              end if
+
+              if(((kvol_v1 == kvol) .and. (kvol_v2==kvol)) .or. ((kvoisin_v1==kvoisin) .and. (kvoisin_v2==kvoisin))) then
+                hl_upw=hautl
+                ul_upw=vitul
+                vl_upw=vitvl
+
+                hr_upw=hautr
+                ur_upw=vitur
+                vr_upw=vitvr
+
+                d_mkvol = d_mrl
+                d_mkvoisin = d_mrl
+
+                zml_upw = zml
+                zmr_upw = zmr
+
+              else
+
+                if(kvol_v1 == kvol) then
+                  hl_upw=kvol_v2_h
+                  ul_upw=kvol_v2_u
+                  vl_upw=kvol_v2_v
+                  d_mkvol = d_kvol_v2
+                  zml_upw = zm(kvol_v2)
+                else if(kvol_v2 == kvol) then
+                  hl_upw=kvol_v1_h
+                  ul_upw=kvol_v1_u
+                  vl_upw=kvol_v1_v
+                  d_mkvol = d_kvol_v1
+                  zml_upw = zm(kvol_v1)
+                else
+                  d_kvol_v1 = sqrt((x_centroid(kvol_v1)-x_centroid(kvol))**2 + (y_centroid(kvol_v1)-y_centroid(kvol))**2)
+                  d_kvol_v2 = sqrt((x_centroid(kvol_v2)-x_centroid(kvol))**2 + (y_centroid(kvol_v2)-y_centroid(kvol))**2)
+                  hl_upw=(d_kvol_v1*kvol_v1_h+d_kvol_v2*kvol_v2_h)/(d_kvol_v1+d_kvol_v2)
+                  ul_upw=(d_kvol_v1*kvol_v1_u+d_kvol_v2*kvol_v2_u)/(d_kvol_v1+d_kvol_v2)
+                  vl_upw=(d_kvol_v1*kvol_v1_v+d_kvol_v2*kvol_v2_v)/(d_kvol_v1+d_kvol_v2)
+                  zml_upw=(d_kvol_v1*zm(kvol_v1)+d_kvol_v2*zm(kvol_v2))/(d_kvol_v1+d_kvol_v2)
+                  d_mkvol = (d_kvol_v1 + d_kvol_v2)/2.
+                end if
+
+                if(kvoisin_v1 == kvoisin) then
+                  hr_upw=kvoisin_v2_h
+                  ur_upw=kvoisin_v2_u
+                  vr_upw=kvoisin_v2_v
+
+                  d_kvoisin_v2 = sqrt((x_centroid(kvoisin_v2)-x_centroid(kvoisin))**2 + (y_centroid(kvoisin_v2)-y_centroid(kvoisin))**2)
+                  d_mkvoisin = d_kvoisin_v2
+                  zmr_upw = zm(kvoisin_v2)
+                else if(kvoisin_v2 == kvoisin) then
+                  hr_upw=kvoisin_v1_h
+                  ur_upw=kvoisin_v1_u
+                  vr_upw=kvoisin_v1_v
+
+                  d_kvoisin_v1 = sqrt((x_centroid(kvoisin_v1)-x_centroid(kvoisin))**2 + (y_centroid(kvoisin_v1)-y_centroid(kvoisin))**2)
+                  d_mkvoisin = d_kvoisin_v1
+                  zmr_upw = zm(kvoisin_v1)
+                else
+                  d_kvoisin_v1 = sqrt((x_centroid(kvoisin_v1)-x_centroid(kvoisin))**2 + (y_centroid(kvoisin_v1)-y_centroid(kvoisin))**2)
+                  d_kvoisin_v2 = sqrt((x_centroid(kvoisin_v2)-x_centroid(kvoisin))**2 + (y_centroid(kvoisin_v2)-y_centroid(kvoisin))**2)
+                  hr_upw=(d_kvoisin_v1*kvoisin_v1_h+d_kvoisin_v2*kvoisin_v2_h)/(d_kvoisin_v1+d_kvoisin_v2)
+                  ur_upw=(d_kvoisin_v1*kvoisin_v1_u+d_kvoisin_v2*kvoisin_v2_u)/(d_kvoisin_v1+d_kvoisin_v2)
+                  vr_upw=(d_kvoisin_v1*kvoisin_v1_v+d_kvoisin_v2*kvoisin_v2_v)/(d_kvoisin_v1+d_kvoisin_v2)
+                  zmr_upw=(d_kvoisin_v1*zm(kvoisin_v1)+d_kvoisin_v2*zm(kvoisin_v2))/(d_kvoisin_v1+d_kvoisin_v2)
+                  d_mkvoisin = (d_kvoisin_v1 + d_kvoisin_v2)/2.
+                end if
+
+              end if
+            else if(iupwind==2) then
+              !!Cherche quel côte est l'interface du coté de kvoisin
+              if(((connectivite(kvoisin,1) == connectivite(kvol,nc1)) .and. &
+                &(connectivite(kvoisin,2) == connectivite(kvol,nc2))) .or. &
+                &((connectivite(kvoisin,2) == connectivite(kvol,nc1)) .and. &
+                &(connectivite(kvoisin,1) == connectivite(kvol,nc2)))) then
+                tjv = 1
+              else if(((connectivite(kvoisin,2) == connectivite(kvol,nc1)) .and. &
+                &(connectivite(kvoisin,3) == connectivite(kvol,nc2))) .or. &
+                &((connectivite(kvoisin,3) == connectivite(kvol,nc1)) .and. &
+                &(connectivite(kvoisin,2) == connectivite(kvol,nc2)))) then
+                tjv = 2
+              else if(((connectivite(kvoisin,3) == connectivite(kvol,nc1)) .and. &
+                &(connectivite(kvoisin,1) == connectivite(kvol,nc2))) .or. &
+                &((connectivite(kvoisin,1) == connectivite(kvol,nc1)) .and. &
+                &(connectivite(kvoisin,3) == connectivite(kvol,nc2)))) then
+                tjv = 3
+              end if
+
+              hl_upw = 0.
+              ul_upw = 0.
+              vl_upw = 0.
+              kupw1_area = 0.
+
+              hr_upw = 0.
+              ur_upw = 0.
+              vr_upw = 0.
+              kupw2_area = 0.
+
+              n_upw1 = 0
+              n_upw2 = 0
+
+              bary_kvolup_x = 0.
+              bary_kvolup_y = 0.
+
+              bary_kvoisinup_x = 0.
+              bary_kvoisinup_y = 0.
+
+              zml_upw = 0.
+              zmr_upw = 0.
+
+              d_kvol_sum = 0.
+              d_kvoisin_sum = 0.
+
+              !!Calcul du barycentre des cellules upwinds
+              do i=1,6
+                kupw1 = vertex_neighbors(i,connectivite(kvol,1+mod((nc1+2)-1,3))) 
+                if(kupw1 > 0 .and. kupw1 /= kvol) then
+                  orient = (x_centroid(kupw1)-x_centroid(kvol))*(-norm(1))&
+                    &+(y_centroid(kupw1)-y_centroid(kvol))*(-norm(2))
+                  if(orient > 0) then
+                    bary_kvolup_x = bary_kvolup_x + surf(kupw1)*x_centroid(kupw1)
+                    bary_kvolup_y = bary_kvolup_y + surf(kupw1)*y_centroid(kupw1)
+
+                    d_kvol_v1 = sqrt((x_centroid(kupw1)-x_centroid(kvol))**2 + (y_centroid(kupw1)-y_centroid(kvol))**2)
+                    d_kvol_sum = d_kvol_sum + d_kvol_v1
+
+                    if(vdlg0(1,kupw1) > tolisec) then
+                      ! hl_upw = hl_upw + vdlg0(1,kupw1)*surf(kupw1)
+                      ! ul_upw = ul_upw + (vdlg0(2,kupw1) * norm(1) + vdlg0(3,kupw1) * norm(2))*surf(kupw1)/vdlg0(1,kupw1)
+                      ! vl_upw = vl_upw + (vdlg0(3,kupw1) * norm(1) - vdlg0(2,kupw1) * norm(2))*surf(kupw1)/vdlg0(1,kupw1)
+                      hl_upw = hl_upw + vdlg0(1,kupw1)*d_kvol_v1
+                      ul_upw = ul_upw + (vdlg0(2,kupw1) * norm(1) + vdlg0(3,kupw1) * norm(2))*d_kvol_v1/vdlg0(1,kupw1)
+                      vl_upw = vl_upw + (vdlg0(3,kupw1) * norm(1) - vdlg0(2,kupw1) * norm(2))*d_kvol_v1/vdlg0(1,kupw1)
+                    end if
+
+                    zml_upw = zml_upw + d_kvol_v1*zm(kupw1)
+
+                    kupw1_area = kupw1_area + surf(kupw1)
+                    n_upw1 = n_upw1 + 1
+                  end if
+                end if
+
+                kupw2 = vertex_neighbors(i,connectivite(kvoisin,1+mod((tjv+2)-1,3)))
+                if(kupw2 > 0 .and. kupw2 /= kvoisin) then
+                  orient = (x_centroid(kupw2)-x_centroid(kvoisin))*norm(1)+(y_centroid(kupw2)-y_centroid(kvoisin))*norm(2)
+                  if(orient > 0) then
+                    bary_kvoisinup_x = bary_kvoisinup_x + surf(kupw2)*x_centroid(kupw2)
+                    bary_kvoisinup_y = bary_kvoisinup_y + surf(kupw2)*y_centroid(kupw2)
+
+                    d_kvoisin_v1 = sqrt((x_centroid(kupw2)-x_centroid(kvoisin))**2 + (y_centroid(kupw2)-y_centroid(kvoisin))**2)
+                    d_kvoisin_sum = d_kvoisin_sum + d_kvoisin_v1
+
+                    if(vdlg0(1,kupw2) > tolisec) then
+                      ! hr_upw = hr_upw + vdlg0(1,kupw2)*surf(kupw2)
+                      ! ur_upw = ur_upw + (vdlg0(2,kupw2) * norm(1) + vdlg0(3,kupw2) * norm(2))*surf(kupw2)/vdlg0(1,kupw2)
+                      ! vr_upw = vr_upw + (vdlg0(3,kupw2) * norm(1) - vdlg0(2,kupw2) * norm(2))*surf(kupw2)/vdlg0(1,kupw2)
+                      hr_upw = hr_upw + vdlg0(1,kupw2)*d_kvoisin_v1
+                      ur_upw = ur_upw + (vdlg0(2,kupw2) * norm(1) + vdlg0(3,kupw2) * norm(2))*d_kvoisin_v1/vdlg0(1,kupw2)
+                      vr_upw = vr_upw + (vdlg0(3,kupw2) * norm(1) - vdlg0(2,kupw2) * norm(2))*d_kvoisin_v1/vdlg0(1,kupw2)
+                    end if
+
+                    zmr_upw = zmr_upw + d_kvoisin_v1*zm(kupw2)
+
+                    kupw2_area = kupw2_area + surf(kupw2)
+                    n_upw2 = n_upw2 + 1
+                  end if
+                end if
+              end do
+
+              if(n_upw1 > 0 .and. n_upw2 > 0) then
+                bary_kvolup_x = bary_kvolup_x/kupw1_area
+                bary_kvolup_y = bary_kvolup_y/kupw1_area
+
+                bary_kvoisinup_x = bary_kvoisinup_x/kupw2_area
+                bary_kvoisinup_y = bary_kvoisinup_y/kupw2_area
+
+                ! d_mkvol = (bary_kvolup_x-x_centroid(kvol))*(-norm(1))+(bary_kvolup_y-y_centroid(kvol))*(-norm(2))
+                d_mkvol = d_kvol_sum/n_upw1
+                hl_upw = hl_upw / d_kvol_sum
+                ul_upw = ul_upw / d_kvol_sum
+                vl_upw = vl_upw / d_kvol_sum
+
+                zml_upw = zml_upw / d_kvol_sum
+
+                ! d_mkvoisin = (bary_kvoisinup_x-x_centroid(kvoisin))*norm(1)+(bary_kvoisinup_y-y_centroid(kvoisin))*norm(2)
+                d_mkvoisin = d_kvoisin_sum/n_upw2
+                hr_upw = hr_upw / d_kvoisin_sum
+                ur_upw = ur_upw / d_kvoisin_sum
+                vr_upw = vr_upw / d_kvoisin_sum
+
+                zmr_upw = zmr_upw / d_kvoisin_sum
+                ! if(n_upw1/=5 .or. n_upw2/=5) print*,gi, n_upw1, n_upw2
+              else
+                !!Back to order 1 
+                d_mkvol = d_mrl
+                hl_upw = hautl
+                ul_upw = vitul
+                vl_upw = vitvl
+                zml_upw = zml
+
+                d_mkvoisin = d_mrl
+                hr_upw = hautr
+                ur_upw = vitur
+                vr_upw = vitvr
+                zmr_upw = zmr
+              end if
+            end if
+
+            !!Reconstruction hydro
+            if(zml_upw-zml < 1e-8) then
+              delta_zml = 0.
+            else
+              call simple_limiter(zml-zml_upw, zmr-zml, delta_zml)
+            end if
+            if(zmr_upw-zmr < 1e-8) then
+              delta_zmr = 0.
+            else
+              call simple_limiter(zmr-zml, zmr_upw-zmr, delta_zmr)
+            end if
+            ! zij = max(zml+0.5*delta_zml,zmr-0.5*delta_zmr) ! Test recons ordre 2
+            zij = max(zml,zmr) ! Recons hydro ordre 1
+            hijet = max(0.0d0, hautl + zml - zij)
+            hl_upw = max(0.d0, hl_upw + zml - zij)
+
+            hjiet = max(0.d0, hautr + zmr - zij)
+            hr_upw = max(0.d0, hr_upw + zmr - zij)
+
+            if(hijet < tolisec) then
+              hijet = tolisec
+              vitul = 0.
+              vitvl = 0.
+            end if
+
+            if(hl_upw < tolisec) then
+              hl_upw = tolisec
+              ul_upw = 0.
+              vl_upw = 0.
+            end if
+
+            if(hjiet < tolisec) then
+              hjiet = tolisec
+              vitur = 0.
+              vitvr = 0.
+            end if
+
+            if(hr_upw < tolisec) then
+              hr_upw = tolisec
+              ur_upw = 0.
+              vr_upw = 0.
+            end if
+
+            if(iflux==3) then
+              call solver_Riemann_waf(gi,kvoisin,norm,hijet,vitul,vitvl,hjiet,vitur,vitvr,zml,zmr,hl_upw,ul_upw,vl_upw,hr_upw,ur_upw,vr_upw,d_mrl,d_mkvol,d_mkvoisin,flux,ln,pp)
+            else if(iflux==4) then
+              call solver_Riemann_muscl(gi,kvoisin,norm,hijet,vitul,vitvl,hjiet,vitur,vitvr,zml,zmr,hl_upw,ul_upw,vl_upw,hr_upw,ur_upw,vr_upw,d_mrl,d_mkvol,d_mkvoisin,flux,ln,pp)
+            end if
+          end if ! de choix schéma iflux
+
+        endif ! de ( kvoisin > 0. )
+
+        resc(:,gi) = resc(:,gi) + flux(:)*ln
+      end do
+    end do
+  end subroutine compute_flux
+
+  subroutine simple_limiter(r1, r2, A)
+    use precision_kind
+    use global_data
+
+    implicit none
+
+    real(fp_kind), intent(in) :: r1, r2
+    real(fp_kind), intent(inout) :: A
+
+    if(ilimiteur==0) then
+      A = 0.
+    else if(ilimiteur==1) then
+      !!Superbee style (taken from toro book "Rieman solvers and ...")
+      !! Best limiter
+      if(r2>0) then
+        A = max(0.d0, min(2*r1,r2), min(r1,2*r2))
+      else
+        A = min(0.d0, max(2*r1,r2), max(r1,2*r2))
+      endif
+    else if(ilimiteur==2)then
+      !!Leer style
+      A = (r1*r2 + abs(r1*r2))/(r1+r2+1e-12)
+    else if(ilimiteur==3) then
+      !!Minmod
+      if(r2>0) then
+        A = max(0.d0, min(r1,r2))
+      else
+        A = min(0.d0, max(r1,r2))
+      endif
+    end if
+  end subroutine simple_limiter
+
+  subroutine limiter(r, c, A)
+    use precision_kind
+    use global_data
+
+    implicit none
+
+    real(fp_kind), intent(in) :: r, c 
+    real(fp_kind), intent(inout) :: A
+
+    if(ilimiteur==0) then
+      !!Reduction to HLLC
+      A =1.
+
+    else if(ilimiteur==1) then
+
+      !!!Superbee
+      if(r<=0) then 
+        A = 1.
+      else if(r>0. .and. r<0.5) then
+        A = 1.-2.*(1.-abs(c))*r
+      else if(r>0.5 .and. r<1.) then
+        A = abs(c)
+      else if(r>1. .and. r<2.) then
+        A = 1.-(1.-abs(c))*r
+      else
+        A = 2.*abs(c)-1.
+      end if
+
+    else if(ilimiteur==2) then
+
+      !!Leer
+      if(r<=0) then 
+        A = 1.
+      else
+        A = 1-2*(1-abs(c))*r/(1+r)
+      end if
+
+    else if(ilimiteur==3) then
+
+      !!ALbada
+      if(r<=0) then 
+        A = 1.
+      else
+        A = 1.-(1.-abs(c))*r*(1.+r)/(1.+r*r)
+      end if
+
+    else if(ilimiteur==4) then
+
+      !!Minbee
+      if(r<=0) then
+        A = 1.
+      else if(r<=1) then
+        A = 1 - (1-abs(c))*r
+      else
+        A = abs(c)
+      end if
+
+    end if
+
+  end subroutine limiter
+
+  subroutine solver_Riemann_muscl(kvol,kvoisin,norm,hl,ul,vl,hr,ur,vr,zml,zmr,hl_upw,ul_upw,vl_upw,hr_upw,ur_upw,vr_upw,d_mrl,d_mkvol,d_mkvoisin,flux,ln,pp)
+
+    use precision_kind
+    use global_data
+    implicit none
+
+    integer, intent(in)                         :: kvol, kvoisin
+    integer, intent(inout)                      :: pp
+    real(fp_kind), intent(inout)                   :: hl, ul, vl, hr, ur, vr, zml, zmr, ln
+    real(fp_kind), intent(in)                   :: hl_upw, ul_upw, vl_upw, hr_upw, ur_upw, vr_upw
+    real(fp_kind), intent(in)                   :: d_mrl, d_mkvol, d_mkvoisin
+    real(fp_kind), dimension(2), intent(in)     :: norm
+    real(fp_kind), dimension(3), intent(inout)  :: flux
+
+    integer                       :: i 
+    real(fp_kind)                 :: eps
+    real(fp_kind), dimension(3)   :: flux1, flux_hllc, flux_waf
+    real(fp_kind), dimension(2,3) :: f, q
+    real(fp_kind), dimension(3) :: fet, qet
+    real(fp_kind)                 :: al, ar, het, gl, gr, sl, sr, set, xl, xr, uet, pql, pqr, denom, pond
+    real(fp_kind) :: dtoverdx, cr, cl, cet, wl, wlet, wlr, wr, wret
+    real(fp_kind) :: rr, rl, ret, delta_loc_l, delta_loc_r, delta_loc_et
+    real(fp_kind) :: delta_upw_r, delta_upw_l, delta_upw_et, limit_l, limit_r, limit_et
+    real(fp_kind) :: delta_hl, delta_hr, delta_ul, delta_ur, delta_vl, delta_vr
+    real(fp_kind) :: hll, ull, vll, hlr, ulr, vlr, hrl, url, vrl, hrr, urr, vrr
+    real(fp_kind), dimension(3) :: delta_N, delta_M
+
+    eps = 1e-16
+
+    pp = pp + 1
+
+    dtoverdx = dt/d_mrl
+
+    !!!Data reconstruction I
+    ! delta_N(1) = (hl-hl_upw)/d_mkvol
+    ! delta_N(2) = (ul-ul_upw)/d_mkvol
+    ! delta_N(3) = (vl-vl_upw)/d_mkvol
+    delta_N(1) = (hl-hl_upw)/d_mrl
+    delta_N(2) = (ul-ul_upw)/d_mrl
+    delta_N(3) = (vl-vl_upw)/d_mrl
+    delta_M(1) = (hr-hl)/d_mrl
+    delta_M(2) = (ur-ul)/d_mrl
+    delta_M(3) = (vr-vl)/d_mrl
+    call simple_limiter(delta_N(1), delta_M(1), delta_hl)
+    ! delta_hl = (hr-hl_upw)/(d_mrl+d_mkvol)
+    hll = max(0.d0, hl - 0.5*delta_hl*d_mrl)
+    hlr = max(0.d0, hl + 0.5*delta_hl*d_mrl)
+    if(hlr<tolisec .or. hll<tolisec) then
+      ulr = 0.
+      vlr = 0.
+      ull = 0.
+      vll = 0.
+    else
+      call simple_limiter(delta_N(2), delta_M(2), delta_ul)
+      ! delta_ul = (hr-ul_upw)/(d_mrl+d_mkvol)
+      call simple_limiter(delta_N(3), delta_M(3), delta_vl)
+      ! delta_vl = (vr-vl_upw)/(d_mrl+d_mkvol)
+      ull = ul - 0.5*delta_ul*d_mrl
+      vll = vl - 0.5*delta_vl*d_mrl
+      ulr = ul + 0.5*delta_ul*d_mrl
+      vlr = vl + 0.5*delta_vl*d_mrl
+    end if
+
+    ! delta_M(1) = (hr_upw-hr)/d_mkvoisin
+    ! delta_M(2) = (ur_upw-ur)/d_mkvoisin
+    ! delta_M(3) = (vr_upw-vr)/d_mkvoisin
+    delta_M(1) = (hr_upw-hr)/d_mrl
+    delta_M(2) = (ur_upw-ur)/d_mrl
+    delta_M(3) = (vr_upw-vr)/d_mrl
+    delta_N(1) = (hr-hl)/d_mrl
+    delta_N(2) = (ur-ul)/d_mrl
+    delta_N(3) = (vr-vl)/d_mrl
+    call simple_limiter(delta_N(1), delta_M(1), delta_hr)
+    ! delta_hr = (hr_upw-hl)/(d_mrl+d_mkvoisin)
+    hrr = max(0.d0, hr + 0.5*delta_hr*d_mrl)
+    hrl = max(0.d0, hr - 0.5*delta_hr*d_mrl)
+    if(hr<tolisec .or. hrr<tolisec) then
+      url = 0.
+      vrl = 0.
+      urr = 0.
+      vrr = 0.
+    else
+      call simple_limiter(delta_N(2), delta_M(2), delta_ur)
+      ! delta_ur = (ur_upw-ul)/(d_mrl+d_mkvoisin)
+      call simple_limiter(delta_N(3), delta_M(3), delta_vr)
+      ! delta_vr = (vr_upw-vl)/(d_mrl+d_mkvoisin)
+      urr = ur + 0.5*delta_ur*d_mrl
+      vrr = vr + 0.5*delta_vr*d_mrl
+      url = ur - 0.5*delta_ur*d_mrl
+      vrl = vr - 0.5*delta_vr*d_mrl
+    end if
+
+    !!!Data reconstruction II
+    hl = hlr + 0.5*dtoverdx*(hll*ull - hlr*ulr)
+    ul = ulr + 0.5*dtoverdx*(hll*ull**2 + 0.5*gp*hll**2 - (hlr*ulr**2 +0.5*gp*hlr**2))
+    vl = vlr + 0.5*dtoverdx*(hll*ull*vll - hlr*ulr*vlr)
+    ! hl = hlr
+    ! ul = ulr
+    ! vl = vlr
+
+    hr = hrl + 0.5*dtoverdx*(hrl*url - hrr*urr)
+    ur = url + 0.5*dtoverdx*(hrl*url**2 + 0.5*gp*hrl**2 - (hrr*urr**2 +0.5*gp*hrr**2))
+    vr = vrl + 0.5*dtoverdx*(hrl*url*vrl - hrr*urr*vrr)
+    ! hr = hrl
+    ! ur = url
+    ! vr = vrl
+
+    if(hl.lt.eps.and.hr.lt.eps) goto 21
+
+    al = sqrt( gp * hl )
+    ar = sqrt( gp * hr )
+
+    het  =  ( hl + hr ) / 2.  -  ( ur - ul ) * ( hl + hr ) / ( al + ar ) / 4.
+    uet  =  ( ul + ur ) / 2.  -  ( hr - hl ) * ( al + ar ) / ( hl + hr ) 
+
+    if ( het.lt.hl ) then
+      pql = 1.
+    else
+      if(hl.gt.eps) then
+        pql = sqrt(0.5*(het+hl)*het/hl**2)
+      else
+        pql = 0.
+      end if
+    endif
+
+    if ( het.lt.hr ) then
+      pqr = 1.
+    else
+      if(hr.gt.eps) then
+        pqr = sqrt(0.5*(het+hr)*het/hr**2)
+      else
+        pqr = 0.
+      end if
+    endif
+
+    21 continue
+
+    if ( hl.gt.eps ) then
+      sl = ul-al*pql
+    else
+      sl  = ur - 2 * ar
+      sr  = ur + ar
+      goto 36
+    end if
+
+    if ( hr.gt.eps ) then
+      sr = ur+ar*pqr
+    else
+      sl  = ul - al
+      sr  = ul + 2 * al
+      goto 36
+    end if
+
+    36 continue
+
+    denom = hr*(ur-sr)-hl*(ul-sl)
+    if(abs(denom).lt.eps) then
+      set = uet
+    else
+      set = (sl*hr*(ur-sr) -sr*hl*(ul-sl))/denom
+    end if
+
+    !Calcul de Ql et Qr
+    q(1,1) = hl
+    q(1,2) = hl*ul
+    q(1,3) = hl*vl
+
+    q(2,1) = hr
+    q(2,2) = hr*ur
+    q(2,3) = hr*vr
+
+    !!Cacul de G(Ul)
+    f(1,1) = hl * ul
+    f(1,2) = hl * ul**2 + gp*hl*hl/2.0D0
+    f(1,3) = hl * ul * vl
+
+    !!Cacul de G(Ur)
+    f(2,1) = hr * ur
+    f(2,2) = hr * ur**2 + gp*hr*hr/2.0D0
+    f(2,3) = hr * ur * vr
+
+    !!G(U*) 
+    fet = (sr*f(1,:)-sl*f(2,:)+sl*sr*(q(2,:)-q(1,:)))/(sr-sl+eps) !!HLL classique
+
+    !Flux HLLC
+    if (sl > 0) then ! G(Ul)
+      flux_hllc(:) = f(1,:)
+    else if (sr < 0) then ! G(Ur)
+      flux_hllc(:) = f(2,:)
+    else
+      flux_hllc(:) = fet(:)
+      !Correction HLLC
+      if(set > 0) then
+        flux_hllc(3) = flux_hllc(1) * vl
+      else
+        flux_hllc(3) = flux_hllc(1) * vr
+      end if
+    endif
+
+    flux(1) = flux_hllc(1)
+    flux(2) = norm(1)*flux_hllc(2) - norm(2)*flux_hllc(3)
+    flux(3) = norm(2)*flux_hllc(2) + norm(1)*flux_hllc(3)                       
+  end subroutine solver_Riemann_muscl
+
+  subroutine solver_Riemann_waf(kvol,kvoisin,norm,hl,ul,vl,hr,ur,vr,zml,zmr,hl_upw,ul_upw,vl_upw,hr_upw,ur_upw,vr_upw,d_mrl,d_mkvol,d_mkvoisin,flux,ln,pp)
+    ! Solveur tiré de : "Numerical Tracking of Shallow Water Waves by the Unstructured Finite Volume WAF Approximation" 
+    !  Loukili et Soulaimani 2007
+
+    use precision_kind
+    use global_data
+    implicit none
+
+    integer, intent(in)                         :: kvol, kvoisin
+    integer, intent(inout)                      :: pp
+    real(fp_kind), intent(in)                   :: hl, ul, vl, hr, ur, vr, zml, zmr, ln
+    real(fp_kind), intent(in)                   :: hl_upw, ul_upw, vl_upw, hr_upw, ur_upw, vr_upw
+    real(fp_kind), dimension(2), intent(in)     :: norm
+    real(fp_kind), dimension(3), intent(inout)  :: flux
+
+    integer                       :: i 
+    real(fp_kind)                 :: eps
+    real(fp_kind), dimension(3)   :: flux1, flux_hllc, flux_waf
+    real(fp_kind), dimension(2,3) :: f, q
+    real(fp_kind), dimension(3)   :: fet, qet
+    real(fp_kind)                 :: al, ar, het, gl, gr, sl, sr, set, xl, xr, uet, pql, pqr, denom, pond
+    real(fp_kind)                 :: u_avg, h_avg, v_avg
+    real(fp_kind) :: dtoverdx, cr, cl, cet, wl, wlet, wlr, wr, wret
+    real(fp_kind) :: rr, rl, ret, delta_loc_l, delta_loc_r, delta_loc_et
+    real(fp_kind) :: d_mrl, d_mkvol, d_mkvoisin
+    real(fp_kind) :: delta_upw_r, delta_upw_l, delta_upw_et, limit_l, limit_r, limit_et
+
+    eps = 1e-16
+
+    pp = pp + 1
+
+    if(hl.lt.eps.and.hr.lt.eps) goto 20
+
+    al = sqrt( gp * hl )
+    ar = sqrt( gp * hr )
+
+    het  =  ( hl + hr ) / 2.  -  ( ur - ul ) * ( hl + hr ) / ( al + ar ) / 4.
+    uet  =  ( ul + ur ) / 2.  -  ( hr - hl ) * ( al + ar ) / ( hl + hr ) 
+
+    if ( het.lt.hl ) then
+      pql = 1.
+    else
+      if(hl.gt.eps) then
+        pql = sqrt(0.5*(het+hl)*het/hl**2)
+      else
+        pql = 0.
+      end if
+    endif
+
+    if ( het.lt.hr ) then
+      pqr = 1.
+    else
+      if(hr.gt.eps) then
+        pqr = sqrt(0.5*(het+hr)*het/hr**2)
+      else
+        pqr = 0.
+      end if
+    endif
+
+    20 continue
+
+    if ( hl.gt.eps ) then
+      sl = ul-al*pql
+    else
+      sl  = ur - 2 * ar
+      sr  = ur + ar
+      goto 35
+    end if
+
+    if ( hr.gt.eps ) then
+      sr = ur+ar*pqr
+    else
+      sl  = ul - al
+      sr  = ul + 2 * al
+      goto 35
+    end if
+
+    35 continue
+
+    denom = hr*(ur-sr)-hl*(ul-sl)
+    if(abs(denom).lt.eps) then
+      set = uet
+    else
+      set = (sl*hr*(ur-sr) -sr*hl*(ul-sl))/denom
+    end if
+
+    !!CLASSIC HLLC
+    !Calcul de Ql et Qr
+    q(1,1) = hl
+    q(1,2) = hl*ul
+    q(1,3) = hl*vl
+
+    q(2,1) = hr
+    q(2,2) = hr*ur
+    q(2,3) = hr*vr
+
+    !!Cacul de G(Ul)
+    f(1,1) = hl * ul
+    f(1,2) = hl * ul**2 + gp*hl*hl/2.0D0
+    f(1,3) = hl * ul * vl
+
+    !!Cacul de G(Ur)
+    f(2,1) = hr * ur
+    f(2,2) = hr * ur**2 + gp*hr*hr/2.0D0
+    f(2,3) = hr * ur * vr
+
+    !!G(U*) 
+    fet = (sr*f(1,:)-sl*f(2,:)+sl*sr*(q(2,:)-q(1,:)))/(sr-sl+eps) !!HLL classique
+
+    !Flux HLLC
+    if (sl > 0) then ! G(Ul)
+      flux_hllc(:) = f(1,:)
+    else if (sr < 0) then ! G(Ur)
+      flux_hllc(:) = f(2,:)
+    else
+      flux_hllc(:) = fet(:)
+      !Correction HLLC
+      if(set > 0) then
+        flux_hllc(3) = flux_hllc(1) * vl
+      else
+        flux_hllc(3) = flux_hllc(1) * vr
+      end if
+    endif
+    !!END CLASSIC HLLC
+
+    !OK
+    dtoverdx =  dt/d_mrl !!cotemin_arr is 1.8*inscribed_circle_radius
+    ! dtoverdx =  4.*dt/d_mrl !!cotemin_arr is 1.8*inscribed_circle_radius
+
+    cr = sr * dtoverdx
+    cl = sl * dtoverdx
+    cet = set * dtoverdx
+
+    !! TVD stabilization 
+    delta_loc_r = (hr-hl)/d_mrl
+    delta_loc_l = (hr-hl)/d_mrl
+    delta_loc_et = (vr-vl)/d_mrl
+
+    if(sr>0) then
+      delta_upw_r = (hl-hl_upw)/d_mkvol
+    else
+      delta_upw_r = (hr_upw-hr)/d_mkvoisin
+    endif
+
+    if(sl>0) then
+      delta_upw_l = (hl-hl_upw)/d_mkvol
+    else
+      delta_upw_l = (hr_upw-hr)/d_mkvoisin
+    endif
+
+    if(set>0) then
+      delta_upw_et = (vl-vl_upw)/d_mkvol
+    else
+      delta_upw_et = (vr_upw-vr)/d_mkvoisin
+    endif
+
+    rl = delta_upw_l/(delta_loc_l + eps)
+    rr = delta_upw_r/(delta_loc_r + eps)
+    ret = delta_upw_et/(delta_loc_et + eps)
+
+    call limiter(rl,cl,limit_l)
+    call limiter(rr,cr,limit_r)
+    call limiter(ret,cet,limit_et)
+
+    wl = (1 + dsign(1.d0,sl) * limit_l)/2.
+    wlet = (1 + dsign(1.d0,set) * limit_et)/2.
+
+    wlr = (dsign(1.d0,sr)*limit_r - dsign(1.d0,sl)*limit_l)/2.
+
+    wr = (1 - dsign(1.d0,sr) * limit_r)/2.
+    wret = (1 - dsign(1.d0,set) * limit_et)/2.
+
+    flux_waf(1) = wl*f(1,1) + wlr*flux_hllc(1) + wr*f(2,1)
+    flux_waf(2) = wl*f(1,2) + wlr*flux_hllc(2) + wr*f(2,2)
+    flux_waf(3) = (wlet*vl + wret*vr)*flux_waf(1)
+
+    ! *** reprojection du flux ***
+    flux(1) = flux_waf(1)
+    flux(2) = norm(1)*flux_waf(2) - norm(2)*flux_waf(3)
+    flux(3) = norm(2)*flux_waf(2) + norm(1)*flux_waf(3)                       
+  end subroutine solver_Riemann_waf
+
+  subroutine solver_Riemann_hllc(kvol,kvoisin,norm,hl,ul,vl,hr,ur,vr,zml,zmr,flux,ln,pp)
+    ! HLLC classique
+    ! Solveur tiré de : "Numerical Tracking of Shallow Water Waves by the Unstructured Finite Volume WAF Approximation" 
+    !  Loukili et Soulaimani 2007
+
+    use precision_kind
+    use global_data
+    implicit none
+
+    integer, intent(in)                         :: kvol, kvoisin
+    integer, intent(inout)                      :: pp
+    real(fp_kind), intent(in)                   :: hl, ul, vl, hr, ur, vr, zml, zmr, ln
+    real(fp_kind), dimension(2), intent(in)     :: norm
+    real(fp_kind), dimension(3), intent(inout)  :: flux
+
+    integer                       :: i 
+    real(fp_kind)                 :: eps
+    real(fp_kind), dimension(3)   :: flux1, flux_hllc
+    real(fp_kind), dimension(2,3) :: f, q
+    real(fp_kind), dimension(3) :: fet, qet
+    real(fp_kind)                 :: al, ar, het, gl, gr, sl, sr, set, xl, xr, uet, pql, pqr, denom, pond
+
+    eps = 1e-8
+
+    pp = pp + 1
+
+    if(hl.lt.eps.and.hr.lt.eps) goto 20
+
+    al = sqrt( gp * hl )
+    ar = sqrt( gp * hr )
+
+    het  =  ( hl + hr ) / 2.  -  ( ur - ul ) * ( hl + hr ) / ( al + ar ) / 4.
+    uet  =  ( ul + ur ) / 2.  -  ( hr - hl ) * ( al + ar ) / ( hl + hr ) 
+
+    if ( het.lt.hl ) then
+      pql = 1.
+    else
+      if(hl.gt.eps) then
+        pql = sqrt(0.5*(het+hl)*het/hl**2)
+      else
+        pql = 0.
+      end if
+    endif
+
+    if ( het.lt.hr ) then
+      pqr = 1.
+    else
+      if(hr.gt.eps) then
+        pqr = sqrt(0.5*(het+hr)*het/hr**2)
+      else
+        pqr = 0.
+      end if
+    endif
+
+    20 continue
+
+    if ( hl.gt.eps ) then
+      sl = ul-al*pql
+    else
+      sl  = ur - 2 * ar
+      sr  = ur + ar
+      goto 35
+    end if
+
+    if ( hr.gt.eps ) then
+      sr = ur+ar*pqr
+    else
+      sl  = ul - al
+      sr  = ul + 2 * al
+      goto 35
+    end if
+
+    35 continue
+
+    denom = hr*(ur-sr)-hl*(ul-sl)
+    if(abs(denom).lt.eps) then
+      set = uet
+    else
+      set = (sl*hr*(ur-sr) -sr*hl*(ul-sl))/denom
+    end if
+
+    !Calcul de Ql et Qr
+    q(1,1) = hl
+    q(1,2) = hl*ul
+    q(1,3) = hl*vl
+
+    q(2,1) = hr
+    q(2,2) = hr*ur
+    q(2,3) = hr*vr
+
+    !!Cacul de G(Ul)
+    f(1,1) = hl * ul
+    f(1,2) = hl * ul**2 + gp*hl*hl/2.0D0
+    f(1,3) = hl * ul * vl
+
+    !!Cacul de G(Ur)
+    f(2,1) = hr * ur
+    f(2,2) = hr * ur**2 + gp*hr*hr/2.0D0
+    f(2,3) = hr * ur * vr
+
+    !!G(U*) 
+    fet = (sr*f(1,:)-sl*f(2,:)+sl*sr*(q(2,:)-q(1,:)))/(sr-sl+eps) !!HLL classique
+
+    !Flux HLLC
+    if (sl > 0) then ! G(Ul)
+      flux_hllc(:) = f(1,:)
+    else if (sr < 0) then ! G(Ur)
+      flux_hllc(:) = f(2,:)
+    else
+      flux_hllc(:) = fet(:)
+      !Correction HLLC
+      if(set > 0) then
+        flux_hllc(3) = flux_hllc(1) * vl
+      else
+        flux_hllc(3) = flux_hllc(1) * vr
+      end if
+    endif
+
+    flux(1) = flux_hllc(1)
+    flux(2) = norm(1) * flux_hllc(2) - norm(2) * flux_hllc(3)
+    flux(3) = norm(2) * flux_hllc(2) + norm(1) * flux_hllc(3)                       
+  end subroutine solver_Riemann_hllc
+
+
+  subroutine solver_Riemann_riadh(kvol,kvoisin,norm,hl,ul,vl,hr,ur,vr,zml,zmr,flux,ln,pp)
+    ! Import des routines de Riadh ATA pour HLLC
+    ! Méthode de l'article : 
+    ! A Weighted Average Flux (WAF) scheme applied to shallow waterequations for real-life applications
+    ! Riadh ATA et al.
+    use precision_kind
+    use global_data
+    implicit none
+
+    integer, intent(in)                         :: kvol, kvoisin
+    integer, intent(inout)                      :: pp
+    real(fp_kind), intent(in)                   :: hl, ul, vl, hr, ur, vr, zml, zmr, ln
+    real(fp_kind), dimension(2), intent(in)     :: norm
+    real(fp_kind), dimension(3), intent(inout)  :: flux
+
+    integer                       :: i 
+    real(fp_kind)                 :: eps
+    real(fp_kind), dimension(3)   :: flux1
+    real(fp_kind), dimension(2,3) :: f, q, fet, qet
+    real(fp_kind)                 :: al, ar, het, gl, gr, sl, sr, set, xl, xr, uet, pql, pqr, denom, pond
+
+    eps = 1e-6
+
+    pp = pp + 1
+
+    if(hl.lt.eps.and.hr.lt.eps) goto 20
+
+    al = sqrt( gp * hl )
+    ar = sqrt( gp * hr )
+
+    het  =  ( hl + hr ) / 2.  -  ( ur - ul ) * ( hl + hr ) / ( al + ar ) / 4.
+    uet  =  ( ul + ur ) / 2.  -  ( hr - hl ) * ( al + ar ) / ( hl + hr ) 
+
+    if ( het.lt.hl ) then
+      pql = 1.
+    else
+      if(hl.gt.eps) then
+        pql = sqrt(0.5*(het+hl)*het/hl**2)
+      else
+        pql = 0.
+      end if
+    endif
+
+    if ( het.lt.hr ) then
+      pqr = 1.
+    else
+      if(hr.gt.eps) then
+        pqr = sqrt(0.5*(het+hr)*het/hr**2)
+      else
+        pqr = 0.
+      end if
+    endif
+
+    20 continue
+
+    if ( hl.gt.eps ) then
+      sl = ul-al*pql
+    else
+      sl  = ur - 2 * ar
+      sr  = ur + ar
+      goto 35
+    end if
+
+    if ( hr.gt.eps ) then
+      sr = ur+ar*pqr
+    else
+      sl  = ul - al
+      sr  = ul + 2 * al
+      goto 35
+    end if
+
+    35 continue
+
+    denom = hr*(ur-sr)-hl*(ul-sl)
+    if(abs(denom).lt.eps) then
+      set = uet
+    else
+      set = (sl*hr*(ur-sr) -sr*hl*(ul-sl))/denom
+    end if
+
+    !Calcul de Ql et Qr (Riadh)
+    q(1,1) = hl
+    q(1,2) = hl*ul
+    q(1,3) = hl*vl
+
+    q(2,1) = hr
+    q(2,2) = hr*ur
+    q(2,3) = hr*vr
+
+    !!Calcul de Qetl et Qetr
+    if(abs(sl-set).gt.eps) then
+      pond = hl*(sl-ul)/(sl-set)
+    else
+      pond= 0.D0
+    End if
+
+    qet(1,1) = pond
+    qet(1,2) = pond*set
+    qet(1,3) = pond*vl
+
+
+    if(abs(sr-set).gt.eps) then
+      pond = hr*(sr-ur)/(sr-set)
+    else
+      pond= 0.D0
+    end if
+
+    qet(2,1) = pond
+    qet(2,2) = pond*set
+    qet(2,3) = pond*vr
+
+    !!Cacul de G(Ul)
+    f(1,1) = hl * ul
+    f(1,2) = hl * ul**2 + gp*hl*hl/2.0D0
+    f(1,3) = hl * ul * vl
+
+    !!Cacul de G(Ur)
+    f(2,1) = hr * ur
+    f(2,2) = hr * ur**2 + gp*hr*hr/2.0D0
+    f(2,3) = hr * ur * vr
+
+    fet(1,1) = f(1,1) + sl*(qet(1,1)-q(1,1))
+    fet(1,2) = f(1,2) + sl*(qet(1,2)-q(1,2))
+    fet(1,3) = f(1,3) + sl*(qet(1,3)-q(1,3))
+
+    fet(2,1) = f(2,1) + sr*(qet(2,1)-q(2,1))
+    fet(2,2) = f(2,2) + sr*(qet(2,2)-q(2,2))
+    fet(2,3) = f(2,3) + sr*(qet(2,3)-q(2,3))
+
+    !Flux HLLC
+    if (0.lt.sl) then
+      flux1(1) = f(1,1)
+      flux1(2) = f(1,2)
+      flux1(3) = f(1,3)
+    elseif (0.lt.set.and.0.gt.sl) then
+      flux1(1) = fet(1,1)
+      flux1(2) = fet(1,2)
+      flux1(3) = fet(1,3)
+    elseif (0.gt.set.and.0.lt.sr) then
+      flux1(1) = fet(2,1)
+      flux1(2) = fet(2,2)
+      flux1(3) = fet(2,3)
+    else
+      flux1(1) = f(2,1)
+      flux1(2) = f(2,2)
+      flux1(3) = f(2,3)
+    endif
+
+    ! *** reprojection du flux ***
+    flux(1) = flux1(1)
+    flux(2) = norm(1) * flux1(2) - norm(2) * flux1(3)
+    flux(3) = norm(2) * flux1(2) + norm(1) * flux1(3)                       
+  end subroutine solver_Riemann_riadh
+
+end module flux_riemann
