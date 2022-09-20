@@ -669,8 +669,6 @@ contains
     end do
     ! if(cg_goto(index_file, index_base, zss.str().c_str(), 0, "end")) cg_error_exit();
 
-    ndwall = 0
-
     call cg_close_f(fn, ierr)
     if (ierr .ne. CG_OK) call cg_error_exit_f
   end subroutine lec_mail_cgns
