@@ -8,7 +8,7 @@
   ! Données du maillage
   is_cgns=1,
   meshfile_path='',
-  meshfile='mesh_6138.cgns',                    ! Fichier de maillage
+  meshfile='mesh_6138_4.cgns',                    ! Fichier de maillage
   elt_bound=0,                                                   ! 1 si le fichier boundary_table existe déja
   nombre_entrees=0, nombre_sorties=0,                                ! 0 si fichier non formaté pour plusieurs entrées/sorties
 
