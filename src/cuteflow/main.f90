@@ -158,6 +158,7 @@ program main
 
   print*, '==========================================================================='
   print*, '=========================   FIN DE LA SIMULATION   ========================'
+  print*, 'DUREEDU CALCUL : ', computation_time ," Secondes"
   print*, '==========================================================================='
 
   call MPI_FINALIZE(mpi_ierr)

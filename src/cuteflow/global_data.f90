@@ -127,6 +127,7 @@ module global_data
 
   logical :: only_send_cells
 
+  real(fp_kind) :: computation_time
   real(fp_kind) :: tc
 
   real(fp_kind) :: cotemin, t_reg_perm, flux_total, debit_n, x0, vol_tot_entre, vol_tot_sorti, debit_sortie,debit_sortie0, debit_entree_sum, distcote
