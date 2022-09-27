@@ -10,8 +10,8 @@ y0=0.; y1=1.
 
 #Nombre de points dans la direction y
 #C'est le seul paramètre à changer si on veut raffiner le maillage uniformément
-ny = 16
-# ny = 320
+# ny = 16
+ny = 4*320
 
 # h est la longueur d'un côté des triangles équilatéraux
 h = (y1-y0)/ny
@@ -69,17 +69,17 @@ tri = Delaunay(nodes[:,:2])
 nElems = len(tri.simplices)
 
 ##Ajout du Bump si nécéssaire
-# db = 5. #Début du bump
-# mb = 7.5 #Miieu du bump
-# fb = 10. #Fin du bump
-# hb = 1.  #Hauteur du bump
-# for i in range(0,inod):
-#      if(nodes[i][0] > db and nodes[i][0] < mb):
-#          nodes[i][2] = (nodes[i][0]-db)*hb/(mb-db)
-#      elif(nodes[i][0] > mb and nodes[i][0] < fb):
-#          nodes[i][2] = hb - (nodes[i][0]-mb)*hb/(fb-mb)
-#      else:
-#          nodes[i][2] = 0.
+db = 5. #Début du bump
+mb = 7.5 #Miieu du bump
+fb = 10. #Fin du bump
+hb = 1.  #Hauteur du bump
+for i in range(0,inod):
+     if(nodes[i][0] > db and nodes[i][0] < mb):
+         nodes[i][2] = (nodes[i][0]-db)*hb/(mb-db)
+     elif(nodes[i][0] > mb and nodes[i][0] < fb):
+         nodes[i][2] = hb - (nodes[i][0]-mb)*hb/(fb-mb)
+     else:
+         nodes[i][2] = 0.
 
 
 #Ecriture du fichier au format CGNS
