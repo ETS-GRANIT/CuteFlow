@@ -741,7 +741,7 @@ contains
     ! delta_hr = (hr_upw-hl)/(d_mrl+d_mkvoisin)
     hrr = max(0.d0, hr + 0.5*delta_hr*d_mrl)
     hrl = max(0.d0, hr - 0.5*delta_hr*d_mrl)
-    if(hr<tolisec_d .or. hrr<tolisec_d) then
+    if(hrl<tolisec_d .or. hrr<tolisec_d) then
       url = 0.
       vrl = 0.
       urr = 0.
