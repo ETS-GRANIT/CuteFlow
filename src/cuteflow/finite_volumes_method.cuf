@@ -137,16 +137,10 @@ contains
           call calcul_surf_entree<<<grid_surf_entree, tblock_surf_entree, tblock_surf_entree%x*sizeof(1.0d0), stream1>>>()
           ierr =  cudastreamsynchronize(stream1)
           call mpi_allreduce(mpi_in_place,surf_entree_d,nombre_entrees,fp_kind_mpi,mpi_sum,mpi_comm_world, mpi_ierr)
-          ! surf_entree = surf_entree_d
-          ! do i=1,nombre_entrees
-          !   print*,i, surf_entree(i)
-          ! end do
       end if
 
-      !If mesh large enough, optimise computations and communications overlapp
+      !! If mesh large enough, optimise computations and communications overlapp
       if(is_cgns==1 .and. (nelt>20000 .and. num_mpi_process>1)) then
-      ! if(.FALSE.) then
-      ! if(.TRUE.) then
         !!Phase 1 computation on the send cells only
         only_send_cells=.TRUE.
         only_send_cells_d=only_send_cells
@@ -160,7 +154,7 @@ contains
           call update_send_cells<<<grid_usc, tblock_usc, 0, stream2>>>()
         end if
 
-        !!  Echange sur GPU directement bloc
+        !!Echange sur GPU directement bloc
         if(num_mpi_process>1) then
           if(is_cgns) then
             ierr = cudastreamsynchronize(stream2)
@@ -235,19 +229,11 @@ contains
         call MPI_WAITALL(size(reqrecv),reqrecv,recvstat,mpi_ierr)
       end if
 
-      !!Test to vertex and back
-      ! ierr = cudaDeviceSynchronize()
-      ! call MPI_BARRIER(MPI_COMM_WORLD,mpi_ierr)
-      ! ierr = cudaDeviceSynchronize()
-      ! call update_sol_nodes<<<grid_nodes, tblock_nodes>>> 
-      ! ierr = cudaDeviceSynchronize()
-      ! call update_sol_elems<<<grid, tblock>>> 
-
       ierr = cudaMemcpyAsync(vdlg0_d, vdlg_d, ndln*nelt, stream1)
 
       tc = tc + dt
 
-      !!Verifie la condition de régime stationnaire
+      !!Vérifie la condition de régime stationnaire
       call check_steady_state
 
       !!Affiche l'avancement à l'écran

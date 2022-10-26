@@ -78,7 +78,7 @@ program main
   call set_undefined_boudaries_as_walls<<<grid, tblock>>>
   call cuda_glerror('set_undefined_boundaries_as_walls',1)
 
-  !!Allocation des requettes send recv pour les echanges mpi non bloquant
+  !!Allocation des request send recv pour les echanges mpi non bloquant
   if(is_cgns) then
     allocate(reqsend(nelt_fant_envoi_bloc), sendstat(MPI_STATUS_SIZE,nelt_fant_envoi_bloc))
     allocate(reqrecv(nelt_fant_recep_bloc), recvstat(MPI_STATUS_SIZE,nelt_fant_recep_bloc))
@@ -162,7 +162,7 @@ program main
   write(*,*) '======================================================================'
   write(*,*) '======================================================================'
 
-  !! Application des conditions initiales
+  !! Application des conditions initiales (initial_condition.cuf)
   if (solinit==1) then
     call read_initial_condition
   else
@@ -170,17 +170,20 @@ program main
     call cuda_glerror('set_initial_condition',1)
   endif               
 
+  !! vdlg  est le vecteur solution au temps tn+1
+  !! vdlg0 est le vecteur solution au temps tn
+  !! les variables avec le suffixe "_d" sont sur le GPU (déclarées dans global_data_device.cuf)
   vdlg0 = vdlg0_d
   vdlg = vdlg0
   vdlg_d = vdlg
 
-  !!Save Initial condition
-  call global_save_sol_visu
+  !!Save Initial condition (pre_post_traitement.cuf)
+  call global_save_sol_visu 
 
-  !! Initialisation du temps et calcul de dt via la CFL
+  !! Initialisation du temps
   tc = 0.00
 
-  !! Résolution par méthode volumes finis
+  !! Résolution par méthode volumes finis (finites_volumes_method.cuf)
   call solve_finite_volumes
 
   !!Save Final solution
