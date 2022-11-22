@@ -497,23 +497,23 @@ contains
           end if
 
           !!Reconstruction hydro
-          if(zml_upw-zml < 1e-8) then
-            delta_zml = 0.
-          else
-            call simple_limiter(zml-zml_upw, zmr-zml, delta_zml)
-          end if
-          if(zmr_upw-zmr < 1e-8) then
-            delta_zmr = 0.
-          else
-            call simple_limiter(zmr-zml, zmr_upw-zmr, delta_zmr)
-          end if
+          ! if(zml_upw-zml < 1e-8) then
+          !   delta_zml = 0.
+          ! else
+          !   call simple_limiter(zml-zml_upw, zmr-zml, delta_zml)
+          ! end if
+          ! if(zmr_upw-zmr < 1e-8) then
+          !   delta_zmr = 0.
+          ! else
+          !   call simple_limiter(zmr-zml, zmr_upw-zmr, delta_zmr)
+          ! end if
           ! zij = max(zml+0.5*delta_zml,zmr-0.5*delta_zmr) ! Test recons ordre 2
           zij = max(zml,zmr) ! Recons hydro ordre 1
           hijet = max(0.0d0, hautl + zml - zij)
-          hl_upw = max(0.d0, hl_upw + zml - zij)
+          hl_upw = max(0.d0, hl_upw + zml_upw - zij)
 
           hjiet = max(0.d0, hautr + zmr - zij)
-          hr_upw = max(0.d0, hr_upw + zmr - zij)
+          hr_upw = max(0.d0, hr_upw + zmr_upw - zij)
 
           if(hijet < tolisec_d) then
             hijet = tolisec_d
