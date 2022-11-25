@@ -9,7 +9,7 @@ CUTEFLAGS = -O3 -ffree-line-length-512 -I/cvmfs/soft.computecanada.ca/easybuild/
 CUTECOMPILER = mpif90 
 
 # CUTEFILES = precision_kind.cuf mpi_select_gpu.cuf file_id.cuf global_data.cuf global_data_device.cuf data_transfer.cuf maillage.cuf cfl_condition.cuf initial_condition.cuf pre_post_traitement.cuf source_terms.cuf flux_riemann.cuf memory_exchange_functions.cuf finite_volumes_method.cuf main.cuf
-CUTEFILES = global_data.f90 file_id.f90 initial_condition.f90 source_terms.f90 memory_exchange_functions.f90 flux_riemann.f90 precision_kind.f90 cfl_condition.f90 pre_post_traitement.f90 maillage.f90 finite_volumes_method.f90 main.f90
+CUTEFILES = precision_kind.f90 global_data.f90 file_id.f90 initial_condition.f90 source_terms.f90 memory_exchange_functions.f90 flux_riemann.f90 cfl_condition.f90 pre_post_traitement.f90 maillage.f90 finite_volumes_method.f90 main.f90
 
 CUTEFILESPREF = $(addprefix ${SRC}/cuteflow/, ${CUTEFILES})
 
