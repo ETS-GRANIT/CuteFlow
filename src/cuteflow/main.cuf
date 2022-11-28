@@ -2,11 +2,9 @@ program main
   ! ======================================================================
   !   CUTEFLOW : programme de simulation par volumes finis / solveurs de Riemann
   !               des ecoulements de canalisations, bris de barrages et innondations.
-  !               Equations de base : Shallow Water Equations
   ! ======================================================================
   !     Auteur : Azzeddine Soulaimani & Youssef Loukili  & Jean-Marie Zokagoa & 
   !              Vincent Delmas GRANIT ETSMTL
-  !     version : 4.0  ;  December 2019
   ! ======================================================================
 
   use mpi
@@ -28,7 +26,7 @@ program main
   integer         :: i, ii, j, p, kk, ss, ie, iel, n_MC, i_MC, af_input
   integer         :: nsbloc, nreste, tot
   character(8)    :: ii_str
-  integer         :: status, l, ie_coupe_transv, ierr, dev
+  integer         :: status, l, ierr, dev
   type(cudaEvent) :: startEvent , stopEvent
   integer                     :: stat(MPI_STATUS_SIZE)
 

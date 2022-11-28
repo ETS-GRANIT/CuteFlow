@@ -2,12 +2,6 @@ module cfl_condition
   implicit none
 contains
   attributes(global) subroutine cflcond(solut_d, deltatmin_d)
-    ! ======================================================================
-    !     cfl_dcond = calculation of the time step following the cfl_d
-    !     auteur : Youssef Loukili  GRANIT ETSMTL
-    !     version : 1.0  ;  May 12 2003
-    ! ======================================================================
-
     use precision_kind
     use global_data_device
 
@@ -84,7 +78,6 @@ contains
     integer :: i, ti, gi, ierr_d
 
     ti = threadIdx%x
-    ! gi = (blockIdx%x - 1)*(blockDim%x*2)+ ti
     gi = (blockIdx%x - 1)*blockDim%x+ ti
 
     if(gi<=nelt_d-nelt_fant_recep_d) then
@@ -130,8 +123,8 @@ contains
       call MPI_ALLREDUCE(MPI_IN_PLACE,dt_d,1,fp_kind_mpi,MPI_MIN,MPI_COMM_WORLD, mpi_ierr)
     end if
 
-    ! ierr = cudaMemcpyAsync(dt,dt_d,1,stream)
-    ierr = cudaMemcpy(dt,dt_d,1)
+    ierr = cudaMemcpyAsync(dt,dt_d,1,stream)
+    ! ierr = cudaMemcpy(dt,dt_d,1)
 
     if(dt>9999 .or. dt < 1e-12) then
       print*, "Erreur sur le pas de temps dt=", dt

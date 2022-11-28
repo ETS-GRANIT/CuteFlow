@@ -38,7 +38,6 @@ contains
       ggi = (blockIdx%x - 1)*blockDim%x + ti
       if(ggi<=nelt_limit) then
         gi = elt_fant_envoi_list_glob_d(ggi)
-        ! print*,ggi,gi,nelt_limit
       end if
     else
       nelt_limit = nelt_d-nelt_fant_recep_d
@@ -74,7 +73,7 @@ contains
         norm(2) = ( x2 - x1 ) / ln
       end if
 
-      ! *** initialisation du flux ***
+      ! Initialisation du flux
       flux     = 0.d0
       kvoisin = boundary_d(gi,nc1,1)
       id_entree = boundary_d(gi,nc1,2)
@@ -107,13 +106,13 @@ contains
         vitul = (hul * norm(1) + hvl * norm(2) ) / hautl
         vitvl = (hvl * norm(1) - hul * norm(2) ) / hautl
       else
-        hautl = tolisec_d
+        hautl = 0.
         vitul = 0.
         vitvl = 0.
       end if
 
-      ! *** application des conditions aux limites si kvol est frontier ***
-      if ( kvoisin == -1 ) then ! *** flux entrant ***
+      ! Application des conditions aux limites si kvol est frontier
+      if ( kvoisin == -1 ) then ! Flux entrant
         if ( inlet_d == 1 ) then       ! inlet_d = 1 == Entree transmissive
           flux(1) = hautl * vitul
           flux(2) = norm(1) * ( hautl * vitul**2 + gp_d * hautl**2/2. ) - norm(2) * hautl * vitul * vitvl
@@ -121,8 +120,8 @@ contains
         elseif ( inlet_d == 2 ) then   ! inlet_d = inflow = Entree avec debit forcé
           debitnorm = -debitglob_d(id_entree) / long_entree_d(id_entree)
           flux(1) = debitnorm
-          flux(2) = norm(1) * ( debitnorm**2/hautl  + gp_d * hautl**2/2. )
-          flux(3) = norm(2) * ( debitnorm**2/hautl  + gp_d * hautl**2/2. )
+          flux(2) = norm(1) * ( debitnorm**2/(hautl+tolisec_d)  + gp_d * hautl**2/2. )
+          flux(3) = norm(2) * ( debitnorm**2/(hautl+tolisec_d)  + gp_d * hautl**2/2. )
           debit_entree_arr_d(io_identifier_d(gi),1) = (-debitnorm)*ln    
           debit_entree_arr_d(io_identifier_d(gi),2) = id_entree
         elseif ( inlet_d == 3 ) then   ! inlet_d = phys_inflow = Entree avec debit physique
@@ -132,8 +131,8 @@ contains
             debitnorm = 0.
           end if
           flux(1) = debitnorm
-          flux(2) = norm(1) * ( debitnorm**2/hautl  + gp_d * hautl**2/2. )
-          flux(3) = norm(2) * ( debitnorm**2/hautl  + gp_d * hautl**2/2. )
+          flux(2) = norm(1) * ( debitnorm**2/(hautl+tolisec_d)  + gp_d * hautl**2/2. )
+          flux(3) = norm(2) * ( debitnorm**2/(hautl+tolisec_d)  + gp_d * hautl**2/2. )
           debit_entree_arr_d(io_identifier_d(gi),1) = (-debitnorm)*ln
           debit_entree_arr_d(io_identifier_d(gi),2) = id_entree
         else
@@ -141,7 +140,7 @@ contains
         endif
       endif
 
-      if ( kvoisin == -2 ) then ! *** flux sortant ***
+      if ( kvoisin == -2 ) then ! Flux sortant
         if ( vitul >= 0. .and. vitul/sqrt(gp_d*hautl) < 1.d0 ) then
           hautl = h_sortie_d(id_entree) - zml
           hautl = max(0.0D0, hautl)
@@ -157,15 +156,15 @@ contains
         debit_sortie_arr_d(io_identifier_d(gi))  = flux(1)*ln
       endif
 
-      if ( kvoisin == -3 ) then  ! *** flux de mur ***
+      if ( kvoisin == -3 ) then  ! Flux de mur
         flux(1) = 0.d0
         flux(2) = norm(1) * gp_d * hautl**2/2.
         flux(3) = norm(2) * gp_d * hautl**2/2.
       endif
 
-      if  ( kvoisin > 0. ) then   ! *** kvol fait frontiere avec kvoisin ***
-        hautr = vdlg0_d(1,kvoisin)  !this is inefficient global memory access, put vdlg0_d in shared? possible?
-        zmr = zm_d(kvoisin)        !this is also inefficient global memory access
+      if  ( kvoisin > 0. ) then   ! Kvol fait frontiere avec kvoisin
+        hautr = vdlg0_d(1,kvoisin)
+        zmr = zm_d(kvoisin)
 
         zij = max(zml,zmr)
         hijet = hautl + zml - zij
@@ -174,14 +173,14 @@ contains
         hjiet = hautr + zmr - zij
         hjiet = max(0.0D0, hjiet)
 
-        hur   = vdlg0_d(2,kvoisin)  ! this is very  inefficient global memory access, can be done may be by shared memory
-        hvr   = vdlg0_d(3,kvoisin)  ! this is very  inefficient global memory access, can be done may be by shared memory
+        hur   = vdlg0_d(2,kvoisin)  
+        hvr   = vdlg0_d(3,kvoisin)  
 
         if(hautr>tolisec_d) then
           vitur = ( hur * norm(1) + hvr * norm(2) ) / hautr
           vitvr = ( hvr * norm(1) - hur * norm(2) ) / hautr
         else
-          hautr = tolisec_d
+          hautr = 0.
           vitur = 0.
           vitvr = 0.
         end if
@@ -192,28 +191,29 @@ contains
           !!HLLC
 
           if(hijet<tolisec_d) then
-            hijet = tolisec_d
+            hijet = 0.
             vitul = 0.
             vitvl = 0.
           end if
 
           if(hjiet<tolisec_d) then
-            hjiet = tolisec_d
+            hjiet = 0.
             vitur = 0.
             vitvr = 0.
           end if
 
           call solver_Riemann_hllc(gi,kvoisin,surf_d,norm,vdlg0_d,hijet,vitul,vitvl,hjiet,vitur,vitvr,zml,zmr,flux,ln,pp)
         else if(iflux_d==2) then 
-          !!WAF méthode riadh ata
+          !!WAF
+
           if(hijet<tolisec_d) then
-            hijet = tolisec_d
+            hijet = 0.
             vitul = 0.
             vitvl = 0.
           end if
 
           if(hjiet<tolisec_d) then
-            hjiet = tolisec_d
+            hjiet = 0.
             vitur = 0.
             vitvr = 0.
           end if
@@ -221,294 +221,147 @@ contains
           call solver_Riemann_riadh(gi,kvoisin,surf_d,norm,vdlg0_d,hijet,vitul,vitvl,hjiet,vitur,vitvr,zml,zmr,flux,ln,pp)
         else if (iflux_d>=3) then 
           !! Order 2 second neighbor
+          !! kvol_v1 est le premier voisin de kvol
+          !! kvol_v2 est le second voisin de kvol
+          !! kvoisin est le voisin de kvol à travers l'interface qu'on regarde
+          !! kvoisin_v1 est le premier voisin de kvoisin
+          !! kvoisin_v2 est le second voisin de kvoisin
 
-          if(iupwind_d==1) then
-            !! kvol_v1 est le premier voisin de kvol
-            !! kvol_v2 est le second voisin de kvol
-            !! kvoisin est le voisin de kvol à travers l'interface qu'on regarde
-            kvol_v1 = upwind_cells_d(1,tj,kvol)
-            kvol_v2 = upwind_cells_d(2,tj,kvol)
+          kvol_v1 = upwind_cells_d(1,tj,kvol)
+          kvol_v2 = upwind_cells_d(2,tj,kvol)
 
-            kvol_v1_h = vdlg0_d(1,kvol_v1)
-            if(kvol_v1_h>tolisec_d) then
-              kvol_v1_u = (vdlg0_d(2,kvol_v1) * norm(1) + vdlg0_d(3,kvol_v1) * norm(2))/kvol_v1_h
-              kvol_v1_v = (vdlg0_d(3,kvol_v1) * norm(1) - vdlg0_d(2,kvol_v1) * norm(2))/kvol_v1_h
-            else
-              kvol_v1_h = tolisec_d
-              kvol_v1_u = 0.
-              kvol_v1_v = 0.
-            end if
-
-            kvol_v2_h = vdlg0_d(1,kvol_v2)
-            if(kvol_v2_h>tolisec_d) then
-              kvol_v2_u = (vdlg0_d(2,kvol_v2) * norm(1) + vdlg0_d(3,kvol_v2) * norm(2))/kvol_v2_h
-              kvol_v2_v = (vdlg0_d(3,kvol_v2) * norm(1) - vdlg0_d(2,kvol_v2) * norm(2))/kvol_v2_h
-            else
-              kvol_v2_h = tolisec_d
-              kvol_v2_u = 0.
-              kvol_v2_v = 0.
-            end if
-
-
-            !!Cherche quel côte est l'interface du coté de kvoisin
-            if(((connectivite_d(kvoisin,1) == connectivite_d(kvol,nc1)) .and. &
-              &(connectivite_d(kvoisin,2) == connectivite_d(kvol,nc2))) .or. &
-              &((connectivite_d(kvoisin,2) == connectivite_d(kvol,nc1)) .and. &
-              &(connectivite_d(kvoisin,1) == connectivite_d(kvol,nc2)))) then
-              tjv = 1
-            else if(((connectivite_d(kvoisin,2) == connectivite_d(kvol,nc1)) .and. &
-              &(connectivite_d(kvoisin,3) == connectivite_d(kvol,nc2))) .or. &
-              &((connectivite_d(kvoisin,3) == connectivite_d(kvol,nc1)) .and. &
-              &(connectivite_d(kvoisin,2) == connectivite_d(kvol,nc2)))) then
-              tjv = 2
-            else if(((connectivite_d(kvoisin,3) == connectivite_d(kvol,nc1)) .and. &
-              &(connectivite_d(kvoisin,1) == connectivite_d(kvol,nc2))) .or. &
-              &((connectivite_d(kvoisin,1) == connectivite_d(kvol,nc1)) .and. &
-              &(connectivite_d(kvoisin,3) == connectivite_d(kvol,nc2)))) then
-              tjv = 3
-            end if
-
-            kvoisin_v1 = upwind_cells_d(1,tjv,kvoisin)
-            kvoisin_v2 = upwind_cells_d(2,tjv,kvoisin)
-
-            kvoisin_v1_h = vdlg0_d(1,kvoisin_v1)
-            if(kvoisin_v1_h>tolisec_d) then
-              kvoisin_v1_u = (vdlg0_d(2,kvoisin_v1) * norm(1) + vdlg0_d(3,kvoisin_v1) * norm(2))/kvoisin_v1_h
-              kvoisin_v1_v = (vdlg0_d(3,kvoisin_v1) * norm(1) - vdlg0_d(2,kvoisin_v1) * norm(2))/kvoisin_v1_h
-            else
-              kvoisin_v1_h = tolisec_d
-              kvoisin_v1_u = 0.
-              kvoisin_v1_v = 0.
-            end if
-
-            kvoisin_v2_h = vdlg0_d(1,kvoisin_v2)
-            if(kvoisin_v2_h>tolisec_d) then
-              kvoisin_v2_u = (vdlg0_d(2,kvoisin_v2) * norm(1) + vdlg0_d(3,kvoisin_v2) * norm(2))/kvoisin_v2_h
-              kvoisin_v2_v = (vdlg0_d(3,kvoisin_v2) * norm(1) - vdlg0_d(2,kvoisin_v2) * norm(2))/kvoisin_v2_h
-            else
-              kvoisin_v2_h = tolisec_d
-              kvoisin_v2_u = 0.
-              kvoisin_v2_v = 0.
-            end if
-
-            if(((kvol_v1 == kvol) .and. (kvol_v2==kvol)) .or. ((kvoisin_v1==kvoisin) .and. (kvoisin_v2==kvoisin))) then
-              hl_upw=hautl
-              ul_upw=vitul
-              vl_upw=vitvl
-
-              hr_upw=hautr
-              ur_upw=vitur
-              vr_upw=vitvr
-
-              d_mkvol = d_mrl
-              d_mkvoisin = d_mrl
-
-              zml_upw = zml
-              zmr_upw = zmr
-
-            else
-
-              if(kvol_v1 == kvol) then
-                hl_upw=kvol_v2_h
-                ul_upw=kvol_v2_u
-                vl_upw=kvol_v2_v
-                d_mkvol = d_kvol_v2
-                zml_upw = zm_d(kvol_v2)
-              else if(kvol_v2 == kvol) then
-                hl_upw=kvol_v1_h
-                ul_upw=kvol_v1_u
-                vl_upw=kvol_v1_v
-                d_mkvol = d_kvol_v1
-                zml_upw = zm_d(kvol_v1)
-              else
-                d_kvol_v1 = sqrt((x_centroid_d(kvol_v1)-x_centroid_d(kvol))**2 + (y_centroid_d(kvol_v1)-y_centroid_d(kvol))**2)
-                d_kvol_v2 = sqrt((x_centroid_d(kvol_v2)-x_centroid_d(kvol))**2 + (y_centroid_d(kvol_v2)-y_centroid_d(kvol))**2)
-                hl_upw=(d_kvol_v1*kvol_v1_h+d_kvol_v2*kvol_v2_h)/(d_kvol_v1+d_kvol_v2)
-                ul_upw=(d_kvol_v1*kvol_v1_u+d_kvol_v2*kvol_v2_u)/(d_kvol_v1+d_kvol_v2)
-                vl_upw=(d_kvol_v1*kvol_v1_v+d_kvol_v2*kvol_v2_v)/(d_kvol_v1+d_kvol_v2)
-                zml_upw=(d_kvol_v1*zm_d(kvol_v1)+d_kvol_v2*zm_d(kvol_v2))/(d_kvol_v1+d_kvol_v2)
-                d_mkvol = (d_kvol_v1 + d_kvol_v2)/2.
-              end if
-
-              if(kvoisin_v1 == kvoisin) then
-                hr_upw=kvoisin_v2_h
-                ur_upw=kvoisin_v2_u
-                vr_upw=kvoisin_v2_v
-
-                d_kvoisin_v2 = sqrt((x_centroid_d(kvoisin_v2)-x_centroid_d(kvoisin))**2 + (y_centroid_d(kvoisin_v2)-y_centroid_d(kvoisin))**2)
-                d_mkvoisin = d_kvoisin_v2
-                zmr_upw = zm_d(kvoisin_v2)
-              else if(kvoisin_v2 == kvoisin) then
-                hr_upw=kvoisin_v1_h
-                ur_upw=kvoisin_v1_u
-                vr_upw=kvoisin_v1_v
-
-                d_kvoisin_v1 = sqrt((x_centroid_d(kvoisin_v1)-x_centroid_d(kvoisin))**2 + (y_centroid_d(kvoisin_v1)-y_centroid_d(kvoisin))**2)
-                d_mkvoisin = d_kvoisin_v1
-                zmr_upw = zm_d(kvoisin_v1)
-              else
-                d_kvoisin_v1 = sqrt((x_centroid_d(kvoisin_v1)-x_centroid_d(kvoisin))**2 + (y_centroid_d(kvoisin_v1)-y_centroid_d(kvoisin))**2)
-                d_kvoisin_v2 = sqrt((x_centroid_d(kvoisin_v2)-x_centroid_d(kvoisin))**2 + (y_centroid_d(kvoisin_v2)-y_centroid_d(kvoisin))**2)
-                hr_upw=(d_kvoisin_v1*kvoisin_v1_h+d_kvoisin_v2*kvoisin_v2_h)/(d_kvoisin_v1+d_kvoisin_v2)
-                ur_upw=(d_kvoisin_v1*kvoisin_v1_u+d_kvoisin_v2*kvoisin_v2_u)/(d_kvoisin_v1+d_kvoisin_v2)
-                vr_upw=(d_kvoisin_v1*kvoisin_v1_v+d_kvoisin_v2*kvoisin_v2_v)/(d_kvoisin_v1+d_kvoisin_v2)
-                zmr_upw=(d_kvoisin_v1*zm_d(kvoisin_v1)+d_kvoisin_v2*zm_d(kvoisin_v2))/(d_kvoisin_v1+d_kvoisin_v2)
-                d_mkvoisin = (d_kvoisin_v1 + d_kvoisin_v2)/2.
-              end if
-
-            end if
-          else if(iupwind_d==2) then
-            !!Cherche quel côte est l'interface du coté de kvoisin
-            if(((connectivite_d(kvoisin,1) == connectivite_d(kvol,nc1)) .and. &
-              &(connectivite_d(kvoisin,2) == connectivite_d(kvol,nc2))) .or. &
-              &((connectivite_d(kvoisin,2) == connectivite_d(kvol,nc1)) .and. &
-              &(connectivite_d(kvoisin,1) == connectivite_d(kvol,nc2)))) then
-              tjv = 1
-            else if(((connectivite_d(kvoisin,2) == connectivite_d(kvol,nc1)) .and. &
-              &(connectivite_d(kvoisin,3) == connectivite_d(kvol,nc2))) .or. &
-              &((connectivite_d(kvoisin,3) == connectivite_d(kvol,nc1)) .and. &
-              &(connectivite_d(kvoisin,2) == connectivite_d(kvol,nc2)))) then
-              tjv = 2
-            else if(((connectivite_d(kvoisin,3) == connectivite_d(kvol,nc1)) .and. &
-              &(connectivite_d(kvoisin,1) == connectivite_d(kvol,nc2))) .or. &
-              &((connectivite_d(kvoisin,1) == connectivite_d(kvol,nc1)) .and. &
-              &(connectivite_d(kvoisin,3) == connectivite_d(kvol,nc2)))) then
-              tjv = 3
-            end if
-
-            hl_upw = 0.
-            ul_upw = 0.
-            vl_upw = 0.
-            kupw1_area = 0.
-
-            hr_upw = 0.
-            ur_upw = 0.
-            vr_upw = 0.
-            kupw2_area = 0.
-
-            n_upw1 = 0
-            n_upw2 = 0
-
-            bary_kvolup_x = 0.
-            bary_kvolup_y = 0.
-
-            bary_kvoisinup_x = 0.
-            bary_kvoisinup_y = 0.
-
-            zml_upw = 0.
-            zmr_upw = 0.
-
-            d_kvol_sum = 0.
-            d_kvoisin_sum = 0.
-
-            !!Calcul du barycentre des cellules upwinds
-            do i=1,6
-              kupw1 = vertex_neighbors_d(i,connectivite_d(kvol,1+mod((nc1+2)-1,3))) 
-              if(kupw1 > 0 .and. kupw1 /= kvol) then
-                orient = (x_centroid_d(kupw1)-x_centroid_d(kvol))*(-norm(1))&
-                  &+(y_centroid_d(kupw1)-y_centroid_d(kvol))*(-norm(2))
-                if(orient > 0) then
-                  bary_kvolup_x = bary_kvolup_x + surf_d(kupw1)*x_centroid_d(kupw1)
-                  bary_kvolup_y = bary_kvolup_y + surf_d(kupw1)*y_centroid_d(kupw1)
-
-                  d_kvol_v1 = sqrt((x_centroid_d(kupw1)-x_centroid_d(kvol))**2 + (y_centroid_d(kupw1)-y_centroid_d(kvol))**2)
-                  d_kvol_sum = d_kvol_sum + d_kvol_v1
-
-                  if(vdlg0_d(1,kupw1) > tolisec_d) then
-                    ! hl_upw = hl_upw + vdlg0_d(1,kupw1)*surf_d(kupw1)
-                    ! ul_upw = ul_upw + (vdlg0_d(2,kupw1) * norm(1) + vdlg0_d(3,kupw1) * norm(2))*surf_d(kupw1)/vdlg0_d(1,kupw1)
-                    ! vl_upw = vl_upw + (vdlg0_d(3,kupw1) * norm(1) - vdlg0_d(2,kupw1) * norm(2))*surf_d(kupw1)/vdlg0_d(1,kupw1)
-                    hl_upw = hl_upw + vdlg0_d(1,kupw1)*d_kvol_v1
-                    ul_upw = ul_upw + (vdlg0_d(2,kupw1) * norm(1) + vdlg0_d(3,kupw1) * norm(2))*d_kvol_v1/vdlg0_d(1,kupw1)
-                    vl_upw = vl_upw + (vdlg0_d(3,kupw1) * norm(1) - vdlg0_d(2,kupw1) * norm(2))*d_kvol_v1/vdlg0_d(1,kupw1)
-                  end if
-
-                  zml_upw = zml_upw + d_kvol_v1*zm_d(kupw1)
-
-                  kupw1_area = kupw1_area + surf_d(kupw1)
-                  n_upw1 = n_upw1 + 1
-                end if
-              end if
-
-              kupw2 = vertex_neighbors_d(i,connectivite_d(kvoisin,1+mod((tjv+2)-1,3)))
-              if(kupw2 > 0 .and. kupw2 /= kvoisin) then
-                orient = (x_centroid_d(kupw2)-x_centroid_d(kvoisin))*norm(1)+(y_centroid_d(kupw2)-y_centroid_d(kvoisin))*norm(2)
-                if(orient > 0) then
-                  bary_kvoisinup_x = bary_kvoisinup_x + surf_d(kupw2)*x_centroid_d(kupw2)
-                  bary_kvoisinup_y = bary_kvoisinup_y + surf_d(kupw2)*y_centroid_d(kupw2)
-
-                  d_kvoisin_v1 = sqrt((x_centroid_d(kupw2)-x_centroid_d(kvoisin))**2 + (y_centroid_d(kupw2)-y_centroid_d(kvoisin))**2)
-                  d_kvoisin_sum = d_kvoisin_sum + d_kvoisin_v1
-
-                  if(vdlg0_d(1,kupw2) > tolisec_d) then
-                    ! hr_upw = hr_upw + vdlg0_d(1,kupw2)*surf_d(kupw2)
-                    ! ur_upw = ur_upw + (vdlg0_d(2,kupw2) * norm(1) + vdlg0_d(3,kupw2) * norm(2))*surf_d(kupw2)/vdlg0_d(1,kupw2)
-                    ! vr_upw = vr_upw + (vdlg0_d(3,kupw2) * norm(1) - vdlg0_d(2,kupw2) * norm(2))*surf_d(kupw2)/vdlg0_d(1,kupw2)
-                    hr_upw = hr_upw + vdlg0_d(1,kupw2)*d_kvoisin_v1
-                    ur_upw = ur_upw + (vdlg0_d(2,kupw2) * norm(1) + vdlg0_d(3,kupw2) * norm(2))*d_kvoisin_v1/vdlg0_d(1,kupw2)
-                    vr_upw = vr_upw + (vdlg0_d(3,kupw2) * norm(1) - vdlg0_d(2,kupw2) * norm(2))*d_kvoisin_v1/vdlg0_d(1,kupw2)
-                  end if
-
-                  zmr_upw = zmr_upw + d_kvoisin_v1*zm_d(kupw2)
-
-                  kupw2_area = kupw2_area + surf_d(kupw2)
-                  n_upw2 = n_upw2 + 1
-                end if
-              end if
-            end do
-
-            if(n_upw1 > 0 .and. n_upw2 > 0) then
-              bary_kvolup_x = bary_kvolup_x/kupw1_area
-              bary_kvolup_y = bary_kvolup_y/kupw1_area
-
-              bary_kvoisinup_x = bary_kvoisinup_x/kupw2_area
-              bary_kvoisinup_y = bary_kvoisinup_y/kupw2_area
-
-              ! d_mkvol = (bary_kvolup_x-x_centroid_d(kvol))*(-norm(1))+(bary_kvolup_y-y_centroid_d(kvol))*(-norm(2))
-              d_mkvol = d_kvol_sum/n_upw1
-              hl_upw = hl_upw / d_kvol_sum
-              ul_upw = ul_upw / d_kvol_sum
-              vl_upw = vl_upw / d_kvol_sum
-
-              zml_upw = zml_upw / d_kvol_sum
-
-              ! d_mkvoisin = (bary_kvoisinup_x-x_centroid_d(kvoisin))*norm(1)+(bary_kvoisinup_y-y_centroid_d(kvoisin))*norm(2)
-              d_mkvoisin = d_kvoisin_sum/n_upw2
-              hr_upw = hr_upw / d_kvoisin_sum
-              ur_upw = ur_upw / d_kvoisin_sum
-              vr_upw = vr_upw / d_kvoisin_sum
-
-              zmr_upw = zmr_upw / d_kvoisin_sum
-              ! if(n_upw1/=5 .or. n_upw2/=5) print*,gi, n_upw1, n_upw2
-            else
-              !!Back to order 1 
-              d_mkvol = d_mrl
-              hl_upw = hautl
-              ul_upw = vitul
-              vl_upw = vitvl
-              zml_upw = zml
-
-              d_mkvoisin = d_mrl
-              hr_upw = hautr
-              ur_upw = vitur
-              vr_upw = vitvr
-              zmr_upw = zmr
-            end if
+          kvol_v1_h = vdlg0_d(1,kvol_v1)
+          if(kvol_v1_h>tolisec_d) then
+            kvol_v1_u = (vdlg0_d(2,kvol_v1) * norm(1) + vdlg0_d(3,kvol_v1) * norm(2))/kvol_v1_h
+            kvol_v1_v = (vdlg0_d(3,kvol_v1) * norm(1) - vdlg0_d(2,kvol_v1) * norm(2))/kvol_v1_h
+          else
+            kvol_v1_h = 0.
+            kvol_v1_u = 0.
+            kvol_v1_v = 0.
           end if
 
-          !!Reconstruction hydro
-          ! if(zml_upw-zml < 1e-8) then
-          !   delta_zml = 0.
-          ! else
-          !   call simple_limiter(zml-zml_upw, zmr-zml, delta_zml)
-          ! end if
-          ! if(zmr_upw-zmr < 1e-8) then
-          !   delta_zmr = 0.
-          ! else
-          !   call simple_limiter(zmr-zml, zmr_upw-zmr, delta_zmr)
-          ! end if
-          ! zij = max(zml+0.5*delta_zml,zmr-0.5*delta_zmr) ! Test recons ordre 2
-          zij = max(zml,zmr) ! Recons hydro ordre 1
+          kvol_v2_h = vdlg0_d(1,kvol_v2)
+          if(kvol_v2_h>tolisec_d) then
+            kvol_v2_u = (vdlg0_d(2,kvol_v2) * norm(1) + vdlg0_d(3,kvol_v2) * norm(2))/kvol_v2_h
+            kvol_v2_v = (vdlg0_d(3,kvol_v2) * norm(1) - vdlg0_d(2,kvol_v2) * norm(2))/kvol_v2_h
+          else
+            kvol_v2_h = 0.
+            kvol_v2_u = 0.
+            kvol_v2_v = 0.
+          end if
+
+
+          !!Cherche quel côte est l'interface du coté de kvoisin
+          if(((connectivite_d(kvoisin,1) == connectivite_d(kvol,nc1)) .and. &
+            &(connectivite_d(kvoisin,2) == connectivite_d(kvol,nc2))) .or. &
+            &((connectivite_d(kvoisin,2) == connectivite_d(kvol,nc1)) .and. &
+            &(connectivite_d(kvoisin,1) == connectivite_d(kvol,nc2)))) then
+            tjv = 1
+          else if(((connectivite_d(kvoisin,2) == connectivite_d(kvol,nc1)) .and. &
+            &(connectivite_d(kvoisin,3) == connectivite_d(kvol,nc2))) .or. &
+            &((connectivite_d(kvoisin,3) == connectivite_d(kvol,nc1)) .and. &
+            &(connectivite_d(kvoisin,2) == connectivite_d(kvol,nc2)))) then
+            tjv = 2
+          else if(((connectivite_d(kvoisin,3) == connectivite_d(kvol,nc1)) .and. &
+            &(connectivite_d(kvoisin,1) == connectivite_d(kvol,nc2))) .or. &
+            &((connectivite_d(kvoisin,1) == connectivite_d(kvol,nc1)) .and. &
+            &(connectivite_d(kvoisin,3) == connectivite_d(kvol,nc2)))) then
+            tjv = 3
+          end if
+
+          kvoisin_v1 = upwind_cells_d(1,tjv,kvoisin)
+          kvoisin_v2 = upwind_cells_d(2,tjv,kvoisin)
+
+          kvoisin_v1_h = vdlg0_d(1,kvoisin_v1)
+          if(kvoisin_v1_h>tolisec_d) then
+            kvoisin_v1_u = (vdlg0_d(2,kvoisin_v1) * norm(1) + vdlg0_d(3,kvoisin_v1) * norm(2))/kvoisin_v1_h
+            kvoisin_v1_v = (vdlg0_d(3,kvoisin_v1) * norm(1) - vdlg0_d(2,kvoisin_v1) * norm(2))/kvoisin_v1_h
+          else
+            kvoisin_v1_h = 0.
+            kvoisin_v1_u = 0.
+            kvoisin_v1_v = 0.
+          end if
+
+          kvoisin_v2_h = vdlg0_d(1,kvoisin_v2)
+          if(kvoisin_v2_h>tolisec_d) then
+            kvoisin_v2_u = (vdlg0_d(2,kvoisin_v2) * norm(1) + vdlg0_d(3,kvoisin_v2) * norm(2))/kvoisin_v2_h
+            kvoisin_v2_v = (vdlg0_d(3,kvoisin_v2) * norm(1) - vdlg0_d(2,kvoisin_v2) * norm(2))/kvoisin_v2_h
+          else
+            kvoisin_v2_h = 0.
+            kvoisin_v2_u = 0.
+            kvoisin_v2_v = 0.
+          end if
+
+          !!Si un des voisins n'est pas trouvable on retourne à l'ordre 1
+          if(((kvol_v1 == kvol) .and. (kvol_v2==kvol)) .or. ((kvoisin_v1==kvoisin) .and. (kvoisin_v2==kvoisin))) then
+            hl_upw=hautl
+            ul_upw=vitul
+            vl_upw=vitvl
+
+            hr_upw=hautr
+            ur_upw=vitur
+            vr_upw=vitvr
+
+            d_mkvol = d_mrl
+            d_mkvoisin = d_mrl
+
+            zml_upw = zml
+            zmr_upw = zmr
+
+          else
+
+            if(kvol_v1 == kvol) then
+              hl_upw=kvol_v2_h
+              ul_upw=kvol_v2_u
+              vl_upw=kvol_v2_v
+              d_mkvol = d_kvol_v2
+              zml_upw = zm_d(kvol_v2)
+            else if(kvol_v2 == kvol) then
+              hl_upw=kvol_v1_h
+              ul_upw=kvol_v1_u
+              vl_upw=kvol_v1_v
+              d_mkvol = d_kvol_v1
+              zml_upw = zm_d(kvol_v1)
+            else
+              d_kvol_v1 = sqrt((x_centroid_d(kvol_v1)-x_centroid_d(kvol))**2 + (y_centroid_d(kvol_v1)-y_centroid_d(kvol))**2)
+              d_kvol_v2 = sqrt((x_centroid_d(kvol_v2)-x_centroid_d(kvol))**2 + (y_centroid_d(kvol_v2)-y_centroid_d(kvol))**2)
+              hl_upw=(d_kvol_v1*kvol_v1_h+d_kvol_v2*kvol_v2_h)/(d_kvol_v1+d_kvol_v2)
+              ul_upw=(d_kvol_v1*kvol_v1_u+d_kvol_v2*kvol_v2_u)/(d_kvol_v1+d_kvol_v2)
+              vl_upw=(d_kvol_v1*kvol_v1_v+d_kvol_v2*kvol_v2_v)/(d_kvol_v1+d_kvol_v2)
+              zml_upw=(d_kvol_v1*zm_d(kvol_v1)+d_kvol_v2*zm_d(kvol_v2))/(d_kvol_v1+d_kvol_v2)
+              d_mkvol = (d_kvol_v1 + d_kvol_v2)/2.
+            end if
+
+            if(kvoisin_v1 == kvoisin) then
+              hr_upw=kvoisin_v2_h
+              ur_upw=kvoisin_v2_u
+              vr_upw=kvoisin_v2_v
+
+              d_kvoisin_v2 = sqrt((x_centroid_d(kvoisin_v2)-x_centroid_d(kvoisin))**2 + (y_centroid_d(kvoisin_v2)-y_centroid_d(kvoisin))**2)
+              d_mkvoisin = d_kvoisin_v2
+              zmr_upw = zm_d(kvoisin_v2)
+            else if(kvoisin_v2 == kvoisin) then
+              hr_upw=kvoisin_v1_h
+              ur_upw=kvoisin_v1_u
+              vr_upw=kvoisin_v1_v
+
+              d_kvoisin_v1 = sqrt((x_centroid_d(kvoisin_v1)-x_centroid_d(kvoisin))**2 + (y_centroid_d(kvoisin_v1)-y_centroid_d(kvoisin))**2)
+              d_mkvoisin = d_kvoisin_v1
+              zmr_upw = zm_d(kvoisin_v1)
+            else
+              d_kvoisin_v1 = sqrt((x_centroid_d(kvoisin_v1)-x_centroid_d(kvoisin))**2 + (y_centroid_d(kvoisin_v1)-y_centroid_d(kvoisin))**2)
+              d_kvoisin_v2 = sqrt((x_centroid_d(kvoisin_v2)-x_centroid_d(kvoisin))**2 + (y_centroid_d(kvoisin_v2)-y_centroid_d(kvoisin))**2)
+              hr_upw=(d_kvoisin_v1*kvoisin_v1_h+d_kvoisin_v2*kvoisin_v2_h)/(d_kvoisin_v1+d_kvoisin_v2)
+              ur_upw=(d_kvoisin_v1*kvoisin_v1_u+d_kvoisin_v2*kvoisin_v2_u)/(d_kvoisin_v1+d_kvoisin_v2)
+              vr_upw=(d_kvoisin_v1*kvoisin_v1_v+d_kvoisin_v2*kvoisin_v2_v)/(d_kvoisin_v1+d_kvoisin_v2)
+              zmr_upw=(d_kvoisin_v1*zm_d(kvoisin_v1)+d_kvoisin_v2*zm_d(kvoisin_v2))/(d_kvoisin_v1+d_kvoisin_v2)
+              d_mkvoisin = (d_kvoisin_v1 + d_kvoisin_v2)/2.
+            end if
+
+          end if
+
+          !!Reconstruction hydrostatique
+          zij = max(zml,zmr)
           hijet = max(0.0d0, hautl + zml - zij)
           hl_upw = max(0.d0, hl_upw + zml_upw - zij)
 
@@ -516,25 +369,25 @@ contains
           hr_upw = max(0.d0, hr_upw + zmr_upw - zij)
 
           if(hijet < tolisec_d) then
-            hijet = tolisec_d
+            hijet = 0.
             vitul = 0.
             vitvl = 0.
           end if
 
           if(hl_upw < tolisec_d) then
-            hl_upw = tolisec_d
+            hl_upw = 0.
             ul_upw = 0.
             vl_upw = 0.
           end if
 
           if(hjiet < tolisec_d) then
-            hjiet = tolisec_d
+            hjiet = 0.
             vitur = 0.
             vitvr = 0.
           end if
 
           if(hr_upw < tolisec_d) then
-            hr_upw = tolisec_d
+            hr_upw = 0.
             ur_upw = 0.
             vr_upw = 0.
           end if
@@ -699,17 +552,16 @@ contains
     dtoverdx = dt_d/d_mrl
 
     !!!Data reconstruction I
-    ! delta_N(1) = (hl-hl_upw)/d_mkvol
-    ! delta_N(2) = (ul-ul_upw)/d_mkvol
-    ! delta_N(3) = (vl-vl_upw)/d_mkvol
-    delta_N(1) = (hl-hl_upw)/d_mrl
-    delta_N(2) = (ul-ul_upw)/d_mrl
-    delta_N(3) = (vl-vl_upw)/d_mrl
+    delta_N(1) = (hl-hl_upw)/d_mkvol
+    delta_N(2) = (ul-ul_upw)/d_mkvol
+    delta_N(3) = (vl-vl_upw)/d_mkvol
+    ! delta_N(1) = (hl-hl_upw)/d_mrl
+    ! delta_N(2) = (ul-ul_upw)/d_mrl
+    ! delta_N(3) = (vl-vl_upw)/d_mrl
     delta_M(1) = (hr-hl)/d_mrl
     delta_M(2) = (ur-ul)/d_mrl
     delta_M(3) = (vr-vl)/d_mrl
     call simple_limiter(delta_N(1), delta_M(1), delta_hl)
-    ! delta_hl = (hr-hl_upw)/(d_mrl+d_mkvol)
     hll = max(0.d0, hl - 0.5*delta_hl*d_mrl)
     hlr = max(0.d0, hl + 0.5*delta_hl*d_mrl)
     if(hlr<tolisec_d .or. hll<tolisec_d) then
@@ -719,26 +571,23 @@ contains
       vll = 0.
     else
       call simple_limiter(delta_N(2), delta_M(2), delta_ul)
-      ! delta_ul = (hr-ul_upw)/(d_mrl+d_mkvol)
       call simple_limiter(delta_N(3), delta_M(3), delta_vl)
-      ! delta_vl = (vr-vl_upw)/(d_mrl+d_mkvol)
       ull = ul - 0.5*delta_ul*d_mrl
       vll = vl - 0.5*delta_vl*d_mrl
       ulr = ul + 0.5*delta_ul*d_mrl
       vlr = vl + 0.5*delta_vl*d_mrl
     end if
 
-    ! delta_M(1) = (hr_upw-hr)/d_mkvoisin
-    ! delta_M(2) = (ur_upw-ur)/d_mkvoisin
-    ! delta_M(3) = (vr_upw-vr)/d_mkvoisin
-    delta_M(1) = (hr_upw-hr)/d_mrl
-    delta_M(2) = (ur_upw-ur)/d_mrl
-    delta_M(3) = (vr_upw-vr)/d_mrl
+    delta_M(1) = (hr_upw-hr)/d_mkvoisin
+    delta_M(2) = (ur_upw-ur)/d_mkvoisin
+    delta_M(3) = (vr_upw-vr)/d_mkvoisin
+    ! delta_M(1) = (hr_upw-hr)/d_mrl
+    ! delta_M(2) = (ur_upw-ur)/d_mrl
+    ! delta_M(3) = (vr_upw-vr)/d_mrl
     delta_N(1) = (hr-hl)/d_mrl
     delta_N(2) = (ur-ul)/d_mrl
     delta_N(3) = (vr-vl)/d_mrl
     call simple_limiter(delta_N(1), delta_M(1), delta_hr)
-    ! delta_hr = (hr_upw-hl)/(d_mrl+d_mkvoisin)
     hrr = max(0.d0, hr + 0.5*delta_hr*d_mrl)
     hrl = max(0.d0, hr - 0.5*delta_hr*d_mrl)
     if(hrl<tolisec_d .or. hrr<tolisec_d) then
@@ -748,9 +597,7 @@ contains
       vrr = 0.
     else
       call simple_limiter(delta_N(2), delta_M(2), delta_ur)
-      ! delta_ur = (ur_upw-ul)/(d_mrl+d_mkvoisin)
       call simple_limiter(delta_N(3), delta_M(3), delta_vr)
-      ! delta_vr = (vr_upw-vl)/(d_mrl+d_mkvoisin)
       urr = ur + 0.5*delta_ur*d_mrl
       vrr = vr + 0.5*delta_vr*d_mrl
       url = ur - 0.5*delta_ur*d_mrl
@@ -761,16 +608,10 @@ contains
     hl = hlr + 0.5*dtoverdx*(hll*ull - hlr*ulr)
     ul = ulr + 0.5*dtoverdx*(hll*ull**2 + 0.5*gp_d*hll**2 - (hlr*ulr**2 +0.5*gp_d*hlr**2))
     vl = vlr + 0.5*dtoverdx*(hll*ull*vll - hlr*ulr*vlr)
-    ! hl = hlr
-    ! ul = ulr
-    ! vl = vlr
 
     hr = hrl + 0.5*dtoverdx*(hrl*url - hrr*urr)
     ur = url + 0.5*dtoverdx*(hrl*url**2 + 0.5*gp_d*hrl**2 - (hrr*urr**2 +0.5*gp_d*hrr**2))
     vr = vrl + 0.5*dtoverdx*(hrl*url*vrl - hrr*urr*vrr)
-    ! hr = hrl
-    ! ur = url
-    ! vr = vrl
 
     if(hl.lt.eps.and.hr.lt.eps) goto 21
 
@@ -996,9 +837,7 @@ contains
     endif
     !!END CLASSIC HLLC
 
-    !OK
     dtoverdx =  dt_d/d_mrl !!cotemin_arr_d is 1.8*inscribed_circle_radius
-    ! dtoverdx =  4.*dt_d/d_mrl !!cotemin_arr_d is 1.8*inscribed_circle_radius
 
     cr = sr * dtoverdx
     cl = sl * dtoverdx
@@ -1047,7 +886,7 @@ contains
     flux_waf(2) = wl*f(1,2) + wlr*flux_hllc(2) + wr*f(2,2)
     flux_waf(3) = (wlet*vl + wret*vr)*flux_waf(1)
 
-    ! *** reprojection du flux ***
+    ! Reprojection du flux
     flux(1) = flux_waf(1)
     flux(2) = norm(1)*flux_waf(2) - norm(2)*flux_waf(3)
     flux(3) = norm(2)*flux_waf(2) + norm(1)*flux_waf(3)                       
@@ -1173,6 +1012,7 @@ contains
       end if
     endif
 
+    ! Reprojection flux
     flux(1) = flux_hllc(1)
     flux(2) = norm(1) * flux_hllc(2) - norm(2) * flux_hllc(3)
     flux(3) = norm(2) * flux_hllc(2) + norm(1) * flux_hllc(3)                       
@@ -1180,7 +1020,6 @@ contains
 
 
   attributes(device) subroutine solver_Riemann_riadh(kvol,kvoisin,surf,norm,vdlg,hl,ul,vl,hr,ur,vr,zml,zmr,flux,ln,pp)
-    ! Import des routines de Riadh ATA pour HLLC
     ! Méthode de l'article : 
     ! A Weighted Average Flux (WAF) scheme applied to shallow waterequations for real-life applications
     ! Riadh ATA et al.

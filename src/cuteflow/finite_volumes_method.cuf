@@ -17,7 +17,7 @@ contains
 
     implicit none
 
-    !*** Variables locales ***
+    !! Variables locales
     integer :: stat(MPI_STATUS_SIZE)
     integer :: iter_nodes, iter_entree
     integer :: i, j, k
@@ -109,7 +109,7 @@ contains
     grid_surf_entree   = dim3(ceiling(real(nelt_input)/real(tblock_surf_entree%x)), 1, 1)
 
 
-    !!Initial dt exchange
+    !! Initial dt exchange
     call cflcond<<<grid, tblock>>>(vdlg0_d,deltatmin_d)
     call reduction<<<grid_reduc, tblock_reduc, tblock_reduc%x*sizeof(deltatmin_d(1))>>>(deltatmin_d)
     if(num_mpi_process>1) call MPI_ALLREDUCE(MPI_IN_PLACE,dt_d,1,fp_kind_mpi,MPI_MIN,MPI_COMM_WORLD, mpi_ierr)
@@ -129,8 +129,6 @@ contains
 
       debit_entree  = 0.d0
       debit_sortie  = 0.d0
-
-      if(iupwind==3) call update_sol_nodes<<<grid_nodes, tblock_nodes, 0, stream1>>> 
 
       if(inlet=="phys_inflow" .and. nombre_entrees>0) then
           ierr = cudamemcpyasync(surf_entree_d, zero_entree_d, nombre_entrees, stream1)
@@ -299,8 +297,7 @@ contains
       vdlg_d(:,gi) = vdlg0_d(:,gi) + dt_d * res_d(:,gi)
 
       if(vdlg_d(1,gi) <= tolisec_d) then
-        ! vdlg_d(1,gi) = 0.
-        vdlg_d(1,gi) = tolisec_d
+        vdlg_d(1,gi) = 0.
         vdlg_d(2,gi) = 0.
         vdlg_d(3,gi) = 0.
       end if
@@ -352,12 +349,11 @@ contains
 
     integer :: iter_entree
 
-    ! *** Affichage de l'avancement ***
+    !! Affichage de l'avancement
     if ( mod(nt,freqaffich)==0 ) then
       print*,'-----------------------------------------------'
 
       write(*,*) 'Iteration number ', nt, ", t = ", tc
-      ! if(solvisu>0) print*,'Next solution time save = ', tsolvisu(cptsolvisu), cptsolvisu
 
       do iter_entree=1,nombre_entrees
         print*, 'debit_entree ', iter_entree, " = " ,debit_entree(iter_entree)
@@ -370,7 +366,6 @@ contains
     endif
 
   end subroutine print_status_in_console 
-
 
   subroutine check_steady_state
     use precision_kind

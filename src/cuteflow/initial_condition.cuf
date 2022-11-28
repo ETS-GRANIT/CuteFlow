@@ -9,7 +9,7 @@ contains
     implicit none
 
     real(fp_kind) :: x1, x2 ,x3, x4, y1, y2, y3, y4, rayvol, vdlg0_dgi1, v1, v2, zmd
-    real(fp_kind) :: alpha, beta, X, Y, r_sup, omega, dist_min, x1coupe, x2coupe, y1coupe, y2coupe, dO_P1, dO_P2
+    real(fp_kind) :: alpha, beta, X, Y, r_sup, omega, dist_min, dO_P1, dO_P2
     integer :: ti,gi 
 
     ti = threadIdx%x
@@ -43,7 +43,7 @@ contains
             vdlg0_d(2,gi) = vdlg0_dgi1 * u_amont_d
             vdlg0_d(3,gi) = vdlg0_dgi1 * v_amont_d   
           else
-            vdlg0_d(1,gi) = tolisec_d
+            vdlg0_d(1,gi) = 0.
             vdlg0_d(2,gi) = 0.
             vdlg0_d(3,gi) = 0.
           end if
@@ -56,7 +56,7 @@ contains
             vdlg0_d(2,gi) = vdlg0_dgi1 * u_aval_d
             vdlg0_d(3,gi) = vdlg0_dgi1 * v_aval_d
           else
-            vdlg0_d(1,gi) = tolisec_d
+            vdlg0_d(1,gi) = 0.
             vdlg0_d(2,gi) = 0.
             vdlg0_d(3,gi) = 0.
           end if
@@ -71,7 +71,7 @@ contains
           vdlg0_d(2,gi) = vdlg0_dgi1 * u_aval_d
           vdlg0_d(3,gi) = vdlg0_dgi1 * v_aval_d
         else
-          vdlg0_d(1,gi) = tolisec_d
+          vdlg0_d(1,gi) = 0.
           vdlg0_d(2,gi) = 0.
           vdlg0_d(3,gi) = 0.
         end if

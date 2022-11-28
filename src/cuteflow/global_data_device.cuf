@@ -1,11 +1,6 @@
 module global_data_device
   use precision_kind
   use cudafor
-  ! ======================================================================
-  !     global = module de stockage des variables(variable storage module)
-  !     auteur  : Youssef Loukili  GRANIT ETSMTL
-  !     version : 1.0  ;  May 12 2003
-  ! ======================================================================
 
   integer, device :: mpi_process_id_d
 
@@ -52,7 +47,7 @@ module global_data_device
   integer, device :: nelt_input_d
   integer, device, dimension(:), allocatable :: elem_input_d
   integer, device, dimension(:, :)  ,   allocatable :: elt_fant_recep_d, elt_fant_envoi_d
-  integer, device, dimension(:,:),   allocatable :: connectivite_d, vertex_neighbors_d
+  integer, device, dimension(:,:),   allocatable :: connectivite_d
   integer, device, dimension(:,:,:),   allocatable :: boundary_d , upwind_cells_d
   real(fp_kind), device, dimension(:)  ,   allocatable :: manning_nd_d, manning_nelt_d, long_entree_d, surf_entree_d, zero_entree_d
   real(fp_kind), device, dimension(:,:),   allocatable :: coo_table_elemwise_d, coordonnees_d !, phi_d, phi_h_d, phi_eta_d 

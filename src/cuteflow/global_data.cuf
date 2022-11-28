@@ -1,10 +1,4 @@
 module global_data
-  ! ======================================================================
-  !     global = module de stockage des variables
-  !     auteur  : Youssef Loukili  GRANIT ETSMTL
-  !     version : 1.0  ;  May 12 2003
-  ! ======================================================================
-
   use precision_kind
   use cudafor
 
@@ -37,12 +31,10 @@ module global_data
   integer             :: friction=0, is_override_manning, diffusion=0
   real(fp_kind)       :: gp, override_manning
 
-
   !! Variables donnees du maillage
   character(len=60)       :: meshfile, meshfile_path="./", meshfile_nodes_out, meshfile_out
   integer                 :: elt_bound, nombre_entrees, nombre_sorties
   integer, dimension(20)  :: elts
-
 
   !! Variables donnees initiales
   character(len=200)  :: fich_sol_init
@@ -65,7 +57,6 @@ module global_data
   real(fp_kind) :: constant_dt=0.
   real(fp_kind), allocatable, pinned :: dt, dt_max !!pinned ofr better CPU-GPU exchange
   real(fp_kind) :: tol=1e-6, tolaffiche=1e-2
-  real(fp_kind), dimension(10) :: coupe_a, coupe_b
 
   integer :: visu_snapshots, base_unique, nonlin, solvisu, k_base
   integer :: is_cgns=0, is_dt_constant=0
@@ -102,17 +93,12 @@ module global_data
   & sortie_finale_bluekenue
 
   !! Input pour l'analyse stochastiqu
-  character (2)  :: key, genrelt
-  character (3)  :: un_voisin_sec
-  character,  allocatable  :: un_voisin_sec1(:)
   character (30) :: aaa1, bbb1, ntrirec, mpi_process_id_string, nom_methode
   character (30) :: valtemps, D_ETA, D_DEBIT, AFF_DEBITS, debit_tot, coef_frot
   character (2)  :: njaug
-  character (200):: SOLFILE2D, SOLFILE3D, SOLFILE2D_MC, SOLFILE3D_MC, TECPLOT, SOLFILEMC, fichsolfile3d_MC_FV 
-  character (200):: SOLFILEJ_ETA, SOLFILEJ_H, SOLFILEJ_U, SOLFILEJ_V, fich_debit_coupe, file_BC, file_Q_coupes
   character (200):: sol_elt_ts, sol_elt_final, sol_nd_final 
   character (200):: solfile_eta_T3S, solfile_h_T3S, solfile_u_T3S, solfile_v_T3S
-  character (200):: solfile_para, solfile_simple
+  character (200):: solfile_para, solfile_simple, file_bc
 
   character (20):: base_h_num, base_eta_num, base_eta_tild_num, base_hu_num, base_hv_num, base_u_num, base_v_num, lamda_moy_num, lamda_max_num
   character (1)::  num_seq_base1
@@ -137,16 +123,14 @@ module global_data
   real(fp_kind), dimension(20) :: debit_entree
   real(fp_kind) :: h0, coef_bol  ! Pour le problème du bol parabolique 
 
-  !real(fp_kind), dimension(200000)             :: tvis3d2 , tvis2d2, tsoljauge, tsolrestart, tsolvisu
   real(fp_kind), dimension(:), allocatable             :: tsolvisu, long_entree, cotemin_arr 
   character(len=32), dimension(:), allocatable :: solname_visu
-  integer, dimension(:)  ,   allocatable :: ndinput, ndoutput, ndwall, i_dry_wet, nbr_nds_coupes, numero_ndinput, numero_ndoutput
+  integer, dimension(:)  ,   allocatable :: ndinput, ndoutput, ndwall, i_dry_wet, numero_ndinput, numero_ndoutput
   integer :: nelt_input
   integer, dimension(:), allocatable :: elem_input
   real(fp_kind), dimension(:), allocatable :: surf_entree
-  ! integer, dimension(:,:), allocatable :: elt_fant_recep, elt_fant_envoi
   integer, dimension(:,:), allocatable :: elt_fant_recep_bloc, elt_fant_envoi_bloc
-  integer, dimension(:,:),   allocatable :: connectivite, ij_wet_dry, ij_dry_wet, nds_coupes, vertex_neighbors
+  integer, dimension(:,:),   allocatable :: connectivite, ij_wet_dry, ij_dry_wet
   integer, dimension(:,:,:),   allocatable :: boundary
   real(fp_kind), dimension(:)  ,   allocatable :: flux_interface, manning_nd, manning_nelt
   real(fp_kind), dimension(:,:),   allocatable :: coo_table_elemwise, coordonnees, phi, phi_h, phi_eta, phi_eta_tild, phi_hu, phi_hv, phi_u, phi_v, phij_u, phij_v, phi_h_eta
@@ -165,8 +149,6 @@ module global_data
   real(fp_kind)                                :: lamda, max_a_eta
   real(fp_kind), dimension(:)  ,   allocatable :: sourcfric_hv, elts_entree, elts_sortie
   real(fp_kind), dimension(:,:),   allocatable :: Cg2_eta_tild, Cg3_eta_tild, debit_t
-
-  real(fp_kind), dimension(10)                 :: Q_coupe
 
   type(cudaDeviceProp)                    :: prop
 
@@ -192,7 +174,6 @@ module global_data
   type(dim3)      :: grid_send, tblock_send, grid_nonsend, tblock_nonsend
   type(dim3)      :: grid_3y_nonsend, tblock_3y_nonsend, grid_3y_send, tblock_3y_send
   type(dim3)      :: grid_surf_entree, tblock_surf_entree
-
 
   !!Vars for file write cgns
   integer :: my_zone_cgw, fn_cgw, base_cgw, n_zones_cgw

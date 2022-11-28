@@ -39,7 +39,6 @@ contains
     ypoint_d = ypoint
     zpoint_d = zpoint
 
-
     !! Simulation variables
     if(inlet == 'transm') then
       tempinlet = 1
@@ -52,7 +51,6 @@ contains
       inlet_d = tempinlet
     endif
 
-    ! loi_debitglob_d = loi_debitglob
     iflux_d         = iflux
     ilimiteur_d     = ilimiteur
     iupwind_d       = iupwind

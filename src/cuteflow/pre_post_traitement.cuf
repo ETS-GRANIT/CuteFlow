@@ -11,7 +11,7 @@ contains
 
     integer :: ierr
 
-    ! *** Stockage de la solution pour postraitement et animation 
+    !! Stockage de la solution pour postraitement et animation
     if(solvisu > 0 .and. cptsolvisu<=visu_snapshots)then
       if(cptsolvisu>0) tolaffiche=1.5*dt
 
@@ -88,12 +88,6 @@ contains
   end subroutine ouv_fichiers
 
   subroutine bluekenue_export
-    ! =================================================================================
-    !     bluekenue_export == Exporte dans un fichier pour postraitement avec Bluekenue
-    !     auteur : Zokagoa Jean-Marie  GRANIT ETSMTL
-    !     version : 2.0  ;  mai 31 2010
-    ! =================================================================================
-
     use precision_kind
     use global_data
     use file_id
@@ -398,12 +392,6 @@ contains
   end subroutine cgns_export
 
   subroutine paraview_export(ci)
-    ! ==============================================================================
-    !     paraview_export == Exporte dans un fichier vtk pour postraitement avec paraview
-    !     auteur : Delmas Vincent
-    !     version : 2.0  ;  july 31 2019
-    ! ==============================================================================
-
     use precision_kind
     use global_data
     use file_id
@@ -509,58 +497,4 @@ contains
 
     rewind (ec_sol_elt_t)
   end subroutine save_sol_for_restart
-
-  attributes(global) subroutine update_sol_elems
-    use precision_kind
-    use global_data_device
-
-    implicit none
-
-    integer :: ti, gi
-
-    integer :: mgi, k
-
-    ti = threadIdx%x
-    gi = (blockIdx%x - 1)*blockDim%x + ti
-
-    if(gi <= nelt_d) then
-      vdlg_d(:,gi) = 0.
-      do k=1,3
-        mgi = connectivite_d(gi,k)
-        if(vdlg_nodes_d(1,mgi)>tolisec_d) then
-          vdlg_d(:,gi) = vdlg_d(:,gi) + vdlg_nodes_d(:,mgi)
-        end if
-      end do
-      vdlg_d(:,gi) = vdlg_d(:,gi)/3.
-    end if
-  end subroutine update_sol_elems
-
-  attributes(global) subroutine update_sol_nodes
-    use precision_kind
-    use global_data_device
-
-    implicit none
-
-    integer :: ti, gi
-
-    integer :: mgi, k
-    real(fp_kind) :: area_loc
-
-    ti = threadIdx%x
-    gi = (blockIdx%x - 1)*blockDim%x + ti
-
-    if(gi <= nnt_d) then
-      vdlg_nodes_d(:,gi) = 0.
-      do k=1,6
-        mgi = vertex_neighbors_d(k,gi)
-        if(mgi > 0) then
-          if(vdlg_d(1,mgi) > tolisec_d) then
-            vdlg_nodes_d(:,gi) = vdlg_nodes_d(:,gi) + vdlg_d(:,mgi)*surf_d(mgi)
-          end if
-          area_loc = area_loc + surf_d(mgi)
-        end if
-      end do
-      if(area_loc > 1e-12) vdlg_nodes_d(:,gi) = vdlg_nodes_d(:,gi)/area_loc
-    end if
-  end subroutine update_sol_nodes
 end module pre_post_traitement
