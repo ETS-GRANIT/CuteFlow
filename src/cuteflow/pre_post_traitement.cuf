@@ -288,6 +288,7 @@ contains
 
   subroutine cgns_export(it)
     use global_data
+    use global_data_device
     use precision_kind
     use file_id
     use cgns
@@ -297,7 +298,8 @@ contains
     integer, intent(in) :: it
 
     integer :: sol, zone, ierr, i
-    integer :: field_wd, field_vx, field_vy, field_vz, field_mx, field_my, field_mz, field_b, field_fs
+    integer :: field_wd, field_vx, field_vy, field_vz, field_mx, field_my, field_mz, field_b
+    integer :: field_man, field_fs
     integer, dimension(2) :: idata
     character(200) :: basename, zonename
 
@@ -317,6 +319,11 @@ contains
 
       call cgp_field_write_f(fn_cgw, base_cgw, zone, sol, 4, 'Free surface elevation', field_fs, ierr)
       if (ierr .ne. CG_OK) call cgp_error_exit_f
+
+      if( .not. is_override_manning ) then
+        call cgp_field_write_f(fn_cgw, base_cgw, zone, sol, 4, 'Manning', field_man, ierr)
+        if (ierr .ne. CG_OK) call cgp_error_exit_f
+      end if
 
       call cgp_field_write_f(fn_cgw, base_cgw, zone, sol, 4, 'MomentumX', field_mx, ierr)
       if (ierr .ne. CG_OK) call cgp_error_exit_f
@@ -365,6 +372,12 @@ contains
 
     call cgp_field_write_data_f(fn_cgw, base_cgw, zone, sol, field_wd, 1, nelt,  vdlg_visu(1,1), ierr)
     if (ierr .ne. CG_OK) call cgp_error_exit_f
+
+    if( .not. is_override_manning ) then
+      manning_nelt = manning_nelt_d
+      call cgp_field_write_data_f(fn_cgw, base_cgw, zone, sol, field_man, 1, nelt,  manning_nelt, ierr)
+      if (ierr .ne. CG_OK) call cgp_error_exit_f
+    end if
 
     call cgp_field_write_data_f(fn_cgw, base_cgw, zone, sol, field_b, 1, nelt,  zm, ierr)
     if (ierr .ne. CG_OK) call cgp_error_exit_f
