@@ -147,7 +147,7 @@ contains
       if ( kvoisin == -2 .and. outlet_d == 1) then ! Flux sortant
 
         if ( vitul >= 0. .and. vitul/sqrt(gp_d*hautl) < 1.d0 ) then
-          ! hautl = h_sortie_d(id_entree) - zml
+          hautl = h_sortie_d(id_entree) - zml
           hautl = max(0.0D0, hautl)
           flux(1) = hautl * vitul
           flux(2) = norm(1) * ( hautl * vitul**2 + gp_d * hautl**2/2. ) - norm(2) * hautl * vitul * vitvl
