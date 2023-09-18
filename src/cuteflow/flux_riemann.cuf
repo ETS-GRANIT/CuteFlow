@@ -135,14 +135,19 @@ contains
           flux(3) = norm(2) * ( debitnorm**2/(hautl+tolisec_d)  + gp_d * hautl**2/2. )
           debit_entree_arr_d(io_identifier_d(gi),1) = (-debitnorm)*ln
           debit_entree_arr_d(io_identifier_d(gi),2) = id_entree
-        else
-          write(*,*) 'donnee inlet_d non convenable'
         endif
       endif
 
-      if ( kvoisin == -2 ) then ! Flux sortant
+      if ( kvoisin == -3 ) then  ! Flux de mur
+        flux(1) = 0.d0
+        flux(2) = norm(1) * gp_d * hautl**2/2.
+        flux(3) = norm(2) * gp_d * hautl**2/2.
+      endif
+
+      if ( kvoisin == -2 .and. outlet_d == 1) then ! Flux sortant
+
         if ( vitul >= 0. .and. vitul/sqrt(gp_d*hautl) < 1.d0 ) then
-          hautl = h_sortie_d(id_entree) - zml
+          ! hautl = h_sortie_d(id_entree) - zml
           hautl = max(0.0D0, hautl)
           flux(1) = hautl * vitul
           flux(2) = norm(1) * ( hautl * vitul**2 + gp_d * hautl**2/2. ) - norm(2) * hautl * vitul * vitvl
@@ -154,15 +159,17 @@ contains
         endif
 
         debit_sortie_arr_d(io_identifier_d(gi))  = flux(1)*ln
+
       endif
 
-      if ( kvoisin == -3 ) then  ! Flux de mur
-        flux(1) = 0.d0
-        flux(2) = norm(1) * gp_d * hautl**2/2.
-        flux(3) = norm(2) * gp_d * hautl**2/2.
-      endif
 
-      if  ( kvoisin > 0. ) then   ! Kvol fait frontiere avec kvoisin
+      if  ( kvoisin > 0 .or. (kvoisin == -2 .and. outlet_d == 2) ) then   ! Kvol fait frontiere avec kvoisin
+
+        !Si flux de sortie avec condition transmissive
+        if( kvoisin == -2 .and. outlet_d == 2) then
+          kvoisin = kvol
+        end if
+
         hautr = vdlg0_d(1,kvoisin)
         zmr = zm_d(kvoisin)
 

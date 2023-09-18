@@ -7,7 +7,7 @@ contains
     use global_data_device
     use cudafor
 
-    integer :: tempinlet, ierr
+    integer :: tempval, ierr
 
     friction_d          = friction
     gp_d                = gp
@@ -41,14 +41,28 @@ contains
 
     !! Simulation variables
     if(inlet == 'transm') then
-      tempinlet = 1
-      inlet_d = tempinlet
+      tempval = 1
+      inlet_d = tempval
     else if(inlet == 'inflow') then
-      tempinlet = 2
-      inlet_d = tempinlet
+      tempval = 2
+      inlet_d = tempval
     else if(inlet == 'phys_inflow') then
-      tempinlet = 3
-      inlet_d = tempinlet
+      tempval = 3
+      inlet_d = tempval
+    else 
+      print*, "Bad inlet !"
+      error stop
+    endif
+
+    if(outlet == 'fixedheight') then
+      tempval = 1
+      outlet_d = tempval
+    else if(outlet == 'transm') then
+      tempval = 2
+      outlet_d = tempval
+    else 
+      print*, "Bad outlet !"
+      error stop
     endif
 
     iflux_d         = iflux

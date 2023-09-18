@@ -44,7 +44,7 @@ module global_data
   real(fp_kind)             :: x1eqbar, x2eqbar, y1eqbar, y2eqbar
 
   !! Variables donnees de simulation
-  character(len=30)    :: inlet
+  character(len=30)    :: inlet, outlet="fixedheight"
   character(len=30)   :: loi_debitglob
   integer :: iflux, ilimiteur=1, iupwind=1, fricimplic=1, debit_var  
   integer :: freqaffich, solrestart 
@@ -76,7 +76,8 @@ module global_data
   & plan, xplan, yplan, zplan, xpoint, ypoint, zpoint&
   & solinit, fich_sol_init, &
 
-  & inlet, inlet_name,  debitglob, debit_var,loi_debitglob, outlet_name, h_sortie, &
+  & inlet, inlet_name,  debitglob, debit_var,loi_debitglob,&
+  & outlet, outlet_name, h_sortie, &
 
   & iflux, ilimiteur, iupwind,&
   & tolisec, & 
